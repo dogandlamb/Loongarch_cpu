@@ -83,13 +83,13 @@ assign sltu_result[31:1] = 31'b0;
 assign sltu_result[0]    = ~adder_cout;//如果src1更大或者相等，最高位为1，相等时为1000...
 
 assign and_result = alu_src1 & alu_src2;
-assign or_result  = alu_src1 | alu_src2 | alu_result;
+assign or_result  = alu_src1 | alu_src2;
 assign nor_result = ~or_result;
 assign xor_result = alu_src1 ^ alu_src2;
 assign lui_result = alu_src2;
 
-assign sll_result = alu_src2 << alu_src1[4:0];
-assign sr64_result = {{32{op_sra & alu_src2[31]}},alu_src2[31:0]} >> alu_src1[4:0];//将rj寄存器里的数据右移i5位
+assign sll_result = alu_src1 << alu_src2[4:0];
+assign sr64_result = {{32{op_sra & alu_src1[31]}},alu_src1[31:0]} >> alu_src2[4:0];//将rj寄存器里的数据右移i5位
 assign sr_result = sr64_result[31:0];
 
 //////////////////////////////////////////////////

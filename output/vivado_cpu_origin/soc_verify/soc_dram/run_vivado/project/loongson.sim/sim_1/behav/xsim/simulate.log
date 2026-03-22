@@ -1,9 +1,0 @@
-Time resolution is 1 ps
-==============================================================
-Test begin!
---------------------------------------------------------------
-[   2027 ns] Error!!!
-    reference: PC = 0x1c000000, wb_rf_wnum = 0x0c, wb_rf_wdata = 0xffffffff
-    mycpu    : PC = 0x1c000000, wb_rf_wnum = 0x0c, wb_rf_wdata = 0x00000001
---------------------------------------------------------------
-$finish called at time : 2067 ns : File "E:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_dram/testbench/mycpu_tb.v" Line 168

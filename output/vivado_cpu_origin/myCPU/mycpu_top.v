@@ -57,10 +57,12 @@ wire [ 4:0] rd;//rd寄存器地址
 wire [ 4:0] rj;//rj寄存器地址
 wire [ 4:0] rk;//rk寄存器地址
 
+wire [4:0]  ui5;
 wire [11:0] i12;//12位立即数
 wire [15:0] i16;//16位立即数
 wire [19:0] i20;
 wire [25:0] i26;
+
 
 
 
@@ -149,6 +151,7 @@ wire [31:0] alu_src2;//计算的源操作数2
 wire [31:0] alu_result;//计算结果
 
 wire [31:0] mem_result;
+wire [31:0] final_result;
 
 wire [31:0] rf_rdata1;
 wire [31:0] rf_rdata2;
@@ -194,6 +197,7 @@ assign rd       = inst[ 4: 0];
 assign rj       = inst[ 9: 5];
 assign rk       = inst[14:10];
 
+assign ui5      = inst[14:10];
 assign i12      = inst[21:10];
 assign i16      = inst[25:10];
 assign i20      = inst[24: 5];
@@ -274,7 +278,7 @@ assign src2_is_imm   = inst_slli_w
                      | inst_jirl
                      | inst_bl;//要用立即数的指令标志位相或
 assign res_from_mem  = inst_ld_w;//从内存中读取数据的标志
-assign gr_we         = ~(inst_st_w | inst_beq | inst_bne | inst_b | inst_bl);//只要有一个生效，就不需要写入
+assign gr_we         = ~(inst_st_w | inst_beq | inst_bne | inst_b);//只要有一个生效，就不需要写入
 assign rf_we         = gr_we & valid;
 assign mem_we        = inst_st_w;
 assign src_reg_is_rd = inst_beq | inst_bne | inst_st_w;
@@ -317,7 +321,9 @@ assign br_target = (inst_beq | inst_bne | inst_bl | inst_b) ? (pc + br_offs)
 //alu所需立即数的生成
 assign imm       = src2_is_4 ? 32'h4               : 
                    need_si20 ? {i20[19:0] , 12'b0} :
-                   {{20{i12[11]}} , i12[11:0]};//有符号扩展复制最高位
+                   need_si12 ? {{20{i12[11]}} , i12[11:0]} :
+                   need_ui5  ? {27'b0 , ui5[4:0]} :
+                               32'b0;
 
 //寄存器数据的读取和ALU操作数的选择
 assign rj_value  = rf_rdata1;
