@@ -9,6 +9,8 @@ verilog xil_defaultlib  --include "../../../../loongson.ip_user_files/ipstatic" 
 "../../../../../../rtl/BRIDGE/bridge_1x2.v" \
 "../../../../../../rtl/CONFREG/confreg.v" \
 "../../../../../../../../myCPU/mycpu_top.v" \
+"../../../../../../../../myCPU/npc.v" \
+"../../../../../../../../myCPU/pc.v" \
 "../../../../../../../../myCPU/regfile.v" \
 "../../../../../../rtl/soc_lite_top.v" \
 "../../../../../../../../myCPU/tools.v" \

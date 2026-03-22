@@ -20,6 +20,10 @@ INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_
 INFO: [VRFC 10-311] analyzing module confreg
 INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/mycpu_top.v" into library xil_defaultlib
 INFO: [VRFC 10-311] analyzing module mycpu_top
+INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/npc.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module npc
+INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/pc.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module pc
 INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/regfile.v" into library xil_defaultlib
 INFO: [VRFC 10-311] analyzing module regfile
 INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_dram/rtl/soc_lite_top.v" into library xil_defaultlib

@@ -34,9 +34,9 @@ always @ (posedge clk) begin
     end
 end
 
-reg  [31:0] pc;//目标指令的地址
+wire [31:0] pc;//目标指令的地址
 wire [31:0] nextpc;//下一次目标指令的地址
-wire [31:0] seq_pc;//pc+4的值，顺序执行时的下一条指令地址
+//wire [31:0] seq_pc;//pc+4的值，顺序执行时的下一条指令地址
 
 
 /////////////////////////////////////////////////////
@@ -70,6 +70,7 @@ wire [25:0] i26;
 //alu_op、load_op等控制信号
 wire [11:0] alu_op;//alu要执行的操作
 wire        load_op;
+wire [ 4:0] br_op;    
 
 
 
@@ -137,10 +138,9 @@ wire [31:0] rf_wdata;//写入寄存器的数据
 
 ////////////////////////////////////////////////
 //分支跳转
-wire [31:0] br_target;//跳转的目标地址
 wire [31:0] br_offs;
 
-wire [31:0] jirl_offs;
+//wire [31:0] jirl_offs;
 
 
 ////////////////////////////////////////////////
@@ -164,18 +164,18 @@ wire [31:0] rkd_value;
 //IF阶段的指令寄存器和PC寄存器
 
 //指令的移动控制
-always @ (posedge clk) begin
-    if( reset ) begin
-        pc <= 32'h1bfffffc;
-    end
-    else begin
-        pc <= nextpc;
-    end
-end
+// always @ (posedge clk) begin
+//     if( reset ) begin
+//         pc <= 32'h1bfffffc;
+//     end
+//     else begin
+//         pc <= nextpc;
+//     end
+// end
 
 //下一指令地址赋值
-assign seq_pc = pc + 32'h4;
-assign nextpc = br_taken ? br_target : pc + 4;//每个指令占32位，四个字节
+// assign seq_pc = pc + 32'h4;
+//assign nextpc = br_taken ? br_target : pc + 4;//每个指令占32位，四个字节
 
 assign inst_sram_we     = 1'b0;//指令写入使能
 assign inst_sram_addr   = pc;//输出指令地址
@@ -256,6 +256,8 @@ assign alu_op[ 8] = inst_slli_w;
 assign alu_op[ 9] = inst_srli_w;
 assign alu_op[10] = inst_srai_w;
 assign alu_op[11] = inst_lu12i_w;
+assign br_op      = {inst_jirl , inst_b , inst_bl , inst_beq , inst_bne};
+
 
 
 
@@ -306,11 +308,11 @@ assign dest      = dst_is_r1     ? 5'd1 : rd;
 
 /////////////////////////////////////////////////////////////////////
 //EX:分支跳转地址的计算
-assign br_offs   = need_si26 ? {{ 4{i26[25]}} , i26[25:0] , 2'b00}:
-                               {{14{i16[15]}} , i16[15:0] , 2'b00};
-assign jirl_offs = {{14{i16[15]}} , i16[15:0] , 2'b00};
-assign br_target = (inst_beq | inst_bne | inst_bl | inst_b) ? (pc + br_offs)
-                    : (rj_value + jirl_offs);
+assign br_offs   = need_si26 ?  {{ 4{i26[25]}} , i26[25:0] , 2'b00}:
+                                {{14{i16[15]}} , i16[15:0] , 2'b00};
+// assign jirl_offs = {{14{i16[15]}} , i16[15:0] , 2'b00};
+// assign br_target = (inst_beq | inst_bne | inst_bl | inst_b) ? (pc + br_offs)
+//                     : (rj_value + jirl_offs);
 
 
 
@@ -319,11 +321,13 @@ assign br_target = (inst_beq | inst_bne | inst_bl | inst_b) ? (pc + br_offs)
 //EX:ALU操作数和ALU结果
 
 //alu所需立即数的生成
-assign imm       = src2_is_4 ? 32'h4               : 
-                   need_si20 ? {i20[19:0] , 12'b0} :
-                   need_si12 ? {{20{i12[11]}} , i12[11:0]} :
-                   need_ui5  ? {27'b0 , ui5[4:0]} :
-                               32'b0;
+assign imm       =  src2_is_4 ? 32'h4               : 
+                    need_si20 ? {i20[19:0] , 12'b0} :
+                    need_si12 ? {{20{i12[11]}} , i12[11:0]} :
+                    need_ui5  ? {27'b0 , ui5[4:0]} :    
+                    need_si26 ? {{ 4{i26[25]}} , i26[25:0] , 2'b00}:
+                    need_si16 ? {{14{i16[15]}} , i16[15:0] , 2'b00}:
+                    32'b0;
 
 //寄存器数据的读取和ALU操作数的选择
 assign rj_value  = rf_rdata1;
@@ -376,13 +380,29 @@ regfile u_regfile(
 );
 
 
-
-
 alu u_alu(
     .alu_op    (alu_op),
     .alu_src1  (alu_src1),
     .alu_src2  (alu_src2),
     .alu_result(alu_result)
+);
+
+pc u_pc(
+    .clk(clk),
+    .reset(reset),
+    .valid(valid),
+    .nextpc(nextpc),
+    .pc(pc)
+);
+
+npc u_npc(
+    .valid(valid),
+    .rj_eq_rd(rj_eq_rd),
+    .br_op(br_op),
+    .br_offs(br_offs),
+    .rj_value(rj_value),
+    .pc(pc),
+    .nextpc(nextpc)
 );
 
 endmodule
