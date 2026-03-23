@@ -139,6 +139,7 @@ wire [31:0] rf_wdata;//写入寄存器的数据
 ////////////////////////////////////////////////
 //分支跳转
 wire [31:0] br_offs;
+wire        br_taken;//需要跳转的标志位
 
 //wire [31:0] jirl_offs;
 
@@ -294,6 +295,12 @@ assign rj_eq_rd  = (rj_value == rkd_value);
 assign src1_is_pc = inst_jirl | inst_bl;
 assign dst_is_r1  = inst_bl;
 assign data_sram_we    = mem_we & valid;//指令需要储存时，mem_we=1,向内存中写入数据
+assign br_taken  = ((br_op[1] &  rj_eq_rd)
+                 |  (br_op[0] & !rj_eq_rd)
+                 |   br_op[4]
+                 |   br_op[2]
+                 |   br_op[3])
+                 & valid;//bne比较rj和rd的值，如果不相等跳转到指定地址
 
 
 
@@ -397,7 +404,7 @@ pc u_pc(
 
 npc u_npc(
     .valid(valid),
-    .rj_eq_rd(rj_eq_rd),
+    .br_taken(br_taken),
     .br_op(br_op),
     .br_offs(br_offs),
     .rj_value(rj_value),
