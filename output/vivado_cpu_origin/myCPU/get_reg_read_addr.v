@@ -1,5 +1,6 @@
-module get_reg_value(
+module get_reg_read_addr(
     input  wire        reset,
+    input  wire [31:0] inst,
     input  wire        inst_add_w,
     input  wire        inst_addi_w,
     input  wire        inst_sub_w,
@@ -20,9 +21,8 @@ module get_reg_value(
     input  wire        inst_beq,
     input  wire        inst_jirl,
     input  wire        inst_lu12i_w,
-
-    output wire [31:0] rj_value,
-    output wire [31:0] rkd_value
+    output wire [ 4:0] rf_raddr1,
+    output wire [ 4:0] rf_raddr2
 );
-//todo:得到rj_value和rkd_value
+//todo:得到reg的两个地址
 endmodule

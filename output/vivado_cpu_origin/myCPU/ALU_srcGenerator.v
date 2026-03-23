@@ -1,4 +1,4 @@
-module ALU_srcGenrater(
+module ALU_srcGenerator(
     input  wire        reset,
     input  wire        inst_add_w,
     input  wire        inst_addi_w,
