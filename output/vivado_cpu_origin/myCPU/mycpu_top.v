@@ -53,9 +53,10 @@ wire [15:0] op_25_22_d;
 wire [ 3:0] op_21_20_d;
 wire [31:0] op_19_15_d;
 
-wire [ 4:0] rd;//rd寄存器地址
-wire [ 4:0] rj;//rj寄存器地址
-wire [ 4:0] rk;//rk寄存器地址
+// wire [ 4:0] rd;//rd寄存器地址
+// wire [ 4:0] rj;//rj寄存器地址
+// wire [ 4:0] rk;//rk寄存器地址
+// has been moved to get_reg_read_addr
 
 wire [4:0]  ui5;
 wire [11:0] i12;//12位立即数
@@ -112,7 +113,9 @@ wire        res_from_mem;
 wire        gr_we;
 wire        rf_we;//寄存器写入使能
 wire        mem_we;//内存写入使能
-wire        src_reg_is_rd;
+// wire        src_reg_is_rd;
+//has been moved to get_reg_read_addr
+
 wire        rj_eq_rd;
 wire        br_taken;//需要跳转的标志位
 
@@ -139,6 +142,7 @@ wire [31:0] rf_wdata;//写入寄存器的数据
 ////////////////////////////////////////////////
 //分支跳转
 wire [31:0] br_offs;
+wire        br_taken;//需要跳转的标志位
 
 //wire [31:0] jirl_offs;
 
@@ -193,15 +197,17 @@ assign op_25_22 = inst[25:22];
 assign op_21_20 = inst[21:20];
 assign op_19_15 = inst[19:15];
 
-assign rd       = inst[ 4: 0];
-assign rj       = inst[ 9: 5];
-assign rk       = inst[14:10];
+// assign rd       = inst[ 4: 0];
+// assign rj       = inst[ 9: 5];
+// assign rk       = inst[14:10];
+//has been moved to get_reg_read_addr
 
-assign ui5      = inst[14:10];
-assign i12      = inst[21:10];
-assign i16      = inst[25:10];
-assign i20      = inst[24: 5];
-assign i26      = {inst[ 9: 0] , inst[25:10]};
+// assign ui5      = inst[14:10];
+// assign i12      = inst[21:10];
+// assign i16      = inst[25:10];
+// assign i20      = inst[24: 5];
+// assign i26      = {inst[ 9: 0] , inst[25:10]}; 
+//sssafridi has moved these signals to imm_generator
 
 //操作码译码
 decoder_6_64 u_dec0(.in(op_31_26 ), .co(op_31_26_d ));
@@ -264,21 +270,23 @@ assign br_op      = {inst_jirl , inst_b , inst_bl , inst_beq , inst_bne};
 
 ///////////////////////////////////////////////////////////////////
 //控制信号生成
-assign need_ui5      = inst_slli_w | inst_srli_w | inst_srai_w;
-assign need_si12     = inst_addi_w | inst_ld_w | inst_st_w;
-assign need_si16     = inst_jirl | inst_beq | inst_bne;
-assign need_si20     = inst_lu12i_w;
-assign need_si26     = inst_b | inst_bl;
-assign src2_is_4     = inst_jirl | inst_bl;
-assign src2_is_imm   = inst_slli_w
-                     | inst_srli_w
-                     | inst_srai_w
-                     | inst_addi_w 
-                     | inst_ld_w 
-                     | inst_st_w
-                     | inst_lu12i_w
-                     | inst_jirl
-                     | inst_bl;//要用立即数的指令标志位相或
+// assign need_ui5      = inst_slli_w | inst_srli_w | inst_srai_w;
+// assign need_si12     = inst_addi_w | inst_ld_w | inst_st_w;
+// assign need_si16     = inst_jirl | inst_beq | inst_bne;
+// assign need_si20     = inst_lu12i_w;
+// assign need_si26     = inst_b | inst_bl;
+// assign src2_is_4     = inst_jirl | inst_bl; //sssafridi has moved these signals to imm_generator
+
+
+// assign src2_is_imm   = inst_slli_w
+//                      | inst_srli_w
+//                      | inst_srai_w
+//                      | inst_addi_w 
+//                      | inst_ld_w 
+//                      | inst_st_w
+//                      | inst_lu12i_w
+//                      | inst_jirl
+//                      | inst_bl;//要用立即数的指令标志位相或 //sssafridi has moved this signal to ALU_srcGenerator
 assign res_from_mem  = inst_ld_w;//从内存中读取数据的标志
 assign gr_we         = ~(inst_st_w | inst_beq | inst_bne | inst_b);//只要有一个生效，就不需要写入
 assign rf_we         = gr_we & valid;
@@ -291,17 +299,23 @@ assign br_taken  = (inst_beq &&  rj_eq_rd
                  || inst_b)
                  & valid;//bne比较rj和rd的值，如果不相等跳转到指定地址
 assign rj_eq_rd  = (rj_value == rkd_value);
-assign src1_is_pc = inst_jirl | inst_bl;
+// assign src1_is_pc = inst_jirl | inst_bl; //sssafridi has moved this signal to ALU_srcGenerator  
 assign dst_is_r1  = inst_bl;
 assign data_sram_we    = mem_we & valid;//指令需要储存时，mem_we=1,向内存中写入数据
+assign br_taken  = ((br_op[1] &  rj_eq_rd)
+                 |  (br_op[0] & !rj_eq_rd)
+                 |   br_op[4]
+                 |   br_op[2]
+                 |   br_op[3])
+                 & valid;//bne比较rj和rd的值，如果不相等跳转到指定地址
 
 
 
 
 //////////////////////////////////////////////////////////////////////
 //寄存器读地址和写地址的生成
-assign rf_raddr1 = rj;
-assign rf_raddr2 = src_reg_is_rd ? rd   : rk;
+// assign rf_raddr1 = rj;
+// assign rf_raddr2 = src_reg_is_rd ? rd   : rk;  // has been moved to get_reg_read_addr
 assign dest      = dst_is_r1     ? 5'd1 : rd;  
 
 
@@ -397,12 +411,95 @@ pc u_pc(
 
 npc u_npc(
     .valid(valid),
-    .rj_eq_rd(rj_eq_rd),
+    .br_taken(br_taken),
     .br_op(br_op),
     .br_offs(br_offs),
     .rj_value(rj_value),
     .pc(pc),
     .nextpc(nextpc)
+);
+
+ALU_srcGenerator u_ALU_srcGenerator(
+    .reset(reset),
+    .inst_add_w(inst_add_w),
+    .inst_addi_w(inst_addi_w),
+    .inst_sub_w(inst_sub_w),
+    .inst_ld_w(inst_ld_w),
+    .inst_st_w(inst_st_w),
+    .inst_bne(inst_bne),
+    .inst_slt(inst_slt),
+    .inst_sltu(inst_sltu),
+    .inst_and(inst_and),
+    .inst_or(inst_or),
+    .inst_nor(inst_nor),
+    .inst_xor(inst_xor),
+    .inst_slli_w(inst_slli_w),
+    .inst_srli_w(inst_srli_w),
+    .inst_srai_w(inst_srai_w),
+    .inst_b(inst_b),
+    .inst_bl(inst_bl),
+    .inst_beq(inst_beq),
+    .inst_jirl(inst_jirl),
+    .inst_lu12i_w(inst_lu12i_w),
+    .rj_value(rj_value),
+    .rkd_value(rkd_value),
+    .imm(imm),
+    .pc(pc),
+    .alu_src1(alu_src1),
+    .alu_src2(alu_src2)
+);
+
+imm_generator u_imm_generator(
+    .reset(reset),
+    .inst(inst),
+    .inst_add_w(inst_add_w),
+    .inst_addi_w(inst_addi_w),
+    .inst_sub_w(inst_sub_w),
+    .inst_ld_w(inst_ld_w),
+    .inst_st_w(inst_st_w),
+    .inst_bne(inst_bne),
+    .inst_slt(inst_slt),
+    .inst_sltu(inst_sltu),
+    .inst_and(inst_and),
+    .inst_or(inst_or),
+    .inst_nor(inst_nor),
+    .inst_xor(inst_xor),
+    .inst_slli_w(inst_slli_w),
+    .inst_srli_w(inst_srli_w),
+    .inst_srai_w(inst_srai_w),
+    .inst_b(inst_b),
+    .inst_bl(inst_bl),
+    .inst_beq(inst_beq),
+    .inst_jirl(inst_jirl),
+    .inst_lu12i_w(inst_lu12i_w),
+    .imm(imm)
+);
+
+get_reg_read_addr u_get_reg_read_addr(
+    .reset(reset),
+    .inst(inst),
+    .inst_add_w(inst_add_w),
+    .inst_addi_w(inst_addi_w),
+    .inst_sub_w(inst_sub_w),
+    .inst_ld_w(inst_ld_w),
+    .inst_st_w(inst_st_w),
+    .inst_bne(inst_bne),
+    .inst_slt(inst_slt),
+    .inst_sltu(inst_sltu),
+    .inst_and(inst_and),
+    .inst_or(inst_or),
+    .inst_nor(inst_nor),
+    .inst_xor(inst_xor),
+    .inst_slli_w(inst_slli_w),
+    .inst_srli_w(inst_srli_w),
+    .inst_srai_w(inst_srai_w),
+    .inst_b(inst_b),
+    .inst_bl(inst_bl),
+    .inst_beq(inst_beq),
+    .inst_jirl(inst_jirl),
+    .inst_lu12i_w(inst_lu12i_w),
+    .rf_raddr1(rf_raddr1),
+    .rf_raddr2(rf_raddr2)
 );
 
 endmodule
