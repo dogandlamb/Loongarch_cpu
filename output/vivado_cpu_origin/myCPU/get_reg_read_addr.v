@@ -24,5 +24,20 @@ module get_reg_read_addr(
     output wire [ 4:0] rf_raddr1,
     output wire [ 4:0] rf_raddr2
 );
+
+wire [ 4:0] rd;//rd寄存器地址
+wire [ 4:0] rj;//rj寄存器地址
+wire [ 4:0] rk;//rk寄存器地址
+wire src_reg_is_rd;
+
+assign rd       = inst[ 4: 0];
+assign rj       = inst[ 9: 5];
+assign rk       = inst[14:10];
+
+assign src_reg_is_rd = inst_beq | inst_bne | inst_st_w;
+
+assign rf_raddr1 = rj;
+assign rf_raddr2 = src_reg_is_rd ? rd   : rk;
+
 //todo:得到reg的两个地址
 endmodule
