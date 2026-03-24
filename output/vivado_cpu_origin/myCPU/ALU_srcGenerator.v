@@ -31,6 +31,9 @@ module ALU_srcGenerator(
     output wire [31:0] alu_src2
 );
 //todo:生成alu的两个操作
+wire src1_is_pc;
+wire src2_is_imm;
+
 assign src1_is_pc = inst_jirl | inst_bl;
 assign src2_is_imm   = inst_slli_w
                      | inst_srli_w

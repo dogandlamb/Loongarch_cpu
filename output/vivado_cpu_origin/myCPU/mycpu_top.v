@@ -53,7 +53,7 @@ wire [15:0] op_25_22_d;
 wire [ 3:0] op_21_20_d;
 wire [31:0] op_19_15_d;
 
-// wire [ 4:0] rd;//rd寄存器地址
+wire [ 4:0] rd;//rd寄存器地址
 // wire [ 4:0] rj;//rj寄存器地址
 // wire [ 4:0] rk;//rk寄存器地址
 // has been moved to get_reg_read_addr
@@ -119,11 +119,11 @@ wire        mem_we;//内存写入使能
 wire        rj_eq_rd;
 wire        br_taken;//需要跳转的标志位
 
-wire        need_ui5;
-wire        need_si12;
-wire        need_si16;
-wire        need_si20;
-wire        need_si26;
+// wire        need_ui5;
+// wire        need_si12;
+// wire        need_si16;
+// wire        need_si20;
+// wire        need_si26; // has been moved to imm_generator
 
 
 
@@ -142,17 +142,20 @@ wire [31:0] rf_wdata;//写入寄存器的数据
 ////////////////////////////////////////////////
 //分支跳转
 wire [31:0] br_offs;
-wire        br_taken;//需要跳转的标志位
+//wire        br_taken;
+//需要跳转的标志位
 
 //wire [31:0] jirl_offs;
 
 
 ////////////////////////////////////////////////
 //ALU相关计算数据、访存数据(load)、寄存器数据
-wire [31:0] imm;//扩展到32位的立即数
+wire [31:0] alu_imm;//扩展到32位的ALU立即数
 wire [31:0] alu_src1;//计算的源操作数1
 wire [31:0] alu_src2;//计算的源操作数2
 wire [31:0] alu_result;//计算结果
+
+wire [31:0] br_imm;
 
 wire [31:0] mem_result;
 wire [31:0] final_result;
@@ -197,7 +200,7 @@ assign op_25_22 = inst[25:22];
 assign op_21_20 = inst[21:20];
 assign op_19_15 = inst[19:15];
 
-// assign rd       = inst[ 4: 0];
+assign rd       = inst[ 4: 0];
 // assign rj       = inst[ 9: 5];
 // assign rk       = inst[14:10];
 //has been moved to get_reg_read_addr
@@ -267,13 +270,6 @@ assign res_from_mem  = inst_ld_w;//从内存中读取数据的标志
 assign gr_we         = ~(inst_st_w | inst_beq | inst_bne | inst_b);//只要有一个生效，就不需要写入
 assign rf_we         = gr_we & valid;
 assign mem_we        = inst_st_w;
-assign src_reg_is_rd = inst_beq | inst_bne | inst_st_w;
-assign br_taken  = (inst_beq &&  rj_eq_rd
-                 || inst_bne && !rj_eq_rd
-                 || inst_jirl
-                 || inst_bl
-                 || inst_b)
-                 & valid;//bne比较rj和rd的值，如果不相等跳转到指定地址
 assign rj_eq_rd  = (rj_value == rkd_value);
 // assign src1_is_pc = inst_jirl | inst_bl; //sssafridi has moved this signal to ALU_srcGenerator  
 assign dst_is_r1  = inst_bl;
@@ -298,8 +294,9 @@ assign dest      = dst_is_r1     ? 5'd1 : rd;
 
 /////////////////////////////////////////////////////////////////////
 //EX:分支跳转地址的计算
-assign br_offs   = need_si26 ?  {{ 4{i26[25]}} , i26[25:0] , 2'b00}:
-                                {{14{i16[15]}} , i16[15:0] , 2'b00};
+assign br_offs =br_imm;
+// assign br_offs   = need_si26 ?  {{ 4{i26[25]}} , i26[25:0] , 2'b00}:
+//                                 {{14{i16[15]}} , i16[15:0] , 2'b00};
 // assign jirl_offs = {{14{i16[15]}} , i16[15:0] , 2'b00};
 // assign br_target = (inst_beq | inst_bne | inst_bl | inst_b) ? (pc + br_offs)
 //                     : (rj_value + jirl_offs);
@@ -311,20 +308,21 @@ assign br_offs   = need_si26 ?  {{ 4{i26[25]}} , i26[25:0] , 2'b00}:
 //EX:ALU操作数和ALU结果
 
 //alu所需立即数的生成
-assign imm       =  src2_is_4 ? 32'h4               : 
-                    need_si20 ? {i20[19:0] , 12'b0} :
-                    need_si12 ? {{20{i12[11]}} , i12[11:0]} :
-                    need_ui5  ? {27'b0 , ui5[4:0]} :    
-                    need_si26 ? {{ 4{i26[25]}} , i26[25:0] , 2'b00}:
-                    need_si16 ? {{14{i16[15]}} , i16[15:0] , 2'b00}:
-                    32'b0;
+// assign imm       =  src2_is_4 ? 32'h4               : 
+//                     need_si20 ? {i20[19:0] , 12'b0} :
+//                     need_si12 ? {{20{i12[11]}} , i12[11:0]} :
+//                     need_ui5  ? {27'b0 , ui5[4:0]} :    
+//                     need_si26 ? {{ 4{i26[25]}} , i26[25:0] , 2'b00}:
+//                     need_si16 ? {{14{i16[15]}} , i16[15:0] , 2'b00}:
+//                     32'b0;
+//has been moved to imm_generator
 
 //寄存器数据的读取和ALU操作数的选择
 assign rj_value  = rf_rdata1;
 assign rkd_value = rf_rdata2;
 
-assign alu_src1  = src1_is_pc  ? pc : rj_value;
-assign alu_src2  = src2_is_imm ? imm : rf_rdata2;
+// assign alu_src1  = src1_is_pc  ? pc : rj_value;
+// assign alu_src2  = src2_is_imm ? imm : rf_rdata2;
 
 // alu_result 由 alu 单元输出
 
@@ -448,37 +446,37 @@ ALU_srcGenerator u_ALU_srcGenerator(
     .inst_lu12i_w(inst_lu12i_w),
     .rj_value(rj_value),
     .rkd_value(rkd_value),
-    .imm(imm),
+    .imm(alu_imm),
     .pc(pc),
     .alu_src1(alu_src1),
     .alu_src2(alu_src2)
 );
 
-imm_generator u_imm_generator(
-    .reset(reset),
-    .inst(inst),
-    .inst_add_w(inst_add_w),
-    .inst_addi_w(inst_addi_w),
-    .inst_sub_w(inst_sub_w),
-    .inst_ld_w(inst_ld_w),
-    .inst_st_w(inst_st_w),
-    .inst_bne(inst_bne),
-    .inst_slt(inst_slt),
-    .inst_sltu(inst_sltu),
-    .inst_and(inst_and),
-    .inst_or(inst_or),
-    .inst_nor(inst_nor),
-    .inst_xor(inst_xor),
-    .inst_slli_w(inst_slli_w),
-    .inst_srli_w(inst_srli_w),
-    .inst_srai_w(inst_srai_w),
-    .inst_b(inst_b),
-    .inst_bl(inst_bl),
-    .inst_beq(inst_beq),
-    .inst_jirl(inst_jirl),
-    .inst_lu12i_w(inst_lu12i_w),
-    .imm(imm)
-);
+// imm_generator u_imm_generator(
+//     .reset(reset),
+//     .inst(inst),
+//     .inst_add_w(inst_add_w),
+//     .inst_addi_w(inst_addi_w),
+//     .inst_sub_w(inst_sub_w),
+//     .inst_ld_w(inst_ld_w),
+//     .inst_st_w(inst_st_w),
+//     .inst_bne(inst_bne),
+//     .inst_slt(inst_slt),
+//     .inst_sltu(inst_sltu),
+//     .inst_and(inst_and),
+//     .inst_or(inst_or),
+//     .inst_nor(inst_nor),
+//     .inst_xor(inst_xor),
+//     .inst_slli_w(inst_slli_w),
+//     .inst_srli_w(inst_srli_w),
+//     .inst_srai_w(inst_srai_w),
+//     .inst_b(inst_b),
+//     .inst_bl(inst_bl),
+//     .inst_beq(inst_beq),
+//     .inst_jirl(inst_jirl),
+//     .inst_lu12i_w(inst_lu12i_w),
+//     .imm(imm)
+// );
 
 get_reg_read_addr u_get_reg_read_addr(
     .reset(reset),
@@ -505,6 +503,33 @@ get_reg_read_addr u_get_reg_read_addr(
     .inst_lu12i_w(inst_lu12i_w),
     .rf_raddr1(rf_raddr1),
     .rf_raddr2(rf_raddr2)
+);
+
+imm_generator u_imm_generator(
+    .reset(reset),
+    .inst(inst),
+    .inst_add_w(inst_add_w),
+    .inst_addi_w(inst_addi_w),
+    .inst_sub_w(inst_sub_w),
+    .inst_ld_w(inst_ld_w),
+    .inst_st_w(inst_st_w),
+    .inst_bne(inst_bne),
+    .inst_slt(inst_slt),
+    .inst_sltu(inst_sltu),
+    .inst_and(inst_and),
+    .inst_or(inst_or),
+    .inst_nor(inst_nor),
+    .inst_xor(inst_xor),
+    .inst_slli_w(inst_slli_w),
+    .inst_srli_w(inst_srli_w),
+    .inst_srai_w(inst_srai_w),
+    .inst_b(inst_b),
+    .inst_bl(inst_bl),
+    .inst_beq(inst_beq),
+    .inst_jirl(inst_jirl),
+    .inst_lu12i_w(inst_lu12i_w),
+    .alu_imm(alu_imm),
+    .br_imm(br_imm)
 );
 
 endmodule

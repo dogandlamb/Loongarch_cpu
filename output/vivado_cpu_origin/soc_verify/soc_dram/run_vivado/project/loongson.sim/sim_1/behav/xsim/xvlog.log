@@ -6,6 +6,8 @@ INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_
 INFO: [VRFC 10-311] analyzing module data_ram
 INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_dram/rtl/xilinx_ip/inst_ram/sim/inst_ram.v" into library xil_defaultlib
 INFO: [VRFC 10-311] analyzing module inst_ram
+INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/ALU_srcGenerator.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module ALU_srcGenerator
 INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/alu.v" into library xil_defaultlib
 INFO: [VRFC 10-311] analyzing module alu
 INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_dram/testbench/async_ram.v" into library xil_defaultlib
@@ -18,12 +20,16 @@ INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_
 INFO: [VRFC 10-311] analyzing module bridge_1x2
 INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_dram/rtl/CONFREG/confreg.v" into library xil_defaultlib
 INFO: [VRFC 10-311] analyzing module confreg
+INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/get_reg_read_addr.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module get_reg_read_addr
+INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/imm_generator.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module imm_generator
 INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/mycpu_top.v" into library xil_defaultlib
 INFO: [VRFC 10-311] analyzing module mycpu_top
-WARNING: [VRFC 10-3248] data object 'br_taken' is already declared [E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/mycpu_top.v:142]
-WARNING: [VRFC 10-9364] second declaration of 'br_taken' is ignored [E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/mycpu_top.v:142]
 INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/npc.v" into library xil_defaultlib
 INFO: [VRFC 10-311] analyzing module npc
+INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/op_dec.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module op_dec
 INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/pc.v" into library xil_defaultlib
 INFO: [VRFC 10-311] analyzing module pc
 INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/regfile.v" into library xil_defaultlib

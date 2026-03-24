@@ -21,6 +21,10 @@ Compiling module xil_defaultlib.regfile
 Compiling module xil_defaultlib.alu
 Compiling module xil_defaultlib.pc
 Compiling module xil_defaultlib.npc
+Compiling module xil_defaultlib.op_dec
+Compiling module xil_defaultlib.ALU_srcGenerator
+Compiling module xil_defaultlib.get_reg_read_addr
+Compiling module xil_defaultlib.imm_generator
 Compiling module xil_defaultlib.mycpu_top
 Compiling module xil_defaultlib.async_ram(DEPTH=32768)
 Compiling module xil_defaultlib.inst_ram_default

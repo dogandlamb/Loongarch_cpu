@@ -4,12 +4,16 @@ verilog xil_defaultlib  --include "../../../../loongson.ip_user_files/ipstatic" 
 "../../../../../../rtl/xilinx_ip/clk_pll/clk_pll.v" \
 "../../../../../../rtl/xilinx_ip/data_ram/sim/data_ram.v" \
 "../../../../../../rtl/xilinx_ip/inst_ram/sim/inst_ram.v" \
+"../../../../../../../../myCPU/ALU_srcGenerator.v" \
 "../../../../../../../../myCPU/alu.v" \
 "../../../../../../testbench/async_ram.v" \
 "../../../../../../rtl/BRIDGE/bridge_1x2.v" \
 "../../../../../../rtl/CONFREG/confreg.v" \
+"../../../../../../../../myCPU/get_reg_read_addr.v" \
+"../../../../../../../../myCPU/imm_generator.v" \
 "../../../../../../../../myCPU/mycpu_top.v" \
 "../../../../../../../../myCPU/npc.v" \
+"../../../../../../../../myCPU/op_dec.v" \
 "../../../../../../../../myCPU/pc.v" \
 "../../../../../../../../myCPU/regfile.v" \
 "../../../../../../rtl/soc_lite_top.v" \
