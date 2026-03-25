@@ -1,22 +1,3 @@
-module EXE_MEM_reg (
-    input  wire        clk,
-    input  wire        reset,
-    input  wire        valid,
-    input  wire        readyGo,
-    input  wire        allowIn,
-
-    input  wire [31:0] final_result_in,
-    input  wire [ 4:0] wb_reg_addr_in,
-    input  wire [ 1:0] mem_op_in,
-    input  wire        wb_op_in,
-    input  wire [31:0] mem_wdata_in, 
-
-    output reg  [31:0] final_result_out,
-    output reg  [ 4:0] wb_reg_addr_out,
-    output reg  [ 1:0] mem_op_out,
-    output reg  [31:0] mem_wdata_out,
-    output reg         wb_op_out
-);
 //============================================================
 // 模块功能：
 // EXE/MEM 流水寄存器。用于在 EXE 阶段与 MEM 阶段之间锁存执行结果及写回相关控制信息，
@@ -45,7 +26,63 @@ module EXE_MEM_reg (
 // 2) 控制：确认 mem_op/wb_op 的复位安全值定义。
 // 3) 验证：连续更新、阻塞保持、复位恢复。
 //============================================================
+module EXE_MEM_reg (
+    input  wire        clk,
+    input  wire        reset,
+    input  wire        valid,
+    input  wire        readyGo,
+    input  wire        allowIn,
 
+    input  wire [31:0] final_result_in,
+    input  wire [ 4:0] wb_reg_addr_in,
+    input  wire [ 1:0] mem_op_in,
+    input  wire        wb_op_in,
+    input  wire [31:0] mem_wdata_in, 
+
+    output reg  [31:0] final_result_out,
+    output reg  [ 4:0] wb_reg_addr_out,
+    output reg  [ 1:0] mem_op_out,
+    output reg         wb_op_out,
+    output reg  [31:0] mem_wdata_out
+);
+
+always @(posedge clk) begin
+    if(reset) begin
+        final_result_out <= 32'h0;
+        wb_reg_addr_out <= 5'h0;
+        mem_op_out <= 2'h0;
+        wb_op_out <= 1'h0;
+        mem_wdata_out <= 32'h0;
+    end
+    else if(valid && readyGo && allowIn) begin
+        final_result_out <= final_result_in;
+        wb_reg_addr_out  <= wb_reg_addr_in;
+        mem_op_out       <= mem_op_in;
+        wb_op_out        <= wb_op_in;
+        mem_wdata_out    <= mem_wdata_in;
+    end
+    else if (!valid) begin
+        final_result_out <= 32'h0;
+        wb_reg_addr_out <= 5'h0;
+        mem_op_out <= 2'h0;
+        wb_op_out <= 1'h0;
+        mem_wdata_out <= 32'h0;
+    end
+    else if (!readyGo | !allowIn) begin
+        final_result_out <= final_result_out;
+        wb_reg_addr_out  <= wb_reg_addr_out;
+        mem_op_out       <= mem_op_out;
+        wb_op_out        <= wb_op_out;
+        mem_wdata_out    <= mem_wdata_out;
+    end
+    else begin
+        final_result_out <= 32'h0;
+        wb_reg_addr_out <= 5'h0;
+        mem_op_out <= 2'h0;
+        wb_op_out <= 1'h0;
+        mem_wdata_out <= 32'h0;
+    end
+end
 
 
 

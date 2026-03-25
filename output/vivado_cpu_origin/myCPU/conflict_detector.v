@@ -11,7 +11,7 @@ module conflict_detector(
     output wire        br_conflict,
     output wire        data_conflict_between_ID_EXE,
     output wire        data_conflict_between_ID_MEM,
-    output wire        data_conflict_between_ID_WB,
+    output wire        data_conflict_between_ID_WB
 );
 //检测是否存在冲突和冲突的类型，只负责检测部分，完全组合逻辑
 assign br_conflict = br_taken;

@@ -3,16 +3,16 @@ module MEMport (
     input  wire        reset,
     input  wire        valid,
 
-    output reg       readyGo,
-    output reg       allowIn,
-
     input wire  [31:0] data_sram_rdata, //from data memory, added by sssafridi
     
     input wire  [31:0] exe_result, // renamed 
     input wire  [ 4:0] wb_reg_addr_in,
     input wire  [ 1:0] mem_op,
     input wire         wb_op_in,
-    input wire  [31:0] mem_wdata_in, //added
+    input wire  [31:0] mem_wdata_in, //由dogandlamb添加，对齐寄存器级的输出
+
+    output reg         readyGo,
+    output reg         allowIn,
 
     output reg  [31:0] wb_wdata,
     output reg  [ 4:0] wb_reg_addr_out,
