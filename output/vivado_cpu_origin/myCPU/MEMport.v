@@ -27,8 +27,8 @@ module MEMport (
 //   - clk     : 时钟信号。
 //   - reset   : 复位信号。
 //   - valid   : MEM 级输入有效标志。
-//   - readyGo : MEM 级就绪标志。
-//   - allowIn : MEM 级允许上游写入标志。
+//   - readyGo : 本级已就绪，可向下一级传递数据。
+//   - allowIn : 本级是否允许上一级写入新数据。
 // - 输入（来自 EXE/MEM_reg）：
 //   - exe_result  : EXE 结果（地址或算术结果）。
 //   - wb_reg_addr_in: 目的寄存器地址。
@@ -40,9 +40,10 @@ module MEMport (
 //   - wb_reg_addr_out : 写回寄存器地址。
 //   - wb_op_out       : 写回使能输出。
 //
-// TODO ：
-// 完成 mem_op 解码与访存路径选择（load/store/旁路）。
-// 接入数据存储器接口（地址、写使能、字节使能、读数据）。
+// TODO：
+// 1) 访存：完善 mem_op 解码（load/store/旁路）。
+// 2) 接口：补齐 data_sram 完整握手与字节写使能。
+// 3) 验证：覆盖 load/store 与非访存指令透传（传给下一级）路径。
 // ============================================================
 
 

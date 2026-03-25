@@ -11,13 +11,17 @@ module ID_EXE_reg (
     input wire  [31:0] br_imm_in,
     input wire  [11:0] alu_op_in,
     input wire  [ 4:0] br_op_in,
+    input wire  [ 1:0] mem_op_in,
+    input wire         wb_op_in,
 
     output reg  [4:0]  wb_reg_addr_out,
     output reg  [31:0] alu_src1_out,
     output reg  [31:0] alu_src2_out,
     output reg  [31:0] br_imm_out,
     output reg  [11:0] alu_op_out,
-    output reg  [ 4:0] br_op_out
+    output reg  [ 4:0] br_op_out,
+    output reg  [ 1:0] mem_op_out,
+    output reg         wb_op_out
 );
 // ============================================================
 // 模块功能：
@@ -29,8 +33,8 @@ module ID_EXE_reg (
 //   - clk     : 时钟信号。
 //   - reset   : 复位信号。
 //   - valid   : ID 输出有效标志。
-//   - readyGo : 本级就绪标志。
-//   - allowIn : 下级允许写入标志。
+//   - readyGo : 本级已就绪，可向下一级传递数据。
+//   - allowIn : 下一级允许本级写入标志。
 // - 输入（来自 ID）：
 //   - wb_reg_addr_in : 目的寄存器地址。
 //   - alu_src1_in    : ALU 源操作数 1。
@@ -46,8 +50,9 @@ module ID_EXE_reg (
 //   - alu_op_out      : 锁存后的 ALU 操作控制码。
 //   - br_op_out       : 锁存后的分支操作控制码。
 //
-// TODO ：
-// 实现寄存器锁存与保持策略（握手成功更新、否则保持）。
-// 复位值策略统一（控制信号清零、数据清零或安全值）。
+// TODO：
+// 1) 时序：补齐握手更新和保持策略。
+// 2) 控制：统一新增 mem_op/wb_op 的复位与透传（传给下一级的意思）规范。
+// 3) 验证： ID->EXE 控制/数据一致性。
 // ============================================================
 endmodule
