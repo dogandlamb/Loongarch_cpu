@@ -57,43 +57,63 @@ assign d_sram_we = (mem_op == 2'b11);
 always @(posedge clk) begin
     if (reset) begin
         data_sram_addr <= 32'b0;
-    end else  begin
-        data_sram_addr <= exe_result
-    end 
+    end else if (valid) begin
+        data_sram_addr <= exe_result;
+    end else if (!valid) begin
+        data_sram_addr <= data_sram_addr;
+    end else begin
+        data_sram_addr <= 32'b0;
+    end
         
 end
 
 always @(posedge clk) begin
     if (reset) begin
         data_sram_wdata <= 32'b0;
-    end else begin
+    end else if (valid) begin
         data_sram_wdata <= mem_wdata_in;
+    end else if (!valid) begin
+        data_sram_wdata <= data_sram_wdata;
+    end else begin
+        data_sram_wdata <= 32'b0;
     end
 end
 
 always @(posedge clk) begin
     if (reset) begin
         wb_reg_addr_out <= 5'b0;
-    end else begin
+    end else if (valid) begin
         wb_reg_addr_out <= wb_reg_addr_in;
-    end 
+    end else if (!valid) begin
+        wb_reg_addr_out <= wb_reg_addr_in;
+    end else begin
+        wb_reg_addr_out <= 5'b0;
+    end
 end
 
 always @(posedge clk) begin
     if (reset) begin
         wb_wdata <= 32'b0;
-    end else if (d_sram_re) begin
+    end else if (valid && d_sram_re) begin
         wb_wdata <= data_sram_rdata;
+    end else if (valid) begin
+        wb_wdata <= exe_result;
+    end else if (!valid) begin
+        wb_wdata <= wb_wdata;
     end else begin
-        wb_wdata <= exe_result
+        wb_wdata <= 32'b0;
     end
 end
 
 always @(posedge clk) begin
     if (reset) begin
         wb_op_out <= 1'b0;
-    end else begin
+    end else if (valid) begin
         wb_op_out <= wb_op_in;
+    end else if (!valid) begin
+        wb_op_out <= wb_op_out;
+    end else begin
+        wb_op_out <= 1'b0;
     end
 end
 
@@ -102,7 +122,31 @@ always @(posedge clk) begin
         data_sram_we <= 1'b0;
     end else begin
         data_sram_we <= d_sram_we;
-    end
+    end 
  end
+
+ always @(posedge clk) begin
+    if (reset) begin
+        allowIn <= 1'b1;
+    end else if (valid) begin
+        allowIn <= 1'b1;
+    end else if (!valid) begin
+        allowIn <= 1'b0;
+    end else begin
+        allowIn <= 1'b0;
+    end
+end
+
+ always @(posedge clk) begin
+    if (reset) begin
+        readyGo <= 1'b1;
+    end else if (valid) begin
+        readyGo <= 1'b1;
+    end else if (!valid) begin
+        readyGo <= 1'b0;
+    end else begin
+        readyGo <= 1'b0;
+    end
+end
 
 endmodule

@@ -45,26 +45,53 @@ assign wb_we  = wb_op_in; //高电平写回使能
 always @(posedge clk) begin
     if (reset) begin
         wb_wdata_out <= 32'b0;
-    end else begin
+    end else if (valid) begin
         wb_wdata_out <= wb_wdata_in;
+    end else if (!valid) begin
+        wb_wdata_out <= wb_wdata_out;
+    end else begin
+        wb_wdata_out <= 32'b0;
     end
 end
 
 always @(posedge clk) begin
     if (reset) begin
         wb_reg_addr_out <= 5'b0;
-    end else begin
+    end else if (valid) begin
         wb_reg_addr_out <= wb_reg_addr_in;
+    end else if (!valid) begin
+        wb_reg_addr_out <= wb_reg_addr_out;
+    end else begin
+        wb_reg_addr_out <= 5'b0;
     end
 end
 
 always @(posedge clk) begin
     if (reset) begin
         wb_op_out <= 1'b0;
-    end else begin
+    end else if (valid) begin
         wb_op_out <= wb_we;
+    end else if (!valid) begin
+        wb_op_out <= wb_op_out;
+    end else begin
+        wb_op_out <= 1'b0;
     end
 end
+
+
+always @(posedge clk) begin
+    if (reset) begin
+        allowIn <= 1'b1;
+    end else if (valid) begin
+        allowIn <= 1'b1;
+    end else if (!valid) begin
+        allowIn <= 1'b0;
+    end else begin
+        allowIn <= 1'b0;
+    end
+end
+
+
 
 
 
