@@ -26,11 +26,13 @@ module IF_ID_reg(
     input  wire        valid,
     input  wire        readyGo,
     input  wire        allowIn,
+    input  wire [31:0] pc_in,
 
     input  wire [31:0] inst_in,
 
 
-    output reg  [31:0] inst_out
+    output reg  [31:0] inst_out,
+    output reg  [31:0] pc_out
 );
 
 always @(posedge clk) begin
