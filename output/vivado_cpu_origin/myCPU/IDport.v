@@ -17,7 +17,8 @@ module IDport (
     output reg  [ 4:0] alu_src2,
     output reg  [31:0] br_imm,
     output reg  [11:0] alu_op,
-    output reg  [ 4:0] br_op
+    output reg  [ 4:0] br_op,
+    output reg  [ 1:0] mem_op  //memory operation, added by sssafridi
 
 );
 // ============================================================
@@ -44,6 +45,7 @@ module IDport (
 //   - br_imm      : 分支立即数/偏移量。
 //   - alu_op      : ALU 操作控制码。
 //   - br_op       : 分支控制码。
+//   - mem_op      : 访存控制。
 //
 // TODO 清单（可分工）：
 // 完成指令字段拆解（opcode、func、寄存器号、立即数）。
