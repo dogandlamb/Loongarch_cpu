@@ -10,7 +10,8 @@ module WBport (
     input  wire        wb_op_in,
 
     output  reg [31:0] wb_wdata_out,
-    output  reg [ 4:0] wb_reg_addr_out
+    output  reg [ 4:0] wb_reg_addr_out,
+    output  reg        wb_we
 );
 // ============================================================
 // 模块功能：

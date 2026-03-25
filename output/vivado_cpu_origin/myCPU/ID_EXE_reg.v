@@ -11,13 +11,16 @@ module ID_EXE_reg (
     input wire  [31:0] br_imm_in,
     input wire  [11:0] alu_op_in,
     input wire  [ 4:0] br_op_in,
+    input wire  [31:0] mem_wdata_in,
 
     output reg  [4:0]  wb_reg_addr_out,
     output reg  [31:0] alu_src1_out,
     output reg  [31:0] alu_src2_out,
     output reg  [31:0] br_imm_out,
     output reg  [11:0] alu_op_out,
+    output reg  [31:0] mem_wdata_out,
     output reg  [ 4:0] br_op_out
+
 );
 // ============================================================
 // 模块功能：

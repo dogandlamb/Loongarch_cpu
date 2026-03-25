@@ -458,31 +458,6 @@ ALU_srcGenerator u_ALU_srcGenerator(
     .alu_src2(alu_src2)
 );
 
-// imm_generator u_imm_generator(
-//     .reset(reset),
-//     .inst(inst),
-//     .inst_add_w(inst_add_w),
-//     .inst_addi_w(inst_addi_w),
-//     .inst_sub_w(inst_sub_w),
-//     .inst_ld_w(inst_ld_w),
-//     .inst_st_w(inst_st_w),
-//     .inst_bne(inst_bne),
-//     .inst_slt(inst_slt),
-//     .inst_sltu(inst_sltu),
-//     .inst_and(inst_and),
-//     .inst_or(inst_or),
-//     .inst_nor(inst_nor),
-//     .inst_xor(inst_xor),
-//     .inst_slli_w(inst_slli_w),
-//     .inst_srli_w(inst_srli_w),
-//     .inst_srai_w(inst_srai_w),
-//     .inst_b(inst_b),
-//     .inst_bl(inst_bl),
-//     .inst_beq(inst_beq),
-//     .inst_jirl(inst_jirl),
-//     .inst_lu12i_w(inst_lu12i_w),
-//     .imm(imm)
-// );
 
 get_reg_read_addr u_get_reg_read_addr(
     .reset(reset),

@@ -7,6 +7,7 @@ module MEMport (
     output reg       allowIn,
 
     input wire  [31:0] data_sram_rdata, //from data memory, added by sssafridi
+    
 
     input wire  [31:0] exe_result, // renamed 
     input wire  [ 4:0] wb_reg_addr_in,
@@ -15,6 +16,9 @@ module MEMport (
 
     output reg  [31:0] wb_wdata,
     output reg  [ 4:0] wb_reg_addr_out,
+    output reg  [31:0] data_sram_wdata,
+    output reg  [31:0] data_sram_addr,
+    output reg         data_sram_we,
     output reg         wb_op_out
 );
 // ============================================================

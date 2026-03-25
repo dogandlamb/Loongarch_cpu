@@ -6,19 +6,23 @@ module IDport (
 
     input  wire [31:0] inst,
 
+    input  wire [31:0] reg_rdata1,
+    input  wire [31:0] reg_rdata2,
+
     output reg         allowIn,
     output reg         readyGo,
     
     output reg  [4:0]  src1_addr,
     output reg  [4:0]  src2_addr,
 
-    output reg  [ 4:0]  wb_reg_addr,
+    output reg  [ 4:0] wb_reg_addr,
     output reg  [ 4:0] alu_src1,
     output reg  [ 4:0] alu_src2,
     output reg  [31:0] br_imm,
     output reg  [11:0] alu_op,
     output reg  [ 4:0] br_op,
-    output reg  [ 1:0] mem_op  //memory operation, added by sssafridi
+    output reg  [ 1:0] mem_op,  //memory operation, added by sssafridi
+    output reg  [31:0] mem_wdata
 
 );
 // ============================================================

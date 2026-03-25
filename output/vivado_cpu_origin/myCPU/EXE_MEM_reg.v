@@ -8,11 +8,13 @@ module EXE_MEM_reg (
     input  wire [31:0] final_result_in,
     input  wire [ 4:0] wb_reg_addr_in,
     input  wire [ 1:0] mem_op_in,
-    input  wire        wb_op_in, 
+    input  wire        wb_op_in,
+    input  wire [31:0] mem_wdata_in, 
 
     output reg  [31:0] final_result_out,
     output reg  [ 4:0] wb_reg_addr_out,
     output reg  [ 1:0] mem_op_out,
+    output reg  [31:0] mem_wdata_out,
     output reg         wb_op_out
 );
 //============================================================

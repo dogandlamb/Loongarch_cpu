@@ -14,10 +14,12 @@ module EXEport (
     input wire  [31:0] br_imm,
     input wire  [11:0] alu_op,
     input wire  [ 4:0] br_op,
+    input wire  [31:0] mem_wdata_in,
 
     output reg [31:0] final_result,
     output reg [ 4:0] wb_reg_addr_out,
     output reg [ 1:0] mem_op,
+    output reg [31:0] mem_wdata_out,
     output reg        wb_op
 );
 // ============================================================
