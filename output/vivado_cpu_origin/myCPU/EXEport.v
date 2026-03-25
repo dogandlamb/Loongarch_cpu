@@ -59,4 +59,69 @@ module EXEport (
 // 4) 流水：确定 readyGo/allowIn 策略（本阶段可先固定常开）。
 // 5) 验证：补齐 EXE 基本算术/逻辑/分支用例。
 // ============================================================
+// output declaration of module alu
+wire [31:0] alu_result_w;
+wire        br_taken_w;
+
+alu u_alu(
+    .alu_op     	(alu_op      ),
+    .alu_src1   	(alu_src1    ),
+    .alu_src2   	(alu_src2    ),
+    .alu_result 	(alu_result_w)  
+);
+
+//inst_b 无条件跳转到目标地址，地址偏移值为i26offs26逻辑左移两位再符号拓展
+//inst_bl 无条件跳转到目标地址，偏移值同上，同时将该指令的pc＋4存到rl
+//inst_beq rjrd相等跳转目标地址
+//inst_jirl 无条件跳转到目标地址，将pc值加＋存到rd，目标地址为i16offs16逻辑左移两位后再符号拓展加rj的值
+//inst_bne 将通用寄存器 rj 和通用寄存器 rd 的值进行比较，如果两者不等则跳转到目标地址，否则不跳转。
+//assign br_op  = {inst_jirl , inst_b , inst_bl , inst_beq , inst_bne};
+assign br_taken_w =(br_op[1] && (alu_src1 == alu_src2))   // beq
+                | (br_op[0] && (alu_src1 != alu_src2))   // bne
+                |  br_op[4]                              // jirl
+                |  br_op[2]                              // bl
+                |  br_op[3];                             // b
+
+always @(posedge clk) begin
+    if (reset) begin
+        readyGo         <= 1'b1;
+        allowIn         <= 1'b1;
+        br_taken        <= 1'b0;
+        final_result    <= 32'b0;
+        wb_reg_addr_out <= 5'b0;
+        mem_op          <= 2'b0;
+        mem_wdata_out   <= 32'b0;
+        wb_op           <= 1'b0;
+    end
+    else if (valid) begin
+        readyGo         <= 1'b1; 
+        allowIn         <= 1'b1; 
+        br_taken        <= br_taken_w;
+        final_result    <= alu_result_w;
+        wb_reg_addr_out <= wb_reg_addr;
+        mem_op          <= mem_op_in;
+        mem_wdata_out   <= mem_wdata_in;
+        wb_op           <= wb_op_in;
+    end
+    else if (!valid) begin
+        readyGo         <= 1'b0;
+        allowIn         <= 1'b0;
+        br_taken        <= 1'b0;
+        final_result    <= final_result; 
+        wb_reg_addr_out <= wb_reg_addr_out; 
+        mem_op          <= mem_op; 
+        mem_wdata_out   <= mem_wdata_out; 
+        wb_op           <= wb_op; 
+    end
+    else begin
+        readyGo         <= 1'b0;
+        allowIn         <= 1'b0;
+        br_taken        <= 1'b0;
+        final_result    <= 32'b0;
+        wb_reg_addr_out <= 5'b0;
+        mem_op          <= 2'b0;
+        mem_wdata_out   <= 32'b0;
+        wb_op           <= 1'b0;
+    end
+end
 endmodule

@@ -39,7 +39,32 @@ module WBport (
 // 3) 验证：覆盖空写回、有写回与非法地址场景。
 // ============================================================
 
+wire wb_we;
+assign wb_we  = wb_op_in; //高电平写回使能
 
+always @(posedge clk) begin
+    if (reset) begin
+        wb_wdata_out <= 32'b0;
+    end else begin
+        wb_wdata_out <= wb_wdata_in;
+    end
+end
+
+always @(posedge clk) begin
+    if (reset) begin
+        wb_reg_addr_out <= 5'b0;
+    end else begin
+        wb_reg_addr_out <= wb_reg_addr_in;
+    end
+end
+
+always @(posedge clk) begin
+    if (reset) begin
+        wb_op_out <= 1'b0;
+    end else begin
+        wb_op_out <= wb_we;
+    end
+end
 
 
 
