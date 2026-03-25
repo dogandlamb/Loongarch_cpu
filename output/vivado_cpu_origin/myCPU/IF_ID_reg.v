@@ -20,15 +20,15 @@ module IF_ID_reg(
 //   - clk     : 时钟信号。
 //   - reset   : 复位信号。
 //   - valid   : IF 阶段输出有效标志。
-//   - readyGo : 本级就绪标志。
-//   - allowIn : 下一级允许写入标志。
+//   - readyGo : 本级已就绪，可向下一级传递数据。
+//   - allowIn : 下一级允许本级写入标志。
 // - 数据输入：
 //   - inst_in : IF 阶段输出指令。
 // - 数据输出：
 //   - inst_out : 锁存后的指令，送入 ID 阶段。
 //
-// TODO ：
-// 实现时序逻辑：valid && readyGo && allowIn 时更新 inst_out。
-// 定义 reset 时 inst_out 的初值（也许是0）。
+// TODO：
+// 1) 时序：实现 valid&&readyGo&&allowIn 更新，其他情况保持。
+// 2) 架构：确定 reset 后输出为 0 。
 // ============================================================
 endmodule

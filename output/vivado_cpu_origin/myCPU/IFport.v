@@ -26,28 +26,25 @@ module IFport (
 //   - pc_in   : 输入的 PC 地址。
 //
 // - 控制信号输出（送往 IF_ID_reg）：
-//   - readyGo : IF 级是否准备好把指令送到下一级。
-//   - allowIn : IF 级是否允许上游写入（通常由下游反压）。
+//   - readyGo : 本级是否已就绪，可向下一级传递数据。
+//   - allowIn : 本级是否允许上一级写入新数据。
 // - 指令输出（送往 IF_ID_reg）：
 //   - inst_out : 取出的 32 位指令。
 //   - pc_out   : 当前指令对应的 PC 值（供后续级使用）。
+//   
+// IF 透传，就是不进行任何处理，直接将输入的 pc_in 和 inst_in 赋给 pc_out 和 inst_out
 //
-// - 工作流程!!!!!!!：
-//   1. pc_in -> pc_out：将输入的 PC 地址传递给下一级。
-//   2. pc_out -> 外部的指令存储器：根据 pc_out 从指令存储器读取指令，得到 inst_in。
-//   3. inst_in -> inst_out：将读取到的指令传递给下一级。
+// 工作流程！！！！！！：
+// 1. pc_in 直接赋给 pc_out
+// 2. pc_out 接到外部指令存储器地址口
+// 3.存储器返回指令作为 inst_in
+// 4.inst_in 直接赋给 inst_out
+// 5.readyGo 和 allowIn 都是常开
 //
-// 工作流程：
-// 1. 维护 PC 寄存器，初值为程序入口地址（通常为 0x0000_0000）。
-// 2. 当接收到 br_taken 信号时，PC 更新为 br_addr（分支跳转）。
-// 3. 否则 PC 递增 4（顺序执行）。
-// 4. 根据当前 PC 从指令存储器（IMEM）读取指令。
-// 5. 输出 inst 和 pc_out 给下一级，同时管理 readyGo/allowIn 握手。
-//
-// TODO ：
-// 实现 PC 寄存器与更新逻辑（br_taken ? br_addr : pc + 4）。
-// 实现指令存储器访问（与 ROM/IMEM 模块的接口）。
-// 完成 readyGo/allowIn 握手逻辑（通常一个周期内 ready）。
-// 处理 reset 时的 PC 初始化。
+// TODO：
+// 1) 前端： PC 是外部的独立模块，所以为要输入，也输出（所以有pc_in和pc_out）
+// 2) 接口：明确 inst_in 来源（直接 SRAM ）。
+// 3) 验证：覆盖 reset 后首拍输出与连续取指传递。
 // ============================================================
+
 endmodule
