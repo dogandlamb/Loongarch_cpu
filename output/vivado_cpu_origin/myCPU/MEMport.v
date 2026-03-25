@@ -8,11 +8,11 @@ module MEMport (
 
     input wire  [31:0] data_sram_rdata, //from data memory, added by sssafridi
     
-
     input wire  [31:0] exe_result, // renamed 
     input wire  [ 4:0] wb_reg_addr_in,
     input wire  [ 1:0] mem_op,
     input wire         wb_op_in,
+    input wire  [31:0] mem_wdata_in, //added
 
     output reg  [31:0] wb_wdata,
     output reg  [ 4:0] wb_reg_addr_out,
@@ -50,6 +50,59 @@ module MEMport (
 // 3) 验证：覆盖 load/store 与非访存指令透传（传给下一级）路径。
 // ============================================================
 
+wire   d_sram_re, d_sram_we;
+assign d_sram_re = (mem_op == 2'b10);
+assign d_sram_we = (mem_op == 2'b11);
 
+always @(posedge clk) begin
+    if (reset) begin
+        data_sram_addr <= 32'b0;
+    end else  begin
+        data_sram_addr <= exe_result
+    end 
+        
+end
+
+always @(posedge clk) begin
+    if (reset) begin
+        data_sram_wdata <= 32'b0;
+    end else begin
+        data_sram_wdata <= mem_wdata_in;
+    end
+end
+
+always @(posedge clk) begin
+    if (reset) begin
+        wb_reg_addr_out <= 5'b0;
+    end else begin
+        wb_reg_addr_out <= wb_reg_addr_in;
+    end 
+end
+
+always @(posedge clk) begin
+    if (reset) begin
+        wb_wdata <= 32'b0;
+    end else if (d_sram_re) begin
+        wb_wdata <= data_sram_rdata;
+    end else begin
+        wb_wdata <= exe_result
+    end
+end
+
+always @(posedge clk) begin
+    if (reset) begin
+        wb_op_out <= 1'b0;
+    end else begin
+        wb_op_out <= wb_op_in;
+    end
+end
+
+always @(posedge clk) begin
+    if (reset) begin
+        data_sram_we <= 1'b0;
+    end else begin
+        data_sram_we <= d_sram_we;
+    end
+ end
 
 endmodule
