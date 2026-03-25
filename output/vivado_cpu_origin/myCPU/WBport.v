@@ -3,11 +3,11 @@ module WBport (
     input  wire        reset,
     input  wire        valid,
 
-    output reg        allowIn,
-
     input  wire [31:0] wb_wdata_in,
     input  wire [ 4:0] wb_reg_addr_in,
     input  wire        wb_op_in,
+
+    output  reg        allowIn,
 
     output  reg [31:0] wb_wdata_out,
     output  reg [ 4:0] wb_reg_addr_out,
