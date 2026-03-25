@@ -34,4 +34,3 @@ Compiling module xil_defaultlib.confreg(SIMULATION=1'b1)
 Compiling module xil_defaultlib.soc_lite_top(SIMULATION=1'b1)
 Compiling module xil_defaultlib.tb_top
 Compiling module xil_defaultlib.glbl
-Built simulation snapshot tb_top_behav

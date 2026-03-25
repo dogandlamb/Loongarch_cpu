@@ -6,7 +6,7 @@ E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/ALU_srcGenerator.v,1774358610,ve
 E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/alu.v,1774191717,verilog,,E:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_dram/testbench/async_ram.v,,alu,,,../../../../loongson.ip_user_files/ipstatic,,,,,
 E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/get_reg_read_addr.v,1774282973,verilog,,E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/imm_generator.v,,get_reg_read_addr,,,../../../../loongson.ip_user_files/ipstatic,,,,,
 E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/imm_generator.v,1774358120,verilog,,E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/mycpu_top.v,,imm_generator,,,../../../../loongson.ip_user_files/ipstatic,,,,,
-E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/mycpu_top.v,1774283849,verilog,,E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/npc.v,,mycpu_top,,,../../../../loongson.ip_user_files/ipstatic,,,,,
+E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/mycpu_top.v,1774358674,verilog,,E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/npc.v,,mycpu_top,,,../../../../loongson.ip_user_files/ipstatic,,,,,
 E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/npc.v,1774262667,verilog,,E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/op_dec.v,,npc,,,../../../../loongson.ip_user_files/ipstatic,,,,,
 ,,,,E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/pc.v,,op_dec,,,,,,,,
 E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/pc.v,1774194808,verilog,,E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/regfile.v,,pc,,,../../../../loongson.ip_user_files/ipstatic,,,,,
