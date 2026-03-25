@@ -374,12 +374,12 @@ regfile u_regfile(
 );
 
 
-alu u_alu(
-    .alu_op    (alu_op),
-    .alu_src1  (alu_src1),
-    .alu_src2  (alu_src2),
-    .alu_result(alu_result)
-);
+// alu u_alu(
+//     .alu_op    (alu_op),
+//     .alu_src1  (alu_src1),
+//     .alu_src2  (alu_src2),
+//     .alu_result(alu_result)
+// );
 
 pc u_pc(
     .clk(clk),
@@ -395,148 +395,356 @@ npc u_npc(
     .br_op(br_op),
     .br_offs(br_offs),
     .rj_value(rj_value),
-    .pc(pc),
+    .pc(pc2IF),
     .nextpc(nextpc)
+);
+
+wire [31:0] pc_2IF;
+wire IF_readyGo;
+wire [31:0]  pc_fromIF;
+wire [31:0]  inst_fromIF;
+IFport u_IFport(
+    .clk(clk),
+    .reset(reset),
+    .valid(IF_valid),
+    .inst_in(inst_sram_rdata),
+    .pc_in(pc_2IF),
+    .readyGo(IF_readyGo),
+    .allowIn(IF_allowIn),
+    .inst_out(inst_fromIF),
+    .pc_out(pc_fromIF)
+);
+
+wire [31:0] inst_2ID;
+wire [31:0] pc_2ID;
+IF_ID_reg u_IF_ID_reg(
+    .clk(clk),
+    .reset(reset),
+    .valid(IF_ID_reg_valid),
+    .readyGo(IF_readyGo),
+    .allowIn(IF_ID_reg_allowIn),
+    .pc_in(pc_fromIF),
+    .inst_in(inst_fromIF),
+    .inst_out(inst_2ID),
+    .pc_out(pc_2ID)
+);
+
+wire ID_readyGo;
+wire [4:0] wb_reg_addr_fromID;
+wire [31:0] alu_src1_fromID;
+wire [31:0] alu_src2_fromID;
+wire [31:0] br_imm_fromID;
+wire [11:0] alu_op_fromID;
+wire [4:0]  br_op_fromID;
+wire [1:0]  mem_op_fromID;
+wire [31:0] mem_wdata_fromID;
+wire        wb_op_fromID;
+ID_port u_ID_port(
+    .clk(clk),
+    .reset(reset),
+    .valid(ID_valid),
+    .inst(inst_2ID),
+    .src1_rdata(src1_rdata),
+    .src2_rdata(src2_rdata),
+    .allowIn(ID_allowIn),
+    .readyGo(ID_readyGo),
+    .src1_addr(src1_addr),
+    .src2_addr(src2_addr),
+    .wb_reg_addr(wb_reg_addr_fromID),
+    .alu_src1(alu_src1_fromID),
+    .alu_src2(alu_src2_fromID),
+    .br_imm(br_imm_fromID),
+    .alu_op(alu_op_fromID),
+    .br_op(br_op_fromID),
+    .mem_op(mem_op_fromID),  
+    .mem_wdata(mem_wdata_fromID),
+    .wb_op(wb_op_fromID)
+);
+
+wire [4:0] wb_reg_addr_2EXE;
+wire [31:0] alu_src1_2EXE;
+wire [31:0] alu_src2_2EXE;
+wire [31:0] br_imm_2EXE;
+wire [11:0] alu_op_2EXE;
+wire [31:0] mem_wdata_2EXE;
+wire [4:0]  br_op_2EXE;
+wire [1:0]  mem_op_2EXE;
+wire wb_op_2EXE;
+ID_EXE_reg u_ID_EXE_reg(
+    .clk(clk),
+    .reset(reset),
+    .valid(ID_EXE_reg_valid),
+    .readyGo(ID_readyGo),
+    .allowIn(ID_EXE_reg_allowIn),
+    .wb_reg_addr_in(wb_reg_addr_fromID),
+    .alu_src1_in(alu_src1_fromID),
+    .alu_src2_in(alu_src2_fromID),
+    .br_imm_in(br_imm_fromID),
+    .alu_op_in(alu_op_fromID),
+    .br_op_in(br_op_fromID),
+    .mem_wdata_in(mem_wdata_fromID),
+    .mem_op_in(mem_op_fromID),
+    .wb_op_in(wb_op_fromID),
+    .wb_reg_addr_out(wb_reg_addr_2EXE),
+    .alu_src1_out(alu_src1_2EXE),
+    .alu_src2_out(alu_src2_2EXE),
+    .br_imm_out(br_imm_2EXE),
+    .alu_op_out(alu_op_2EXE),
+    .mem_wdata_out(mem_wdata_2EXE),
+    .br_op_out(br_op_2EXE),
+    .mem_op_out(mem_op_2EXE),
+    .wb_op_out(wb_op_2EXE)
+);
+
+wire EXE_readyGo;
+wire [31:0] final_result_fromEXE;
+EXEport u_EXEport(
+    .clk(clk),
+    .reset(clk),
+    .valid(EXE_valid),
+    . wb_reg_addr(wb_reg_addr_2EXE),
+    . alu_src1(alu_src1_2EXE),
+    . alu_src2(alu_src2_2EXE),
+    . br_imm(br_imm_2EXE),
+    . alu_op(alu_op_2EXE),
+    . br_op(br_op_2EXE),
+    . mem_wdata_in(mem_wdata_2EXE),
+    . mem_op_in(mem_op_2EXE),
+    . wb_op_in(wb_op_2EXE),
+    . readyGo(EXE_readyGo),
+    . allowIn(EXE_allowIn),
+    . br_taken(br_taken),
+
+    .final_result,
+    .wb_reg_addr_out,
+    .mem_op,
+    .mem_wdata_out,
+    .wb_op
+);
+
+
+wire IF_allowIn;
+wire WB_allowIn;
+wire ID_allowIn;
+wire MEM_allowIn;
+wire EXE_allowIn;
+wire IF_ID_reg_allowIn;
+wire ID_EXE_reg_allowIn;
+wire EXE_MEM_reg_allowIn;
+wire MEM_WB_reg_allowIn;
+wire IF_ID_reg_valid;
+wire ID_EXE_reg_valid;
+wire EXE_MEM_reg_valid;
+wire MEM_WB_reg_valid;
+wire IF_valid;
+wire ID_valid;
+wire EXE_valid;
+wire MEM_valid;
+wire WB_valid;
+pipeline_controller u_pipeline_controller(
+    .clk(clk),
+    .reset(reset),
+    .block_sig(block_sig),
+    .cancel_sig(cancel_sig),
+    .IF_allowIn(IF_allowIn)
+    .WB_allowIn(WB_allowIn),
+    .ID_allowIn(ID_allowIn),
+    .EXE_allowIn(EXE_allowIn),
+    .MEM_allowIn(MEM_allowIn),
+    .IF_ID_reg_allowIn(IF_ID_reg_allowIn),
+    .ID_EXE_reg_allowIn(ID_EXE_reg_allowIn),
+    .EXE_MEM_reg_allowIn(EXE_MEM_reg_allowIn),
+    .MEM_WB_reg_allowIn(MEM_WB_reg_allowIn),
+    .IF_ID_reg_valid(IF_ID_reg_valid),
+    .ID_EXE_reg_valid(ID_EXE_reg_valid),
+    .EXE_MEM_reg_valid(EXE_MEM_reg_valid),
+    .MEM_WB_reg_valid(MEM_WB_reg_allowIn),
+    .IF_valid(IF_valid),
+    .ID_valid(ID_valid),
+    .EXE_valid(EXE_valid),
+    .MEM_valid(MEM_valid),
+    .WB_valid(WB_valid)
+);
+
+wire cancel_sig;
+wire forward_delivery_sig;
+wire block_sig;
+conflict_handle u_coflict_hanle(
+    .clk                            (clk),
+    .reset                          (reset),
+    .br_conflict                    (br_conflict),
+    .data_conflict_between_ID_EXE   (data_conflict_between_ID_EXE),
+    .data_conflict_between_ID_MEM   (data_conflict_between_ID_MEM),
+    .data_conflict_between_ID_WB    (data_conflict_between_ID_WB),
+    .block_sig                      (block_sig),
+    .forward_delivery_sig           (forward_delivery_sig),
+    .cancel_sig                     (cancel_sig)
+);
+
+
+wire [4:0] exe_reg_dest;
+wire [4:0] mem_reg_dest;
+wire [4:0] wb_reg_dest;
+wire br_conflict
+wire data_conflict_between_ID_EXE;
+wire data_conflict_between_ID_MEM;
+wire data_conflict_between_ID_WB;
+conflict_detector u_conflictdetector(
+    .clk            (clk),
+    .reset          (reset),
+    .alu_src1_addr  (alu_src1_addr),
+    .alu_src2_addr  (alu_src2_addr),
+    .br_taken       (br_taken),
+    .exe_reg_dest   (exe_reg_dest),
+    .mem_reg_dest   (mem_reg_dest),
+    .wb_reg_dest    (wb_reg_dest),
+    .br_conflict    (br_conflict),
+    .data_conflict_between_ID_EXE   (data_conflict_between_ID_EXE),
+    .data_conflict_between_ID_MEM   (data_conflict_between_ID_MEM),
+    .data_conflict_between_ID_WB    (data_conflict_between_ID_WB)
 );
 /////////////////////////////////////////////////////////////
 //生成alu操作码和分支跳转操作码
 
-op_dec u_op_dec(
-    .reset        	(reset         ),
-    .inst_add_w   	(inst_add_w    ),
-    .inst_addi_w  	(inst_addi_w   ),
-    .inst_sub_w   	(inst_sub_w    ),
-    .inst_ld_w    	(inst_ld_w     ),
-    .inst_st_w    	(inst_st_w     ),
-    .inst_bne     	(inst_bne      ),
-    .inst_slt     	(inst_slt      ),
-    .inst_sltu    	(inst_sltu     ),
-    .inst_and     	(inst_and      ),
-    .inst_or      	(inst_or       ),
-    .inst_nor     	(inst_nor      ),
-    .inst_xor     	(inst_xor      ),
-    .inst_slli_w  	(inst_slli_w   ),
-    .inst_srli_w  	(inst_srli_w   ),
-    .inst_srai_w  	(inst_srai_w   ),
-    .inst_b       	(inst_b        ),
-    .inst_bl      	(inst_bl       ),
-    .inst_beq     	(inst_beq      ),
-    .inst_jirl    	(inst_jirl     ),
-    .inst_lu12i_w 	(inst_lu12i_w  ),
-    .alu_op       	(alu_op        ),
-    .br_op        	(br_op         )
-);
+// op_dec u_op_dec(
+//     .reset        	(reset         ),
+//     .inst_add_w   	(inst_add_w    ),
+//     .inst_addi_w  	(inst_addi_w   ),
+//     .inst_sub_w   	(inst_sub_w    ),
+//     .inst_ld_w    	(inst_ld_w     ),
+//     .inst_st_w    	(inst_st_w     ),
+//     .inst_bne     	(inst_bne      ),
+//     .inst_slt     	(inst_slt      ),
+//     .inst_sltu    	(inst_sltu     ),
+//     .inst_and     	(inst_and      ),
+//     .inst_or      	(inst_or       ),
+//     .inst_nor     	(inst_nor      ),
+//     .inst_xor     	(inst_xor      ),
+//     .inst_slli_w  	(inst_slli_w   ),
+//     .inst_srli_w  	(inst_srli_w   ),
+//     .inst_srai_w  	(inst_srai_w   ),
+//     .inst_b       	(inst_b        ),
+//     .inst_bl      	(inst_bl       ),
+//     .inst_beq     	(inst_beq      ),
+//     .inst_jirl    	(inst_jirl     ),
+//     .inst_lu12i_w 	(inst_lu12i_w  ),
+//     .alu_op       	(alu_op        ),
+//     .br_op        	(br_op         )
+// );
 
 
-ALU_srcGenerator u_ALU_srcGenerator(
-    .reset(reset),
-    .inst_add_w(inst_add_w),
-    .inst_addi_w(inst_addi_w),
-    .inst_sub_w(inst_sub_w),
-    .inst_ld_w(inst_ld_w),
-    .inst_st_w(inst_st_w),
-    .inst_bne(inst_bne),
-    .inst_slt(inst_slt),
-    .inst_sltu(inst_sltu),
-    .inst_and(inst_and),
-    .inst_or(inst_or),
-    .inst_nor(inst_nor),
-    .inst_xor(inst_xor),
-    .inst_slli_w(inst_slli_w),
-    .inst_srli_w(inst_srli_w),
-    .inst_srai_w(inst_srai_w),
-    .inst_b(inst_b),
-    .inst_bl(inst_bl),
-    .inst_beq(inst_beq),
-    .inst_jirl(inst_jirl),
-    .inst_lu12i_w(inst_lu12i_w),
-    .rj_value(rj_value),
-    .rkd_value(rkd_value),
-    .imm(alu_imm),
-    .pc(pc),
-    .alu_src1(alu_src1),
-    .alu_src2(alu_src2)
-);
+// ALU_srcGenerator u_ALU_srcGenerator(
+//     .reset(reset),
+//     .inst_add_w(inst_add_w),
+//     .inst_addi_w(inst_addi_w),
+//     .inst_sub_w(inst_sub_w),
+//     .inst_ld_w(inst_ld_w),
+//     .inst_st_w(inst_st_w),
+//     .inst_bne(inst_bne),
+//     .inst_slt(inst_slt),
+//     .inst_sltu(inst_sltu),
+//     .inst_and(inst_and),
+//     .inst_or(inst_or),
+//     .inst_nor(inst_nor),
+//     .inst_xor(inst_xor),
+//     .inst_slli_w(inst_slli_w),
+//     .inst_srli_w(inst_srli_w),
+//     .inst_srai_w(inst_srai_w),
+//     .inst_b(inst_b),
+//     .inst_bl(inst_bl),
+//     .inst_beq(inst_beq),
+//     .inst_jirl(inst_jirl),
+//     .inst_lu12i_w(inst_lu12i_w),
 
 
-get_reg_read_addr u_get_reg_read_addr(
-    .reset(reset),
-    .inst(inst),
-    .inst_add_w(inst_add_w),
-    .inst_addi_w(inst_addi_w),
-    .inst_sub_w(inst_sub_w),
-    .inst_ld_w(inst_ld_w),
-    .inst_st_w(inst_st_w),
-    .inst_bne(inst_bne),
-    .inst_slt(inst_slt),
-    .inst_sltu(inst_sltu),
-    .inst_and(inst_and),
-    .inst_or(inst_or),
-    .inst_nor(inst_nor),
-    .inst_xor(inst_xor),
-    .inst_slli_w(inst_slli_w),
-    .inst_srli_w(inst_srli_w),
-    .inst_srai_w(inst_srai_w),
-    .inst_b(inst_b),
-    .inst_bl(inst_bl),
-    .inst_beq(inst_beq),
-    .inst_jirl(inst_jirl),
-    .inst_lu12i_w(inst_lu12i_w),
-    .rf_raddr1(rf_raddr1),
-    .rf_raddr2(rf_raddr2)
-);
 
-imm_generator u_imm_generator(
-    .reset(reset),
-    .inst(inst),
-    .inst_add_w(inst_add_w),
-    .inst_addi_w(inst_addi_w),
-    .inst_sub_w(inst_sub_w),
-    .inst_ld_w(inst_ld_w),
-    .inst_st_w(inst_st_w),
-    .inst_bne(inst_bne),
-    .inst_slt(inst_slt),
-    .inst_sltu(inst_sltu),
-    .inst_and(inst_and),
-    .inst_or(inst_or),
-    .inst_nor(inst_nor),
-    .inst_xor(inst_xor),
-    .inst_slli_w(inst_slli_w),
-    .inst_srli_w(inst_srli_w),
-    .inst_srai_w(inst_srai_w),
-    .inst_b(inst_b),
-    .inst_bl(inst_bl),
-    .inst_beq(inst_beq),
-    .inst_jirl(inst_jirl),
-    .inst_lu12i_w(inst_lu12i_w),
-    .alu_imm(alu_imm),
-    .br_imm(br_imm)
-);
+//     .rj_value(rj_value),
+//     .rkd_value(rkd_value),
+//     .imm(alu_imm),
+//     .pc(pc),
+//     .alu_src1(alu_src1),
+//     .alu_src2(alu_src2)
+// );
 
-inst_dec u_inst_dec(
-    .reset(reset),
-    .inst(inst),
-    .inst_add_w(inst_add_w),
-    .inst_addi_w(inst_addi_w),
-    .inst_sub_w(inst_sub_w),
-    .inst_ld_w(inst_ld_w),
-    .inst_st_w(inst_st_w),
-    .inst_bne(inst_bne),
-    .inst_slt(inst_slt),
-    .inst_sltu(inst_sltu),
-    .inst_and(inst_and),
-    .inst_or(inst_or),
-    .inst_nor(inst_nor),
-    .inst_xor(inst_xor),
-    .inst_slli_w(inst_slli_w),
-    .inst_srli_w(inst_srli_w),
-    .inst_srai_w(inst_srai_w),
-    .inst_b(inst_b),
-    .inst_bl(inst_bl),
-    .inst_beq(inst_beq),
-    .inst_jirl(inst_jirl),
-    .inst_lu12i_w(inst_lu12i_w),
-);
+
+// get_reg_read_addr u_get_reg_read_addr(
+//     .reset(reset),
+//     .inst(inst),
+//     .inst_add_w(inst_add_w),
+//     .inst_addi_w(inst_addi_w),
+//     .inst_sub_w(inst_sub_w),
+//     .inst_ld_w(inst_ld_w),
+//     .inst_st_w(inst_st_w),
+//     .inst_bne(inst_bne),
+//     .inst_slt(inst_slt),
+//     .inst_sltu(inst_sltu),
+//     .inst_and(inst_and),
+//     .inst_or(inst_or),
+//     .inst_nor(inst_nor),
+//     .inst_xor(inst_xor),
+//     .inst_slli_w(inst_slli_w),
+//     .inst_srli_w(inst_srli_w),
+//     .inst_srai_w(inst_srai_w),
+//     .inst_b(inst_b),
+//     .inst_bl(inst_bl),
+//     .inst_beq(inst_beq),
+//     .inst_jirl(inst_jirl),
+//     .inst_lu12i_w(inst_lu12i_w),
+//     .rf_raddr1(rf_raddr1),
+//     .rf_raddr2(rf_raddr2)
+// );
+
+// imm_generator u_imm_generator(
+//     .reset(reset),
+//     .inst(inst),
+//     .inst_add_w(inst_add_w),
+//     .inst_addi_w(inst_addi_w),
+//     .inst_sub_w(inst_sub_w),
+//     .inst_ld_w(inst_ld_w),
+//     .inst_st_w(inst_st_w),
+//     .inst_bne(inst_bne),
+//     .inst_slt(inst_slt),
+//     .inst_sltu(inst_sltu),
+//     .inst_and(inst_and),
+//     .inst_or(inst_or),
+//     .inst_nor(inst_nor),
+//     .inst_xor(inst_xor),
+//     .inst_slli_w(inst_slli_w),
+//     .inst_srli_w(inst_srli_w),
+//     .inst_srai_w(inst_srai_w),
+//     .inst_b(inst_b),
+//     .inst_bl(inst_bl),
+//     .inst_beq(inst_beq),
+//     .inst_jirl(inst_jirl),
+//     .inst_lu12i_w(inst_lu12i_w),
+//     .alu_imm(alu_imm),
+//     .br_imm(br_imm)
+// );
+
+// inst_dec u_inst_dec(
+//     .reset(reset),
+//     .inst(inst),
+//     .inst_add_w(inst_add_w),
+//     .inst_addi_w(inst_addi_w),
+//     .inst_sub_w(inst_sub_w),
+//     .inst_ld_w(inst_ld_w),
+//     .inst_st_w(inst_st_w),
+//     .inst_bne(inst_bne),
+//     .inst_slt(inst_slt),
+//     .inst_sltu(inst_sltu),
+//     .inst_and(inst_and),
+//     .inst_or(inst_or),
+//     .inst_nor(inst_nor),
+//     .inst_xor(inst_xor),
+//     .inst_slli_w(inst_slli_w),
+//     .inst_srli_w(inst_srli_w),
+//     .inst_srai_w(inst_srai_w),
+//     .inst_b(inst_b),
+//     .inst_bl(inst_bl),
+//     .inst_beq(inst_beq),
+//     .inst_jirl(inst_jirl),
+//     .inst_lu12i_w(inst_lu12i_w),
+// );
 
 
 
