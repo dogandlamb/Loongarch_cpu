@@ -6,6 +6,7 @@ module IDport (
     input  wire [31:0] inst,
     input  wire [31:0] src1_rdata,
     input  wire [31:0] src2_rdata,
+
     input  wire [31:0] pc_in,
 
     output reg         allowIn,

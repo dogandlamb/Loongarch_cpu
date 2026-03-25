@@ -25,7 +25,7 @@ always @(posedge clk or posedge reset) begin
 end
 
 always @(posedge clk or posedge reset) begin
-    if(reset) cancel_sig_sig<=0;
+    if(reset) cancel_sig<=0;
     else      cancel_sig<=br_conflict;
 end
 endmodule

@@ -1,15 +1,3 @@
-module IF_ID_reg(
-    input  wire        clk,
-    input  wire        reset,
-    input  wire        valid,
-    input  wire        readyGo,
-    input  wire        allowIn,
-
-    input  wire [31:0] inst_in,
-
-
-    output reg  [31:0] inst_out
-);
 // ============================================================
 // 模块功能：
 // IF/ID 流水寄存器。用于在 IF 与 ID 之间锁存取指结果 inst，
@@ -31,4 +19,26 @@ module IF_ID_reg(
 // 1) 时序：实现 valid&&readyGo&&allowIn 更新，其他情况保持。
 // 2) 架构：确定 reset 后输出为 0 。
 // ============================================================
+
+module IF_ID_reg(
+    input  wire        clk,
+    input  wire        reset,
+    input  wire        valid,
+    input  wire        readyGo,
+    input  wire        allowIn,
+
+    input  wire [31:0] inst_in,
+
+
+    output reg  [31:0] inst_out
+);
+
+always @(posedge clk) begin
+    if(reset) inst_out <= 32'h0;
+    else if(valid && readyGo && allowIn) inst_out <= inst_in;
+    else if(!valid) inst_out <= 32'b0;
+    else if(!readyGo | !allowIn) inst_out <= inst_out;
+    else inst_out <= inst_out;
+end
+
 endmodule

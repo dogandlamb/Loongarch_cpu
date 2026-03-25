@@ -1,14 +1,9 @@
 module EXEport (
-    input  wire        clk,
-    input  wire        reset,
-    input  wire        valid,
+    input wire        clk,
+    input wire        reset,
+    input wire        valid,
 
-    output reg         readyGo,
-    output reg         allowIn,
-
-    output reg         br_taken,
-
-    input wire  [4:0]  wb_reg_addr,
+    input wire  [ 4:0] wb_reg_addr,
     input wire  [31:0] alu_src1,
     input wire  [31:0] alu_src2,
     input wire  [31:0] br_imm,
@@ -17,6 +12,12 @@ module EXEport (
     input wire  [31:0] mem_wdata_in,
     input wire  [ 1:0] mem_op_in,
     input wire         wb_op_in,
+
+
+    output reg         readyGo,
+    output reg         allowIn,
+
+    output reg         br_taken,
 
     output reg [31:0] final_result,
     output reg [ 4:0] wb_reg_addr_out,
