@@ -6,6 +6,7 @@ module EXEport (
     input wire  [ 4:0] wb_reg_addr,
     input wire  [31:0] alu_src1,
     input wire  [31:0] alu_src2,
+    input wire  [31:0] pc_in,
     input wire  [31:0] br_imm,
     input wire  [11:0] alu_op,
     input wire  [ 4:0] br_op,
@@ -18,12 +19,14 @@ module EXEport (
     output reg         allowIn,
 
     output reg         br_taken,
+    output wire        br_taken_comb,
 
-    output reg [31:0] final_result,
-    output reg [ 4:0] wb_reg_addr_out,
-    output reg [ 1:0] mem_op,
-    output reg [31:0] mem_wdata_out,
-    output reg        wb_op
+    output reg [31:0]  final_result,
+    output reg [31:0]  pc_out,
+    output reg [ 4:0]  wb_reg_addr_out,
+    output reg [ 1:0]  mem_op,
+    output reg [31:0]  mem_wdata_out,
+    output reg         wb_op
 );
 // ============================================================
 // 模块功能：
@@ -62,6 +65,7 @@ module EXEport (
 // output declaration of module alu
 wire [31:0] alu_result_w;
 wire        br_taken_w;
+wire [31:0] link_pc4_w;
 
 alu u_alu(
     .alu_op     	(alu_op      ),
@@ -82,46 +86,29 @@ assign br_taken_w =(br_op[1] && (alu_src1 == alu_src2))   // beq
                 |  br_op[2]                              // bl
                 |  br_op[3];                             // b
 
-always @(posedge clk) begin
-    if (reset) begin
-        readyGo         <= 1'b1;
-        allowIn         <= 1'b1;
-        br_taken        <= 1'b0;
-        final_result    <= 32'b0;
-        wb_reg_addr_out <= 5'b0;
-        mem_op          <= 2'b0;
-        mem_wdata_out   <= 32'b0;
-        wb_op           <= 1'b0;
-    end
-    else if (valid) begin
-        readyGo         <= 1'b1; 
-        allowIn         <= 1'b1; 
-        br_taken        <= br_taken_w;
-        final_result    <= alu_result_w;
-        wb_reg_addr_out <= wb_reg_addr;
-        mem_op          <= mem_op_in;
-        mem_wdata_out   <= mem_wdata_in;
-        wb_op           <= wb_op_in;
-    end
-    else if (!valid) begin
-        readyGo         <= 1'b0;
-        allowIn         <= 1'b0;
-        br_taken        <= 1'b0;
-        final_result    <= final_result; 
-        wb_reg_addr_out <= wb_reg_addr_out; 
-        mem_op          <= mem_op; 
-        mem_wdata_out   <= mem_wdata_out; 
-        wb_op           <= wb_op; 
-    end
-    else begin
-        readyGo         <= 1'b0;
-        allowIn         <= 1'b0;
-        br_taken        <= 1'b0;
-        final_result    <= 32'b0;
-        wb_reg_addr_out <= 5'b0;
-        mem_op          <= 2'b0;
-        mem_wdata_out   <= 32'b0;
-        wb_op           <= 1'b0;
+assign br_taken_comb = valid && br_taken_w;
+assign link_pc4_w    = pc_in + 32'd4;
+
+always @(*) begin
+    readyGo         = 1'b1;
+    allowIn         = 1'b1;
+    br_taken        = 1'b0;
+    final_result    = 32'b0;
+    pc_out          = 32'b0;
+    wb_reg_addr_out = 5'b0;
+    mem_op          = 2'b0;
+    mem_wdata_out   = 32'b0;
+    wb_op           = 1'b0;
+
+    if (!reset && valid) begin
+        br_taken        = br_taken_w;
+        final_result    = (br_op[4] | br_op[2]) ? link_pc4_w : alu_result_w;
+        pc_out          = pc_in;
+        wb_reg_addr_out = wb_reg_addr;
+        mem_op          = mem_op_in;
+        mem_wdata_out   = mem_wdata_in;
+        wb_op           = wb_op_in;
     end
 end
+
 endmodule

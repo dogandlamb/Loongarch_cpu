@@ -22,7 +22,9 @@ module IDport (
     output reg  [11:0] alu_op,
     output reg  [4:0]  br_op,
     output reg  [1:0]  mem_op,
-    output reg         wb_op
+    output reg  [31:0] mem_wdata,
+    output reg         wb_op,
+    output reg  [31:0] pc_out
 );
 // ============================================================
 // 模块功能：
@@ -89,6 +91,7 @@ wire inst_bl;//无条件跳转到目标地址，偏移值同上，同时将该�
 wire inst_beq;//rjrd相等跳转目标地址
 wire inst_jirl;//无条件跳转到目标地址，将pc值加＋存到rd，目标地址为i16offs16逻辑左移两位后再符号拓展加rj的值
 wire inst_lu12i_w;//用于将20位bit立即数链接上12bit0后写入rd
+wire inst_ori;//ori: rj | ui12 -> rd
 
 wire [11:0] alu_op_w;
 wire [4:0]  br_op_w;
@@ -96,6 +99,14 @@ wire [31:0] alu_imm_w;
 wire [31:0] br_imm_w;
 wire [31:0] alu_src1_w;
 wire [31:0] alu_src2_w;
+
+assign inst_ori = (inst[31:26] == 6'h00) && (inst[25:22] == 4'he);
+wire wb_op_w;
+assign wb_op_w = inst_add_w | inst_addi_w | inst_sub_w | inst_ld_w
+               | inst_slt   | inst_sltu   | inst_and   | inst_or
+               | inst_nor   | inst_xor    | inst_slli_w| inst_srli_w
+               | inst_srai_w| inst_lu12i_w| inst_bl    | inst_jirl
+               | inst_ori;
 
 inst_dec u_inst_dec(
     .reset        (reset),
@@ -205,62 +216,51 @@ ALU_srcGenerator u_ALU_srcGenerator(
     .alu_src2     (alu_src2_w)
 );
 
-always @(posedge clk) begin
-    if (reset) begin
-        allowIn     <= 1'b1;
-        readyGo     <= 1'b1;
-        src1_addr   <= 5'b0;
-        src2_addr   <= 5'b0;
-        wb_reg_addr <= 5'b0;
-        alu_src1    <= 32'b0;
-        alu_src2    <= 32'b0;
-        br_imm      <= 32'b0;
-        alu_op      <= 12'b0;
-        br_op       <= 5'b0;
-        mem_op      <= 2'b0;
-        wb_op       <= 1'b0;
-    end
-    else if (valid) begin
-        allowIn     <= 1'b1;
-        readyGo     <= 1'b1;
-        src1_addr   <= inst[9:5];
-        src2_addr   <= inst[14:10];
-        wb_reg_addr <= inst_bl ? 5'd1 : inst[4:0];
-        alu_src1    <= alu_src1_w;
-        alu_src2    <= alu_src2_w;
-        br_imm      <= br_imm_w;
-        alu_op      <= alu_op_w;
-        br_op       <= br_op_w;
-        mem_op      <= {inst_ld_w, inst_st_w};
-        wb_op       <= ~(inst_st_w | inst_beq | inst_bne | inst_b);
-    end
-    else if (!valid) begin
-        allowIn     <= 1'b0;
-        readyGo     <= 1'b0;
-        src1_addr   <= src1_addr;
-        src2_addr   <= src2_addr;
-        wb_reg_addr <= wb_reg_addr;
-        alu_src1    <= alu_src1;
-        alu_src2    <= alu_src2;
-        br_imm      <= br_imm;
-        alu_op      <= alu_op;
-        br_op       <= br_op;
-        mem_op      <= mem_op;
-        wb_op       <= wb_op;
-    end
-    else begin
-        allowIn     <= 1'b0;
-        readyGo     <= 1'b0;
-        src1_addr   <= 5'b0;
-        src2_addr   <= 5'b0;
-        wb_reg_addr <= 5'b0;
-        alu_src1    <= 32'b0;
-        alu_src2    <= 32'b0;
-        br_imm      <= 32'b0;
-        alu_op      <= 12'b0;
-        br_op       <= 5'b0;
-        mem_op      <= 2'b0;
-        wb_op       <= 1'b0;
+always @(*) begin
+    allowIn     = 1'b1;
+    readyGo     = 1'b1;
+    src1_addr   = 5'b0;
+    src2_addr   = 5'b0;
+    wb_reg_addr = 5'b0;
+    alu_src1    = 32'b0;
+    alu_src2    = 32'b0;
+    br_imm      = 32'b0;
+    alu_op      = 12'b0;
+    br_op       = 5'b0;
+    mem_op      = 2'b0;
+    mem_wdata   = 32'b0;
+    wb_op       = 1'b0;
+    pc_out      = 32'b0;
+
+    if (!reset && valid) begin
+        src1_addr   = inst[9:5];
+        src2_addr   = inst[14:10];
+        wb_reg_addr = inst_bl ? 5'd1 : inst[4:0];
+        alu_src1    = alu_src1_w;
+        alu_src2    = alu_src2_w;
+        br_imm      = br_imm_w;
+        alu_op      = alu_op_w;
+        br_op       = br_op_w;
+        mem_op      = {inst_ld_w, inst_st_w};
+        mem_wdata   = src2_rdata;
+        wb_op       = wb_op_w;
+        pc_out      = pc_in;
+
+        // 补充 ori 的最小闭环译码（用于功能测试常见的 lu12i+ori 常量构造）
+        if (inst_ori) begin
+            src1_addr   = inst[9:5];
+            src2_addr   = 5'd0;
+            wb_reg_addr = inst[4:0];
+            alu_src1    = src1_rdata;
+            alu_src2    = {20'b0, inst[21:10]};
+            br_imm      = 32'b0;
+            alu_op      = 12'h040; // op_or
+            br_op       = 5'b0;
+            mem_op      = 2'b0;
+            mem_wdata   = 32'b0;
+            wb_op       = 1'b1;
+            pc_out      = pc_in;
+        end
     end
 end
 

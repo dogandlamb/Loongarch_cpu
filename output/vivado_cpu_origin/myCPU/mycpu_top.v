@@ -1,752 +1,548 @@
+// ============================================================
+// 顶层模块：mycpu_top
+// ------------------------------------------------------------
+// 功能：
+// - 组织 IF/ID/EXE/MEM/WB 五级流水，连接各级端口模块与级间流水寄存器。
+// - 统一管理阻塞与冲刷：RAW 冲突阻塞 + 分支重定向冲刷。
+// - 对接指令 SRAM / 数据 SRAM 接口，并输出 WB 提交调试总线。
+//
+// 端口定义：
+// - 时钟复位：
+//   - clk/resetn：系统时钟与低有效复位。
+// - 指令存储接口：
+//   - inst_sram_*：IF 阶段取指地址与读数据接口。
+// - 数据存储接口：
+//   - data_sram_*：MEM 阶段读写数据与地址接口。
+// - 调试提交接口：
+//   - debug_wb_*：与参考核对齐的 WB 提交通道（PC/写使能/写寄存器/写数据）。
+//
+// 与其他模块关系：
+// - 前端：pc + npc + IFport + IF_ID_reg。
+// - 译码：IDport + regfile + get_reg_read_addr + inst_dec。
+// - 执行：ID_EXE_reg + EXEport + alu。
+// - 访存：EXE_MEM_reg + MEMport。
+// - 写回：MEM_WB_reg + WBport。
+// - 控制：conflict_detector + pipeline_controller（配合 top 的 stall/bubble mux）。
+// ============================================================
+现在逻辑主要问题在于要分离冲突检测和冲突控制分别在conflict_detector和conflict_handle中，不能直接由conflict_detector生成并给别的模块
 module mycpu_top(
     input  wire        clk,
     input  wire        resetn,
 
-    //指令RAM相关接口
     output wire        inst_sram_we,
     output wire [31:0] inst_sram_addr,
     output wire [31:0] inst_sram_wdata,
     input  wire [31:0] inst_sram_rdata,
 
-    //数据RAM相关接口
     output wire        data_sram_we,
     output wire [31:0] data_sram_addr,
     output wire [31:0] data_sram_wdata,
     input  wire [31:0] data_sram_rdata,
 
-    //debug 接口
     output wire [31:0] debug_wb_pc,
     output wire [ 3:0] debug_wb_rf_we,
     output wire [ 4:0] debug_wb_rf_wnum,
-    output wire [31:0] debug_wb_rf_wdata 
+    output wire [31:0] debug_wb_rf_wdata
 );
 
-reg         reset;//高电平有效
-always @ (posedge clk) reset <= ~resetn;
+    // 同步高有效复位（由外部低有效复位 resetn 翻转得到）
+    reg reset;
+    always @(posedge clk) reset <= ~resetn;
 
-reg         valid;//valid时整个cpu才有效
-always @ (posedge clk) begin
-    if( reset ) begin
-        valid<=1'b0;
+    // 顶层保留全局 valid（当前不直接参与流水控制，供后续扩展）
+    reg valid;
+    always @(posedge clk) begin
+        if (reset) valid <= 1'b0;
+        else       valid <= 1'b1;
     end
-    else begin
-        valid <= 1'b1;
-    end
-end
 
-wire [31:0] pc;//目标指令的地址
-wire [31:0] nextpc;//下一次目标指令的地址
-//wire [31:0] seq_pc;//pc+4的值，顺序执行时的下一条指令地址
-
-
-/////////////////////////////////////////////////////
-//指令和分解的指令
-wire [31:0] inst;//IF阶段取回的指令码
-
-// wire [ 5:0] op_31_26;//若干位操作码，来自inst
-// wire [ 3:0] op_25_22;
-// wire [ 1:0] op_21_20;
-// wire [ 4:0] op_19_15;
-
-// wire [63:0] op_31_26_d;//译码后的操作码
-// wire [15:0] op_25_22_d;
-// wire [ 3:0] op_21_20_d;
-// wire [31:0] op_19_15_d;
-// has been moved to inst_dec by sssafridi
-
-wire [ 4:0] rd;//rd寄存器地址
-// wire [ 4:0] rj;//rj寄存器地址
-// wire [ 4:0] rk;//rk寄存器地址
-// has been moved to get_reg_read_addr
-
-wire [4:0]  ui5;
-wire [11:0] i12;//12位立即数
-wire [15:0] i16;//16位立即数
-wire [19:0] i20;
-wire [25:0] i26;
-
-
-
-
-////////////////////////////////////////////////
-//alu_op、load_op等控制信号
-wire [11:0] alu_op;//alu要执行的操作
-wire        load_op;
-wire [ 4:0] br_op;    
-
-
-
-////////////////////////////////////////////////
-//以下为指令标志
-wire inst_add_w;//rj+rk写入rd
-wire inst_addi_w;//rj+12位立即数扩展为32位，写入rd
-wire inst_sub_w;
-wire inst_ld_w;//从内存中取出32位，存入rd
-wire inst_st_w;//word访问内存，32位数据，目标地址为rj寄存器数据加上12位立即数扩展到32位的结果之和，储存数据为rd寄存器的数据
-wire inst_bne;
-wire inst_slt;//有符号数比较，src1<src2为1，否则为0
-wire inst_sltu;//无符号数比较，同上
-
-wire inst_and;//与
-wire inst_or;//或
-wire inst_nor;//同或
-wire inst_xor;//异或
-
-wire inst_slli_w;//rj数据逻辑左移ui5，存入rd
-wire inst_srli_w;//rj数据逻辑右移ui5，存入rd
-wire inst_srai_w;//rj数据算术右移ui5，存入rd
-
-wire inst_b;//无条件跳转到目标地址，地址偏移值为i26offs26逻辑左移两位再符号拓展
-wire inst_bl;//无条件跳转到目标地址，偏移值同上，同时将该指令的pc＋4存到rl
-wire inst_beq;//rjrd相等跳转目标地址
-wire inst_jirl;//无条件跳转到目标地址，将pc值加＋存到rd，目标地址为i16offs16逻辑左移两位后再符号拓展加rj的值
-wire inst_lu12i_w;//用于将20位bit立即数链接上12bit0后写入rd
-
-
-
-
-////////////////////////////////////////////////
-//指令的标志位
-wire        src2_is_4;
-wire        src1_is_pc;
-wire        src2_is_imm;//源操作数为立即数的标志位
-wire        dst_is_r1;
-wire        res_from_mem;
-wire        gr_we;
-wire        rf_we;//寄存器写入使能
-wire        mem_we;//内存写入使能
-// wire        src_reg_is_rd;
-//has been moved to get_reg_read_addr
-
-wire        rj_eq_rd;
-wire        br_taken;//需要跳转的标志位
-
-// wire        need_ui5;
-// wire        need_si12;
-// wire        need_si16;
-// wire        need_si20;
-// wire        need_si26; // has been moved to imm_generator
-
-
-
-////////////////////////////////////////////////
-//寄存器堆相关数据地址与结果
-wire [ 4:0] rf_raddr1;
-wire [ 4:0] rf_raddr2;
-wire [ 4:0] rf_waddr;
-
-wire [ 4:0] dest;
-
-wire [31:0] rf_wdata;//写入寄存器的数据
-
-
-
-////////////////////////////////////////////////
-//分支跳转
-wire [31:0] br_offs;
-//wire        br_taken;
-//需要跳转的标志位
-
-//wire [31:0] jirl_offs;
-
-
-////////////////////////////////////////////////
-//ALU相关计算数据、访存数据(load)、寄存器数据
-wire [31:0] alu_imm;//扩展到32位的ALU立即数
-wire [31:0] alu_src1;//计算的源操作数1
-wire [31:0] alu_src2;//计算的源操作数2
-wire [31:0] alu_result;//计算结果
-
-wire [31:0] br_imm;
-
-wire [31:0] mem_result;
-wire [31:0] final_result;
-
-wire [31:0] rf_rdata1;
-wire [31:0] rf_rdata2;
-
-wire [31:0] rj_value;
-wire [31:0] rkd_value;
-
-
-///////////////////////////////////////////////////
-//IF阶段的指令寄存器和PC寄存器
-
-//指令的移动控制
-// always @ (posedge clk) begin
-//     if( reset ) begin
-//         pc <= 32'h1bfffffc;
-//     end
-//     else begin
-//         pc <= nextpc;
-//     end
-// end
-
-//下一指令地址赋值
-// assign seq_pc = pc + 32'h4;
-//assign nextpc = br_taken ? br_target : pc + 4;//每个指令占32位，四个字节
-
-assign inst_sram_we     = 1'b0;//指令写入使能
-assign inst_sram_addr   = pc;//输出指令地址
-assign inst_sram_wdata  = 32'b0;
-assign inst             = inst_sram_rdata;//获得指令
-
-
-
-//////////////////////////////////////////////////
-//ID阶段的指令译码和控制信号生成
-
-//进行指令的分解
-// assign op_31_26 = inst[31:26];
-// assign op_25_22 = inst[25:22];
-// assign op_21_20 = inst[21:20];
-// assign op_19_15 = inst[19:15];
-// has been moved to inst_dec
-
-assign rd       = inst[ 4: 0];
-// assign rj       = inst[ 9: 5];
-// assign rk       = inst[14:10];
-//has been moved to get_reg_read_addr
-
-// assign ui5      = inst[14:10];
-// assign i12      = inst[21:10];
-// assign i16      = inst[25:10];
-// assign i20      = inst[24: 5];
-// assign i26      = {inst[ 9: 0] , inst[25:10]}; 
-//sssafridi has moved these signals to imm_generator
-
-//操作码译码
-// decoder_6_64 u_dec0(.in(op_31_26 ), .co(op_31_26_d ));
-// decoder_4_16 u_dec1(.in(op_25_22 ), .co(op_25_22_d ));
-// decoder_2_4  u_dec2(.in(op_21_20 ), .co(op_21_20_d ));
-// decoder_5_32 u_dec3(.in(op_19_15 ), .co(op_19_15_d ));
-// have been moved to inst_dec
-
-
-//指令激活，即标志位
-//如果对应位为1，代表是某一类的指令，将对应指令的标志位置1
-// assign inst_add_w   = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h00];
-// assign inst_addi_w  = op_31_26_d[6'h00] & op_25_22_d[4'ha];
-// assign inst_sub_w   = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h02];
-
-// assign inst_slt     = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h04];
-// assign inst_sltu    = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h05];
-
-// assign inst_nor     = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h08];
-// assign inst_and     = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h09];
-// assign inst_or      = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h0a];
-// assign inst_xor     = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h0b];
-
-// assign inst_slli_w  = op_31_26_d[6'h00] & op_25_22_d[4'h1] & op_21_20_d[2'h0] & op_19_15_d[5'h01];
-// assign inst_srli_w  = op_31_26_d[6'h00] & op_25_22_d[4'h1] & op_21_20_d[2'h0] & op_19_15_d[5'h09];
-// assign inst_srai_w  = op_31_26_d[6'h00] & op_25_22_d[4'h1] & op_21_20_d[2'h0] & op_19_15_d[5'h11];
-
-// assign inst_ld_w    = op_31_26_d[6'h0a] & op_25_22_d[4'h2];
-// assign inst_st_w    = op_31_26_d[6'h0a] & op_25_22_d[4'h6];
-
-// assign inst_jirl    = op_31_26_d[6'h13];
-// assign inst_b       = op_31_26_d[6'h14];
-// assign inst_bl      = op_31_26_d[6'h15];
-// assign inst_beq     = op_31_26_d[6'h16];
-// assign inst_bne     = op_31_26_d[6'h17];
-
-// assign inst_lu12i_w = op_31_26_d[6'h05] & ~inst[25];
-// have been moved tp inst_dec by sssafridi
-
-///////////////////////////////////////////////////////////////////
-//控制信号生成
-// assign need_ui5      = inst_slli_w | inst_srli_w | inst_srai_w;
-// assign need_si12     = inst_addi_w | inst_ld_w | inst_st_w;
-// assign need_si16     = inst_jirl | inst_beq | inst_bne;
-// assign need_si20     = inst_lu12i_w;
-// assign need_si26     = inst_b | inst_bl;
-// assign src2_is_4     = inst_jirl | inst_bl; //sssafridi has moved these signals to imm_generator
-
-
-// assign src2_is_imm   = inst_slli_w
-//                      | inst_srli_w
-//                      | inst_srai_w
-//                      | inst_addi_w 
-//                      | inst_ld_w 
-//                      | inst_st_w
-//                      | inst_lu12i_w
-//                      | inst_jirl
-//                      | inst_bl;//要用立即数的指令标志位相或 //sssafridi has moved this signal to ALU_srcGenerator
-assign res_from_mem  = inst_ld_w;//从内存中读取数据的标志
-assign gr_we         = ~(inst_st_w | inst_beq | inst_bne | inst_b);//只要有一个生效，就不需要写入
-assign rf_we         = gr_we & valid;
-assign mem_we        = inst_st_w;
-assign rj_eq_rd  = (rj_value == rkd_value);
-// assign src1_is_pc = inst_jirl | inst_bl; //sssafridi has moved this signal to ALU_srcGenerator  
-assign dst_is_r1  = inst_bl;
-assign data_sram_we    = mem_we & valid;//指令需要储存时，mem_we=1,向内存中写入数据
-assign br_taken  = ((br_op[1] &  rj_eq_rd)
-                 |  (br_op[0] & !rj_eq_rd)
-                 |   br_op[4]
-                 |   br_op[2]
-                 |   br_op[3])
-                 & valid;//bne比较rj和rd的值，如果不相等跳转到指定地址
-
-
-
-
-//////////////////////////////////////////////////////////////////////
-//寄存器读地址和写地址的生成
-// assign rf_raddr1 = rj;
-// assign rf_raddr2 = src_reg_is_rd ? rd   : rk;  // has been moved to get_reg_read_addr
-assign dest      = dst_is_r1     ? 5'd1 : rd;  
-
-
-
-/////////////////////////////////////////////////////////////////////
-//EX:分支跳转地址的计算
-assign br_offs =br_imm;
-// assign br_offs   = need_si26 ?  {{ 4{i26[25]}} , i26[25:0] , 2'b00}:
-//                                 {{14{i16[15]}} , i16[15:0] , 2'b00};
-// assign jirl_offs = {{14{i16[15]}} , i16[15:0] , 2'b00};
-// assign br_target = (inst_beq | inst_bne | inst_bl | inst_b) ? (pc + br_offs)
-//                     : (rj_value + jirl_offs);
-
-
-
-
-/////////////////////////////////////////////////////////
-//EX:ALU操作数和ALU结果
-
-//alu所需立即数的生成
-// assign imm       =  src2_is_4 ? 32'h4               : 
-//                     need_si20 ? {i20[19:0] , 12'b0} :
-//                     need_si12 ? {{20{i12[11]}} , i12[11:0]} :
-//                     need_ui5  ? {27'b0 , ui5[4:0]} :    
-//                     need_si26 ? {{ 4{i26[25]}} , i26[25:0] , 2'b00}:
-//                     need_si16 ? {{14{i16[15]}} , i16[15:0] , 2'b00}:
-//                     32'b0;
-//has been moved to imm_generator
-
-//寄存器数据的读取和ALU操作数的选择
-assign rj_value  = rf_rdata1;
-assign rkd_value = rf_rdata2;
-
-// assign alu_src1  = src1_is_pc  ? pc : rj_value;
-// assign alu_src2  = src2_is_imm ? imm : rf_rdata2;
-
-// alu_result 由 alu 单元输出
-
-assign data_sram_addr  = alu_result;//store
-assign data_sram_wdata = rkd_value;
-
-
-
-
-
-/////////////////////////////////////////////////////////
-//MEM
-assign mem_result      = data_sram_rdata;
-
-
-
-/////////////////////////////////////////////////////////
-//WB阶段的结果选择和写回
-assign final_result    = res_from_mem ? mem_result : alu_result;
-//写回寄存器的数据
-assign rf_waddr = dest;
-assign rf_wdata = final_result;
-
-
-//////////////////////////////////////////////////////////////////
-//调试接口
-assign debug_wb_pc       = pc;
-assign debug_wb_rf_we    = {4{rf_we}};
-assign debug_wb_rf_wnum  = dest;
-assign debug_wb_rf_wdata = final_result;
-
-
-
-regfile u_regfile(
-    .clk    (clk       ),
-    .raddr1 (rf_raddr1 ),    
-    .rdata1 (rf_rdata1 ),
-    .raddr2 (rf_raddr2 ),
-    .rdata2 (rf_rdata2 ),
-    .we     (rf_we     ),
-    .waddr  (rf_waddr  ),
-    .wdata  (rf_wdata  )
-);
-
-
-// alu u_alu(
-//     .alu_op    (alu_op),
-//     .alu_src1  (alu_src1),
-//     .alu_src2  (alu_src2),
-//     .alu_result(alu_result)
-// );
-
-pc u_pc(
-    .clk(clk),
-    .reset(reset),
-    .valid(valid),
-    .nextpc(nextpc),
-    .pc(pc)
-);
-
-npc u_npc(
-    .valid(valid),
-    .br_taken(br_taken),
-    .br_op(br_op),
-    .br_offs(br_offs),
-    .rj_value(rj_value),
-    .pc(pc2IF),
-    .nextpc(nextpc)
-);
-
-wire [31:0] pc_2IF;
-wire IF_readyGo;
-wire [31:0]  pc_fromIF;
-wire [31:0]  inst_fromIF;
-IFport u_IFport(
-    .clk(clk),
-    .reset(reset),
-    .valid(IF_valid),
-    .inst_in(inst_sram_rdata),
-    .pc_in(pc_2IF),
-    .readyGo(IF_readyGo),
-    .allowIn(IF_allowIn),
-    .inst_out(inst_fromIF),
-    .pc_out(pc_fromIF)
-);
-
-wire [31:0] inst_2ID;
-wire [31:0] pc_2ID;
-IF_ID_reg u_IF_ID_reg(
-    .clk(clk),
-    .reset(reset),
-    .valid(IF_ID_reg_valid),
-    .readyGo(IF_readyGo),
-    .allowIn(IF_ID_reg_allowIn),
-    .pc_in(pc_fromIF),
-    .inst_in(inst_fromIF),
-    .inst_out(inst_2ID),
-    .pc_out(pc_2ID)
-);
-
-wire ID_readyGo;
-wire [4:0] wb_reg_addr_fromID;
-wire [31:0] alu_src1_fromID;
-wire [31:0] alu_src2_fromID;
-wire [31:0] br_imm_fromID;
-wire [11:0] alu_op_fromID;
-wire [4:0]  br_op_fromID;
-wire [1:0]  mem_op_fromID;
-wire [31:0] mem_wdata_fromID;
-wire        wb_op_fromID;
-ID_port u_ID_port(
-    .clk(clk),
-    .reset(reset),
-    .valid(ID_valid),
-    .inst(inst_2ID),
-    .src1_rdata(src1_rdata),
-    .src2_rdata(src2_rdata),
-    .allowIn(ID_allowIn),
-    .readyGo(ID_readyGo),
-    .src1_addr(src1_addr),
-    .src2_addr(src2_addr),
-    .wb_reg_addr(wb_reg_addr_fromID),
-    .alu_src1(alu_src1_fromID),
-    .alu_src2(alu_src2_fromID),
-    .br_imm(br_imm_fromID),
-    .alu_op(alu_op_fromID),
-    .br_op(br_op_fromID),
-    .mem_op(mem_op_fromID),  
-    .mem_wdata(mem_wdata_fromID),
-    .wb_op(wb_op_fromID)
-);
-
-wire [4:0] wb_reg_addr_2EXE;
-wire [31:0] alu_src1_2EXE;
-wire [31:0] alu_src2_2EXE;
-wire [31:0] br_imm_2EXE;
-wire [11:0] alu_op_2EXE;
-wire [31:0] mem_wdata_2EXE;
-wire [4:0]  br_op_2EXE;
-wire [1:0]  mem_op_2EXE;
-wire wb_op_2EXE;
-ID_EXE_reg u_ID_EXE_reg(
-    .clk(clk),
-    .reset(reset),
-    .valid(ID_EXE_reg_valid),
-    .readyGo(ID_readyGo),
-    .allowIn(ID_EXE_reg_allowIn),
-    .wb_reg_addr_in(wb_reg_addr_fromID),
-    .alu_src1_in(alu_src1_fromID),
-    .alu_src2_in(alu_src2_fromID),
-    .br_imm_in(br_imm_fromID),
-    .alu_op_in(alu_op_fromID),
-    .br_op_in(br_op_fromID),
-    .mem_wdata_in(mem_wdata_fromID),
-    .mem_op_in(mem_op_fromID),
-    .wb_op_in(wb_op_fromID),
-    .wb_reg_addr_out(wb_reg_addr_2EXE),
-    .alu_src1_out(alu_src1_2EXE),
-    .alu_src2_out(alu_src2_2EXE),
-    .br_imm_out(br_imm_2EXE),
-    .alu_op_out(alu_op_2EXE),
-    .mem_wdata_out(mem_wdata_2EXE),
-    .br_op_out(br_op_2EXE),
-    .mem_op_out(mem_op_2EXE),
-    .wb_op_out(wb_op_2EXE)
-);
-
-wire EXE_readyGo;
-wire [31:0] final_result_fromEXE;
-EXEport u_EXEport(
-    .clk(clk),
-    .reset(clk),
-    .valid(EXE_valid),
-    . wb_reg_addr(wb_reg_addr_2EXE),
-    . alu_src1(alu_src1_2EXE),
-    . alu_src2(alu_src2_2EXE),
-    . br_imm(br_imm_2EXE),
-    . alu_op(alu_op_2EXE),
-    . br_op(br_op_2EXE),
-    . mem_wdata_in(mem_wdata_2EXE),
-    . mem_op_in(mem_op_2EXE),
-    . wb_op_in(wb_op_2EXE),
-    . readyGo(EXE_readyGo),
-    . allowIn(EXE_allowIn),
-    . br_taken(br_taken),
-
-    .final_result,
-    .wb_reg_addr_out,
-    .mem_op,
-    .mem_wdata_out,
-    .wb_op
-);
-
-
-wire IF_allowIn;
-wire WB_allowIn;
-wire ID_allowIn;
-wire MEM_allowIn;
-wire EXE_allowIn;
-wire IF_ID_reg_allowIn;
-wire ID_EXE_reg_allowIn;
-wire EXE_MEM_reg_allowIn;
-wire MEM_WB_reg_allowIn;
-wire IF_ID_reg_valid;
-wire ID_EXE_reg_valid;
-wire EXE_MEM_reg_valid;
-wire MEM_WB_reg_valid;
-wire IF_valid;
-wire ID_valid;
-wire EXE_valid;
-wire MEM_valid;
-wire WB_valid;
-pipeline_controller u_pipeline_controller(
-    .clk(clk),
-    .reset(reset),
-    .block_sig(block_sig),
-    .cancel_sig(cancel_sig),
-    .IF_allowIn(IF_allowIn)
-    .WB_allowIn(WB_allowIn),
-    .ID_allowIn(ID_allowIn),
-    .EXE_allowIn(EXE_allowIn),
-    .MEM_allowIn(MEM_allowIn),
-    .IF_ID_reg_allowIn(IF_ID_reg_allowIn),
-    .ID_EXE_reg_allowIn(ID_EXE_reg_allowIn),
-    .EXE_MEM_reg_allowIn(EXE_MEM_reg_allowIn),
-    .MEM_WB_reg_allowIn(MEM_WB_reg_allowIn),
-    .IF_ID_reg_valid(IF_ID_reg_valid),
-    .ID_EXE_reg_valid(ID_EXE_reg_valid),
-    .EXE_MEM_reg_valid(EXE_MEM_reg_valid),
-    .MEM_WB_reg_valid(MEM_WB_reg_allowIn),
-    .IF_valid(IF_valid),
-    .ID_valid(ID_valid),
-    .EXE_valid(EXE_valid),
-    .MEM_valid(MEM_valid),
-    .WB_valid(WB_valid)
-);
-
-wire cancel_sig;
-wire forward_delivery_sig;
-wire block_sig;
-conflict_handle u_coflict_hanle(
-    .clk                            (clk),
-    .reset                          (reset),
-    .br_conflict                    (br_conflict),
-    .data_conflict_between_ID_EXE   (data_conflict_between_ID_EXE),
-    .data_conflict_between_ID_MEM   (data_conflict_between_ID_MEM),
-    .data_conflict_between_ID_WB    (data_conflict_between_ID_WB),
-    .block_sig                      (block_sig),
-    .forward_delivery_sig           (forward_delivery_sig),
-    .cancel_sig                     (cancel_sig)
-);
-
-
-wire [4:0] exe_reg_dest;
-wire [4:0] mem_reg_dest;
-wire [4:0] wb_reg_dest;
-wire br_conflict
-wire data_conflict_between_ID_EXE;
-wire data_conflict_between_ID_MEM;
-wire data_conflict_between_ID_WB;
-conflict_detector u_conflictdetector(
-    .clk            (clk),
-    .reset          (reset),
-    .alu_src1_addr  (alu_src1_addr),
-    .alu_src2_addr  (alu_src2_addr),
-    .br_taken       (br_taken),
-    .exe_reg_dest   (exe_reg_dest),
-    .mem_reg_dest   (mem_reg_dest),
-    .wb_reg_dest    (wb_reg_dest),
-    .br_conflict    (br_conflict),
-    .data_conflict_between_ID_EXE   (data_conflict_between_ID_EXE),
-    .data_conflict_between_ID_MEM   (data_conflict_between_ID_MEM),
-    .data_conflict_between_ID_WB    (data_conflict_between_ID_WB)
-);
-/////////////////////////////////////////////////////////////
-//生成alu操作码和分支跳转操作码
-
-// op_dec u_op_dec(
-//     .reset        	(reset         ),
-//     .inst_add_w   	(inst_add_w    ),
-//     .inst_addi_w  	(inst_addi_w   ),
-//     .inst_sub_w   	(inst_sub_w    ),
-//     .inst_ld_w    	(inst_ld_w     ),
-//     .inst_st_w    	(inst_st_w     ),
-//     .inst_bne     	(inst_bne      ),
-//     .inst_slt     	(inst_slt      ),
-//     .inst_sltu    	(inst_sltu     ),
-//     .inst_and     	(inst_and      ),
-//     .inst_or      	(inst_or       ),
-//     .inst_nor     	(inst_nor      ),
-//     .inst_xor     	(inst_xor      ),
-//     .inst_slli_w  	(inst_slli_w   ),
-//     .inst_srli_w  	(inst_srli_w   ),
-//     .inst_srai_w  	(inst_srai_w   ),
-//     .inst_b       	(inst_b        ),
-//     .inst_bl      	(inst_bl       ),
-//     .inst_beq     	(inst_beq      ),
-//     .inst_jirl    	(inst_jirl     ),
-//     .inst_lu12i_w 	(inst_lu12i_w  ),
-//     .alu_op       	(alu_op        ),
-//     .br_op        	(br_op         )
-// );
-
-
-// ALU_srcGenerator u_ALU_srcGenerator(
-//     .reset(reset),
-//     .inst_add_w(inst_add_w),
-//     .inst_addi_w(inst_addi_w),
-//     .inst_sub_w(inst_sub_w),
-//     .inst_ld_w(inst_ld_w),
-//     .inst_st_w(inst_st_w),
-//     .inst_bne(inst_bne),
-//     .inst_slt(inst_slt),
-//     .inst_sltu(inst_sltu),
-//     .inst_and(inst_and),
-//     .inst_or(inst_or),
-//     .inst_nor(inst_nor),
-//     .inst_xor(inst_xor),
-//     .inst_slli_w(inst_slli_w),
-//     .inst_srli_w(inst_srli_w),
-//     .inst_srai_w(inst_srai_w),
-//     .inst_b(inst_b),
-//     .inst_bl(inst_bl),
-//     .inst_beq(inst_beq),
-//     .inst_jirl(inst_jirl),
-//     .inst_lu12i_w(inst_lu12i_w),
-
-
-
-//     .rj_value(rj_value),
-//     .rkd_value(rkd_value),
-//     .imm(alu_imm),
-//     .pc(pc),
-//     .alu_src1(alu_src1),
-//     .alu_src2(alu_src2)
-// );
-
-
-// get_reg_read_addr u_get_reg_read_addr(
-//     .reset(reset),
-//     .inst(inst),
-//     .inst_add_w(inst_add_w),
-//     .inst_addi_w(inst_addi_w),
-//     .inst_sub_w(inst_sub_w),
-//     .inst_ld_w(inst_ld_w),
-//     .inst_st_w(inst_st_w),
-//     .inst_bne(inst_bne),
-//     .inst_slt(inst_slt),
-//     .inst_sltu(inst_sltu),
-//     .inst_and(inst_and),
-//     .inst_or(inst_or),
-//     .inst_nor(inst_nor),
-//     .inst_xor(inst_xor),
-//     .inst_slli_w(inst_slli_w),
-//     .inst_srli_w(inst_srli_w),
-//     .inst_srai_w(inst_srai_w),
-//     .inst_b(inst_b),
-//     .inst_bl(inst_bl),
-//     .inst_beq(inst_beq),
-//     .inst_jirl(inst_jirl),
-//     .inst_lu12i_w(inst_lu12i_w),
-//     .rf_raddr1(rf_raddr1),
-//     .rf_raddr2(rf_raddr2)
-// );
-
-// imm_generator u_imm_generator(
-//     .reset(reset),
-//     .inst(inst),
-//     .inst_add_w(inst_add_w),
-//     .inst_addi_w(inst_addi_w),
-//     .inst_sub_w(inst_sub_w),
-//     .inst_ld_w(inst_ld_w),
-//     .inst_st_w(inst_st_w),
-//     .inst_bne(inst_bne),
-//     .inst_slt(inst_slt),
-//     .inst_sltu(inst_sltu),
-//     .inst_and(inst_and),
-//     .inst_or(inst_or),
-//     .inst_nor(inst_nor),
-//     .inst_xor(inst_xor),
-//     .inst_slli_w(inst_slli_w),
-//     .inst_srli_w(inst_srli_w),
-//     .inst_srai_w(inst_srai_w),
-//     .inst_b(inst_b),
-//     .inst_bl(inst_bl),
-//     .inst_beq(inst_beq),
-//     .inst_jirl(inst_jirl),
-//     .inst_lu12i_w(inst_lu12i_w),
-//     .alu_imm(alu_imm),
-//     .br_imm(br_imm)
-// );
-
-// inst_dec u_inst_dec(
-//     .reset(reset),
-//     .inst(inst),
-//     .inst_add_w(inst_add_w),
-//     .inst_addi_w(inst_addi_w),
-//     .inst_sub_w(inst_sub_w),
-//     .inst_ld_w(inst_ld_w),
-//     .inst_st_w(inst_st_w),
-//     .inst_bne(inst_bne),
-//     .inst_slt(inst_slt),
-//     .inst_sltu(inst_sltu),
-//     .inst_and(inst_and),
-//     .inst_or(inst_or),
-//     .inst_nor(inst_nor),
-//     .inst_xor(inst_xor),
-//     .inst_slli_w(inst_slli_w),
-//     .inst_srli_w(inst_srli_w),
-//     .inst_srai_w(inst_srai_w),
-//     .inst_b(inst_b),
-//     .inst_bl(inst_bl),
-//     .inst_beq(inst_beq),
-//     .inst_jirl(inst_jirl),
-//     .inst_lu12i_w(inst_lu12i_w),
-// );
-
-
-
+    //------------------------------------------------------------------
+    // IF
+    //------------------------------------------------------------------
+    // ---------------- 信号速查（IF/控制） ----------------
+    wire [31:0] pc;              // 当前取指 PC（pc 模块输出）
+    wire [31:0] nextpc;          // npc 计算得到的下一拍 PC
+    wire [31:0] pc_exe;          // EXE 级当前指令 PC（分支重定向基准）
+
+    wire        stall;           // 顶层统一阻塞信号（当前等价于 block_sig）
+    wire        pc_stall;        // PC 寄存器保持信号（阻塞且非分支重定向时拉高）
+    wire        raw_hazard;      // 综合 RAW 冲突（基础检测 + MEM/WB 补充窗口）
+    wire        raw_hazard_base; // conflict_detector 给出的基础 RAW 冲突
+    wire        raw_hazard_extra;// 顶层补充的 MEM->ID 同拍读写冲突检测
+    wire        block_sig;       // 送入 controller/npc 的阻塞主信号
+    wire        cancel_sig;      // 分支冲刷信号（清 IF/ID、ID/EXE）
+
+    wire        IF_readyGo;      // IF 阶段就绪
+    wire        IF_allowIn;      // IF 阶段允许接收（当前 IFport 常 1）
+    wire [31:0] pc_fromIF;       // IF 输出 PC（送 IF_ID_reg）
+    wire [31:0] inst_fromIF;     // IF 输出指令（送 IF_ID_reg）
+
+    wire        IF_valid;        // IF 阶段有效位（controller 输出）
+    wire        IF_ID_reg_valid; // IF_ID_reg 输入 valid
+    wire        IF_ID_reg_allowIn;// IF_ID_reg 允许写入
+
+    wire [31:0] inst_2ID;        // IF_ID_reg 输出到 ID 的指令
+    wire [31:0] pc_2ID;          // IF_ID_reg 输出到 ID 的 PC
+
+    wire [4:0] rf_raddr1;        // regfile 读端口1地址（ID 源寄存器1）
+    wire [4:0] rf_raddr2;        // regfile 读端口2地址（ID 源寄存器2）
+    wire [31:0] rf_rdata1;       // regfile 读端口1数据
+    wire [31:0] rf_rdata2;       // regfile 读端口2数据
+
+    wire        ID_readyGo;      // ID 阶段就绪
+    wire        ID_allowIn;      // ID 阶段允许接收
+    wire        ID_valid;        // ID 阶段有效位
+    wire [4:0]  id_src1_addr;    // ID 实际使用的 src1 地址（调试/观测）
+    wire [4:0]  id_src2_addr;    // ID 实际使用的 src2 地址（调试/观测）
+    wire [4:0]  wb_reg_addr_fromID;// ID 生成的目的寄存器号
+    wire [31:0] alu_src1_fromID; // ID 生成的 EXE 源操作数1
+    wire [31:0] alu_src2_fromID; // ID 生成的 EXE 源操作数2
+    wire [31:0] id_pc_fromID;    // ID 透传 PC
+    wire [31:0] br_imm_fromID;   // ID 生成的分支偏移
+    wire [11:0] alu_op_fromID;   // ID 生成 ALU 操作码
+    wire [4:0]  br_op_fromID;    // ID 生成分支操作码
+    wire [1:0]  mem_op_fromID;   // ID 生成访存操作码
+    wire [31:0] mem_wdata_fromID;// ID 输出 store 写数据
+    wire        wb_op_fromID;    // ID 输出写回使能
+
+    assign inst_sram_we    = 1'b0;
+    assign inst_sram_addr  = pc;
+    assign inst_sram_wdata = 32'b0;
+    需要调整到conflict_handle内
+    assign raw_hazard = raw_hazard_base | raw_hazard_extra;
+    assign block_sig  = raw_hazard;
+    assign stall      = block_sig;
+
+
+    pc u_pc(
+        .clk    (clk),
+        .reset  (reset),
+        .stall  (pc_stall),
+        .nextpc (nextpc),
+        .pc     (pc)
+    );
+
+    IFport u_IFport(
+        .clk     (clk),
+        .reset   (reset),
+        .valid   (IF_valid),
+        .inst_in (inst_sram_rdata),
+        .pc_in   (pc),
+        .readyGo (IF_readyGo),
+        .allowIn (IF_allowIn),
+        .inst_out(inst_fromIF),
+        .pc_out  (pc_fromIF)
+    );
+
+    IF_ID_reg u_IF_ID_reg(
+        .clk     (clk),
+        .reset   (reset),
+        .cancel_sig(cancel_sig),
+        .valid   (IF_ID_reg_valid),
+        .readyGo (IF_readyGo),
+        .allowIn (IF_ID_reg_allowIn),
+        .pc_in   (pc_fromIF),
+        .inst_in (inst_fromIF),
+        .inst_out(inst_2ID),
+        .pc_out  (pc_2ID)
+    );
+
+    //------------------------------------------------------------------
+    // ID：组合读寄存器堆地址（与 IF/ID 中指令对齐）
+    //------------------------------------------------------------------
+    wire        d_add_w, d_addi_w, d_sub_w, d_ld_w, d_st_w, d_bne;
+    wire        d_slt, d_sltu, d_and, d_or, d_nor, d_xor;
+    wire        d_slli, d_srli, d_srai, d_b, d_bl, d_beq, d_jirl, d_lu12i;
+    需要调整到idport内
+    inst_dec u_inst_dec_hdu(
+        .reset        (reset),
+        .inst         (inst_2ID),
+        .inst_add_w   (d_add_w),
+        .inst_addi_w  (d_addi_w),
+        .inst_sub_w   (d_sub_w),
+        .inst_ld_w    (d_ld_w),
+        .inst_st_w    (d_st_w),
+        .inst_bne     (d_bne),
+        .inst_slt     (d_slt),
+        .inst_sltu    (d_sltu),
+        .inst_and     (d_and),
+        .inst_or      (d_or),
+        .inst_nor     (d_nor),
+        .inst_xor     (d_xor),
+        .inst_slli_w  (d_slli),
+        .inst_srli_w  (d_srli),
+        .inst_srai_w  (d_srai),
+        .inst_b       (d_b),
+        .inst_bl      (d_bl),
+        .inst_beq     (d_beq),
+        .inst_jirl    (d_jirl),
+        .inst_lu12i_w (d_lu12i)
+    );
+
+    get_reg_read_addr u_get_reg_read_addr(
+        .reset        (reset),
+        .inst         (inst_2ID),
+        .inst_add_w   (d_add_w),
+        .inst_addi_w  (d_addi_w),
+        .inst_sub_w   (d_sub_w),
+        .inst_ld_w    (d_ld_w),
+        .inst_st_w    (d_st_w),
+        .inst_bne     (d_bne),
+        .inst_slt     (d_slt),
+        .inst_sltu    (d_sltu),
+        .inst_and     (d_and),
+        .inst_or      (d_or),
+        .inst_nor     (d_nor),
+        .inst_xor     (d_xor),
+        .inst_slli_w  (d_slli),
+        .inst_srli_w  (d_srli),
+        .inst_srai_w  (d_srai),
+        .inst_b       (d_b),
+        .inst_bl      (d_bl),
+        .inst_beq     (d_beq),
+        .inst_jirl    (d_jirl),
+        .inst_lu12i_w (d_lu12i),
+        .rf_raddr1    (rf_raddr1),
+        .rf_raddr2    (rf_raddr2)
+    );
+
+    IDport u_IDport(
+        .clk        (clk),
+        .reset      (reset),
+        .valid      (ID_valid),
+        .inst       (inst_2ID),
+        .pc_in      (pc_2ID),
+        .src1_rdata (rf_rdata1),
+        .src2_rdata (rf_rdata2),
+        .allowIn    (ID_allowIn),
+        .readyGo    (ID_readyGo),
+        .src1_addr  (id_src1_addr),
+        .src2_addr  (id_src2_addr),
+        .wb_reg_addr(wb_reg_addr_fromID),
+        .alu_src1   (alu_src1_fromID),
+        .alu_src2   (alu_src2_fromID),
+        .pc_out     (id_pc_fromID),
+        .br_imm     (br_imm_fromID),
+        .alu_op     (alu_op_fromID),
+        .br_op      (br_op_fromID),
+        .mem_op     (mem_op_fromID),
+        .mem_wdata  (mem_wdata_fromID),
+        .wb_op      (wb_op_fromID)
+    );
+
+    //------------------------------------------------------------------
+    // 阻塞：RAW 时在 ID/EXE 间插入气泡，写后读数据冲突
+    //------------------------------------------------------------------
+    wire [4:0]  wb_reg_addr_i;   // stall 时置 0，向 ID_EXE_reg 注入 NOP
+    wire [31:0] alu_src1_i;      // stall 气泡后的 ALU 源1
+    wire [31:0] alu_src2_i;      // stall 气泡后的 ALU 源2
+    wire [31:0] br_imm_i;        // stall 气泡后的分支偏移
+    wire [11:0] alu_op_i;        // stall 气泡后的 ALU 操作码
+    wire [4:0]  br_op_i;         // stall 气泡后的分支操作码
+    wire [31:0] mem_wdata_i;     // stall 气泡后的 store 数据
+    wire [1:0]  mem_op_i;        // stall 气泡后的访存操作码
+    wire        wb_op_i;         // stall 气泡后的写回使能
+    wire [31:0] pc_i;            // stall 气泡后的 PC
+
+    assign wb_reg_addr_i = stall ? 5'd0  : wb_reg_addr_fromID;
+    assign alu_src1_i    = stall ? 32'd0 : alu_src1_fromID;
+    assign alu_src2_i    = stall ? 32'd0 : alu_src2_fromID;
+    assign br_imm_i      = stall ? 32'd0 : br_imm_fromID;
+    assign alu_op_i      = stall ? 12'd0 : alu_op_fromID;
+    assign br_op_i       = stall ? 5'd0  : br_op_fromID;
+    assign mem_wdata_i   = stall ? 32'd0 : mem_wdata_fromID;
+    assign mem_op_i      = stall ? 2'd0  : mem_op_fromID;
+    assign wb_op_i       = stall ? 1'b0  : wb_op_fromID;
+    assign pc_i          = stall ? 32'd0 : id_pc_fromID;
+
+    wire        ID_EXE_reg_valid; // ID_EXE_reg 输入 valid
+    wire        ID_EXE_reg_allowIn;// ID_EXE_reg 允许写入
+    wire [4:0]  wb_reg_addr_2EXE; // ID_EXE_reg 输出目的寄存器号
+    wire [31:0] alu_src1_2EXE;    // ID_EXE_reg 输出 EXE 源1
+    wire [31:0] alu_src2_2EXE;    // ID_EXE_reg 输出 EXE 源2
+    wire [31:0] br_imm_2EXE;      // ID_EXE_reg 输出分支偏移
+    wire [11:0] alu_op_2EXE;      // ID_EXE_reg 输出 ALU 操作码
+    wire [31:0] mem_wdata_2EXE;   // ID_EXE_reg 输出 store 数据
+    wire [4:0]  br_op_2EXE;       // ID_EXE_reg 输出分支控制
+    wire [1:0]  mem_op_2EXE;      // ID_EXE_reg 输出访存控制
+    wire        wb_op_2EXE;       // ID_EXE_reg 输出写回使能
+
+    ID_EXE_reg u_ID_EXE_reg(
+        .clk             (clk),
+        .reset           (reset),
+        .cancel_sig      (cancel_sig),
+        .valid           (ID_EXE_reg_valid),
+        .readyGo         (ID_readyGo),
+        .allowIn         (ID_EXE_reg_allowIn),
+        .wb_reg_addr_in  (wb_reg_addr_i),
+        .alu_src1_in     (alu_src1_i),
+        .alu_src2_in     (alu_src2_i),
+        .br_imm_in       (br_imm_i),
+        .alu_op_in       (alu_op_i),
+        .br_op_in        (br_op_i),
+        .mem_wdata_in    (mem_wdata_i),
+        .mem_op_in       (mem_op_i),
+        .wb_op_in        (wb_op_i),
+        .pc_in           (pc_i),
+        .wb_reg_addr_out (wb_reg_addr_2EXE),
+        .alu_src1_out    (alu_src1_2EXE),
+        .alu_src2_out    (alu_src2_2EXE),
+        .br_imm_out      (br_imm_2EXE),
+        .alu_op_out      (alu_op_2EXE),
+        .mem_wdata_out   (mem_wdata_2EXE),
+        .br_op_out       (br_op_2EXE),
+        .mem_op_out      (mem_op_2EXE),
+        .wb_op_out       (wb_op_2EXE),
+        .pc_out          (pc_exe)
+    );
+
+    wire br_taken_comb;          // EXE 组合分支命中（立即重定向）
+    wire br_taken_q;             // EXE 寄存后分支命中（用于观测）
+    wire npc_br_taken;           // 送 npc 的分支命中信号
+    wire [4:0]  npc_br_op;       // 送 npc 的分支类型编码
+    wire [31:0] npc_br_offs;     // 送 npc 的分支偏移
+    wire [31:0] npc_rj_value;    // 送 npc 的 jirl 基址（rj）
+    wire [31:0] npc_pc_in;       // 送 npc 的分支/顺序执行基准 PC
+
+    assign cancel_sig  = br_taken_comb;
+
+    assign npc_br_taken = br_taken_comb;
+    assign npc_br_op    = br_op_2EXE;
+    assign npc_br_offs  = br_imm_2EXE;
+    assign npc_rj_value = alu_src1_2EXE;
+    assign pc_stall     = block_sig & ~npc_br_taken;
+
+    // 通过 npc 统一做 nextpc 选择，阻塞时保持当前 pc。
+    assign npc_pc_in = npc_br_taken ? pc_exe : pc;
+
+    npc u_npc(
+        .valid    (IF_valid),
+        .br_taken (npc_br_taken),
+        .br_op    (npc_br_op),
+        .br_offs  (npc_br_offs),
+        .rj_value (npc_rj_value),
+        .pc       (npc_pc_in),
+        .block_sig(block_sig),
+        .nextpc   (nextpc)
+    );
+
+    //------------------------------------------------------------------
+    // EXE
+    //------------------------------------------------------------------
+    wire        EXE_readyGo;      // EXE 阶段就绪
+    wire        EXE_allowIn;      // EXE 阶段允许接收
+    wire        EXE_valid;        // EXE 阶段有效位
+    wire [31:0] exe_final_result; // EXE 结果（ALU 或 link pc+4）
+    wire [31:0] exe_pc_2MEM;      // EXE 透传到 MEM 的 PC
+    wire [4:0]  exe_wb_reg_addr;  // EXE 输出目的寄存器号
+    wire [1:0]  exe_mem_op;       // EXE 输出访存控制
+    wire [31:0] exe_mem_wdata;    // EXE 输出 store 写数据
+    wire        exe_wb_op;        // EXE 输出写回使能
+
+    EXEport u_EXEport(
+        .clk             (clk),
+        .reset           (reset),
+        .valid           (EXE_valid),
+        .wb_reg_addr     (wb_reg_addr_2EXE),
+        .alu_src1        (alu_src1_2EXE),
+        .alu_src2        (alu_src2_2EXE),
+        .pc_in           (pc_exe),
+        .br_imm          (br_imm_2EXE),
+        .alu_op          (alu_op_2EXE),
+        .br_op           (br_op_2EXE),
+        .mem_wdata_in    (mem_wdata_2EXE),
+        .mem_op_in       (mem_op_2EXE),
+        .wb_op_in        (wb_op_2EXE),
+        .readyGo         (EXE_readyGo),
+        .allowIn         (EXE_allowIn),
+        .br_taken        (br_taken_q),
+        .br_taken_comb   (br_taken_comb),
+        .final_result    (exe_final_result),
+        .pc_out          (exe_pc_2MEM),
+        .wb_reg_addr_out (exe_wb_reg_addr),
+        .mem_op          (exe_mem_op),
+        .mem_wdata_out   (exe_mem_wdata),
+        .wb_op           (exe_wb_op)
+    );
+
+    //------------------------------------------------------------------
+    // MEM
+    //------------------------------------------------------------------
+    wire        EXE_MEM_reg_valid; // EXE_MEM_reg 输入 valid
+    wire        EXE_MEM_reg_allowIn;// EXE_MEM_reg 允许写入
+    wire        MEM_allowIn;       // MEM 阶段允许接收
+    wire        MEM_valid;         // MEM 阶段有效位
+    wire [31:0] em_result;         // EXE_MEM_reg 输出结果
+    wire [4:0]  em_wb_reg;         // EXE_MEM_reg 输出目的寄存器号
+    wire [1:0]  em_mem_op;         // EXE_MEM_reg 输出访存控制
+    wire        em_wb_op;          // EXE_MEM_reg 输出写回使能
+    wire [31:0] em_mem_wdata;      // EXE_MEM_reg 输出 store 数据
+    wire [31:0] em_pc;             // EXE_MEM_reg 输出 PC
+
+    EXE_MEM_reg u_EXE_MEM_reg(
+        .clk             (clk),
+        .reset           (reset),
+        .valid           (EXE_MEM_reg_valid),
+        .readyGo         (EXE_readyGo),
+        .allowIn         (EXE_MEM_reg_allowIn),
+        .final_result_in (exe_final_result),
+        .wb_reg_addr_in  (exe_wb_reg_addr),
+        .mem_op_in       (exe_mem_op),
+        .wb_op_in        (exe_wb_op),
+        .mem_wdata_in    (exe_mem_wdata),
+        .pc_in           (exe_pc_2MEM),
+        .final_result_out(em_result),
+        .wb_reg_addr_out (em_wb_reg),
+        .mem_op_out      (em_mem_op),
+        .wb_op_out       (em_wb_op),
+        .mem_wdata_out   (em_mem_wdata),
+        .pc_out          (em_pc)
+    );
+
+    wire        MEM_readyGo;      // MEM 阶段就绪
+    wire [31:0] mem_wb_wdata;     // MEM 输出到 WB 的写回数据
+    wire [31:0] mem_pc_2WB;       // MEM 输出到 WB 的 PC
+    wire [4:0]  mem_wb_regaddr;   // MEM 输出到 WB 的目的寄存器号
+    wire        mem_wb_op;        // MEM 输出到 WB 的写回使能
+    wire [31:0] mem_dsram_wdata;  // 数据 SRAM 写数据
+    wire [31:0] mem_dsram_addr;   // 数据 SRAM 地址
+    wire        mem_dsram_we;     // 数据 SRAM 写使能
+    需要调整到conflict_decetor内
+    assign raw_hazard_extra = mem_wb_op && (mem_wb_regaddr != 5'd0)
+                            && ((mem_wb_regaddr == rf_raddr1) || (mem_wb_regaddr == rf_raddr2));
+
+    MEMport u_MEMport(
+        .clk            (clk),
+        .reset          (reset),
+        .valid          (MEM_valid),
+        .data_sram_rdata(data_sram_rdata),
+        .exe_result     (em_result),
+        .pc_in          (em_pc),
+        .wb_reg_addr_in (em_wb_reg),
+        .mem_op         (em_mem_op),
+        .wb_op_in       (em_wb_op),
+        .mem_wdata_in   (em_mem_wdata),
+        .readyGo        (MEM_readyGo),
+        .allowIn        (MEM_allowIn),
+        .wb_wdata       (mem_wb_wdata),
+        .pc_out         (mem_pc_2WB),
+        .wb_reg_addr_out(mem_wb_regaddr),
+        .data_sram_wdata(mem_dsram_wdata),
+        .data_sram_addr (mem_dsram_addr),
+        .data_sram_we   (mem_dsram_we),
+        .wb_op_out      (mem_wb_op)
+    );
+
+    assign data_sram_addr  = mem_dsram_addr;
+    assign data_sram_wdata = mem_dsram_wdata;
+    assign data_sram_we    = mem_dsram_we & MEM_valid;
+
+    //------------------------------------------------------------------
+    // WB
+    //------------------------------------------------------------------
+    wire        MEM_WB_reg_valid;  // MEM_WB_reg 输入 valid
+    wire        MEM_WB_reg_allowIn;// MEM_WB_reg 允许写入
+    wire        WB_valid;          // WB 阶段有效位
+    wire [31:0] mwb_wdata;         // MEM_WB_reg 输出写回数据
+    wire [4:0]  mwb_waddr;         // MEM_WB_reg 输出写回寄存器号
+    wire        mwb_we;            // MEM_WB_reg 输出写回使能
+    wire [31:0] mwb_pc;            // MEM_WB_reg 输出提交 PC
+
+    MEM_WB_reg u_MEM_WB_reg(
+        .clk             (clk),
+        .reset           (reset),
+        .valid           (MEM_WB_reg_valid),
+        .readyGo         (MEM_readyGo),
+        .allowIn         (MEM_WB_reg_allowIn),
+        .wb_wdata_in     (mem_wb_wdata),
+        .wb_reg_addr_in  (mem_wb_regaddr),
+        .wb_op_in        (mem_wb_op),
+        .pc_in           (mem_pc_2WB),
+        .wb_wdata_out    (mwb_wdata),
+        .wb_reg_addr_out (mwb_waddr),
+        .wb_op_out       (mwb_we),
+        .pc_out          (mwb_pc)
+    );
+
+    wire wb_allowIn;              // WB 阶段 allowIn（末级常开）
+    wire [31:0] wb_wdata;         // WB 最终写回数据（到 regfile/debug）
+    wire [31:0] wb_pc;            // WB 最终提交 PC（到 debug）
+    wire [4:0]  wb_waddr;         // WB 最终写回寄存器号
+    wire        wb_we;            // WB 最终写回使能
+
+    WBport u_WBport(
+        .clk           (clk),
+        .reset         (reset),
+        .valid         (WB_valid),
+        .wb_wdata_in   (mwb_wdata),
+        .pc_in         (mwb_pc),
+        .wb_reg_addr_in(mwb_waddr),
+        .wb_op_in      (mwb_we),
+        .allowIn       (wb_allowIn),
+        .wb_wdata_out  (wb_wdata),
+        .pc_out        (wb_pc),
+        .wb_reg_addr_out(wb_waddr),
+        .wb_op_out     (wb_we)
+    );
+
+    wire rf_we = wb_we & (wb_waddr != 5'd0); // 屏蔽对 r0 的写入
+
+    regfile u_regfile(
+        .clk    (clk),
+        .raddr1 (rf_raddr1),
+        .rdata1 (rf_rdata1),
+        .raddr2 (rf_raddr2),
+        .rdata2 (rf_rdata2),
+        .we     (rf_we),
+        .waddr  (wb_waddr),
+        .wdata  (wb_wdata)
+    );
+
+    //------------------------------------------------------------------
+    // 冒险与控制器
+    //------------------------------------------------------------------
+    conflict_detector u_conflict_detector(
+        .id_rs1    (rf_raddr1),
+        .id_rs2    (rf_raddr2),
+        .exe_rd    (wb_reg_addr_2EXE),
+        .exe_wb    (wb_op_2EXE),
+        .mem_rd    (em_wb_reg),
+        .mem_wb    (em_wb_op),
+        .wb_rd     (wb_waddr),
+        .wb_wb     (wb_we),
+        .raw_hazard(raw_hazard_base)
+    );
+
+    pipeline_controller u_pipeline_controller(
+        .clk                (clk),
+        .reset              (reset),
+        .block_sig          (block_sig),
+        .cancel_sig         (cancel_sig),
+        .WB_allowIn         (wb_allowIn),
+        .ID_allowIn         (ID_allowIn),
+        .EXE_allowIn        (EXE_allowIn),
+        .MEM_allowIn        (MEM_allowIn),
+        .IF_ID_reg_allowIn  (IF_ID_reg_allowIn),
+        .ID_EXE_reg_allowIn (ID_EXE_reg_allowIn),
+        .EXE_MEM_reg_allowIn(EXE_MEM_reg_allowIn),
+        .MEM_WB_reg_allowIn (MEM_WB_reg_allowIn),
+        .IF_ID_reg_valid    (IF_ID_reg_valid),
+        .ID_EXE_reg_valid   (ID_EXE_reg_valid),
+        .EXE_MEM_reg_valid  (EXE_MEM_reg_valid),
+        .MEM_WB_reg_valid   (MEM_WB_reg_valid),
+        .IF_valid           (IF_valid),
+        .ID_valid           (ID_valid),
+        .EXE_valid          (EXE_valid),
+        .MEM_valid          (MEM_valid),
+        .WB_valid           (WB_valid)
+    );
+
+    //------------------------------------------------------------------
+    // 调试：与参考核一致，报告 WB 级提交（含该指令 PC）
+    //------------------------------------------------------------------
+    assign debug_wb_pc       = wb_pc & {32{WB_valid}};
+    assign debug_wb_rf_we    = {4{wb_we & WB_valid & (wb_waddr != 5'd0)}};
+    assign debug_wb_rf_wnum  = wb_waddr & {5{WB_valid}};
+    assign debug_wb_rf_wdata = wb_wdata & {32{WB_valid}};
 
 endmodule

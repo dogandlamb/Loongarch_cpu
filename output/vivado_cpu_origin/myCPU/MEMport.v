@@ -6,6 +6,7 @@ module MEMport (
     input wire  [31:0] data_sram_rdata, //from data memory, added by sssafridi
     
     input wire  [31:0] exe_result, // renamed 
+    input wire  [31:0] pc_in,
     input wire  [ 4:0] wb_reg_addr_in,
     input wire  [ 1:0] mem_op,
     input wire         wb_op_in,
@@ -15,6 +16,7 @@ module MEMport (
     output reg         allowIn,
 
     output reg  [31:0] wb_wdata,
+    output reg  [31:0] pc_out,
     output reg  [ 4:0] wb_reg_addr_out,
     output reg  [31:0] data_sram_wdata,
     output reg  [31:0] data_sram_addr,
@@ -51,101 +53,28 @@ module MEMport (
 // ============================================================
 
 wire   d_sram_re, d_sram_we;
-assign d_sram_re = (mem_op == 2'b10);
-assign d_sram_we = (mem_op == 2'b11);
+assign d_sram_re = mem_op[1];
+assign d_sram_we = mem_op[0];
 
-always @(posedge clk) begin
-    if (reset) begin
-        data_sram_addr <= 32'b0;
-    end else if (valid) begin
-        data_sram_addr <= exe_result;
-    end else if (!valid) begin
-        data_sram_addr <= data_sram_addr;
-    end else begin
-        data_sram_addr <= 32'b0;
-    end
-        
-end
+always @(*) begin
+    readyGo         = 1'b1;
+    allowIn         = 1'b1;
+    wb_wdata        = 32'b0;
+    pc_out          = 32'b0;
+    wb_reg_addr_out = 5'b0;
+    data_sram_wdata = 32'b0;
+    data_sram_addr  = 32'b0;
+    data_sram_we    = 1'b0;
+    wb_op_out       = 1'b0;
 
-always @(posedge clk) begin
-    if (reset) begin
-        data_sram_wdata <= 32'b0;
-    end else if (valid) begin
-        data_sram_wdata <= mem_wdata_in;
-    end else if (!valid) begin
-        data_sram_wdata <= data_sram_wdata;
-    end else begin
-        data_sram_wdata <= 32'b0;
-    end
-end
-
-always @(posedge clk) begin
-    if (reset) begin
-        wb_reg_addr_out <= 5'b0;
-    end else if (valid) begin
-        wb_reg_addr_out <= wb_reg_addr_in;
-    end else if (!valid) begin
-        wb_reg_addr_out <= wb_reg_addr_in;
-    end else begin
-        wb_reg_addr_out <= 5'b0;
-    end
-end
-
-always @(posedge clk) begin
-    if (reset) begin
-        wb_wdata <= 32'b0;
-    end else if (valid && d_sram_re) begin
-        wb_wdata <= data_sram_rdata;
-    end else if (valid) begin
-        wb_wdata <= exe_result;
-    end else if (!valid) begin
-        wb_wdata <= wb_wdata;
-    end else begin
-        wb_wdata <= 32'b0;
-    end
-end
-
-always @(posedge clk) begin
-    if (reset) begin
-        wb_op_out <= 1'b0;
-    end else if (valid) begin
-        wb_op_out <= wb_op_in;
-    end else if (!valid) begin
-        wb_op_out <= wb_op_out;
-    end else begin
-        wb_op_out <= 1'b0;
-    end
-end
-
-always @(posedge clk) begin
-    if (reset) begin
-        data_sram_we <= 1'b0;
-    end else begin
-        data_sram_we <= d_sram_we;
-    end 
- end
-
- always @(posedge clk) begin
-    if (reset) begin
-        allowIn <= 1'b1;
-    end else if (valid) begin
-        allowIn <= 1'b1;
-    end else if (!valid) begin
-        allowIn <= 1'b0;
-    end else begin
-        allowIn <= 1'b0;
-    end
-end
-
- always @(posedge clk) begin
-    if (reset) begin
-        readyGo <= 1'b1;
-    end else if (valid) begin
-        readyGo <= 1'b1;
-    end else if (!valid) begin
-        readyGo <= 1'b0;
-    end else begin
-        readyGo <= 1'b0;
+    if (!reset && valid) begin
+        wb_wdata        = d_sram_re ? data_sram_rdata : exe_result;
+        pc_out          = pc_in;
+        wb_reg_addr_out = wb_reg_addr_in;
+        data_sram_wdata = mem_wdata_in;
+        data_sram_addr  = exe_result;
+        data_sram_we    = d_sram_we;
+        wb_op_out       = wb_op_in;
     end
 end
 

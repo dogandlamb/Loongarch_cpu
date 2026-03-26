@@ -1,31 +1,28 @@
-//============================================================
+// ============================================================
 // 模块功能：
-// EXE/MEM 流水寄存器。用于在 EXE 阶段与 MEM 阶段之间锁存执行结果及写回相关控制信息，
-// 并结合 valid/readyGo/allowIn 完成阶段间握手与数据保持。
+// EXE/MEM 级间流水寄存器，承接 EXE 结果与访存/写回控制，
+// 供 MEM 阶段访存与写回数据选择使用。
 //
 // 端口定义：
-// - 时序与握手输入：
-//   - clk        : 时钟信号。
-//   - reset      : 复位信号。
-//   - valid      : 本级输入数据有效标志。
-//   - readyGo    : 本级已就绪，可向下一级传递数据。
-//   - allowIn    : 下一级允许本级写入（本级可更新）的标志。
-// - 数据与控制输入（来自 EXE）：
-//   - final_result_in : EXE 阶段最终计算结果（ALU/分支相关结果）。
-//   - wb_reg_addr_in  : 目的寄存器编号(地址，寄存器堆端口)。
-//   - mem_op_in       : 访存操作类型编码，load/store。
-//   - wb_op_in        : 是否执行写回操作标志。
-// - 数据与控制输出（送往 MEM）：
-//   - final_result_out : 锁存后的最终结果。
-//   - wb_reg_addr_out  : 锁存后的目的寄存器编号。
-//   - mem_op_out       : 锁存后的访存操作类型。
-//   - wb_op_out        : 锁存后的写回使能。
+// - 时序控制：
+//   - clk/reset    : 时钟与同步复位。
+//   - valid/readyGo/allowIn：标准流水握手控制。
+// - 数据输入（来自 EXE）：
+//   - final_result_in：EXE 结果（地址或算术结果）。
+//   - pc_in：指令 PC。
+//   - wb_reg_addr_in：目的寄存器号。
+//   - mem_op_in：访存控制（load/store）。
+//   - wb_op_in：写回使能。
+//   - mem_wdata_in：store 写数据。
+// - 数据输出（送往 MEM）：
+//   - 对应输入信号的 *_out 锁存版本。
 //
-// TODO：
-// 1) 时序：实现 reset 清零、valid&&readyGo&&allowIn 更新、否则保持。
-// 2) 控制：确认 mem_op/wb_op 的复位安全值定义。
-// 3) 验证：连续更新、阻塞保持、复位恢复。
-//============================================================
+// 与 top 的关系：
+// - 上游连接 `EXEport`，下游连接 `MEMport`。
+//
+// 时序优先级（高 -> 低）：
+// 1) reset 清空；2) 握手成功更新；3) valid=0 清空；4) 阻塞保持。
+// ============================================================
 module EXE_MEM_reg (
     input  wire        clk,
     input  wire        reset,
@@ -34,12 +31,14 @@ module EXE_MEM_reg (
     input  wire        allowIn,
 
     input  wire [31:0] final_result_in,
+    input  wire [31:0] pc_in,
     input  wire [ 4:0] wb_reg_addr_in,
     input  wire [ 1:0] mem_op_in,
     input  wire        wb_op_in,
-    input  wire [31:0] mem_wdata_in, 
+    input  wire [31:0] mem_wdata_in,
 
     output reg  [31:0] final_result_out,
+    output reg  [31:0] pc_out,
     output reg  [ 4:0] wb_reg_addr_out,
     output reg  [ 1:0] mem_op_out,
     output reg         wb_op_out,
@@ -47,36 +46,46 @@ module EXE_MEM_reg (
 );
 
 always @(posedge clk) begin
+    // 复位：清空本级
     if(reset) begin
         final_result_out <= 32'h0;
+        pc_out <= 32'h0;
         wb_reg_addr_out <= 5'h0;
         mem_op_out <= 2'h0;
         wb_op_out <= 1'h0;
         mem_wdata_out <= 32'h0;
+    // 握手成功：推进 EXE 输出到 MEM
     end
     else if(valid && readyGo && allowIn) begin
         final_result_out <= final_result_in;
+        pc_out           <= pc_in;
         wb_reg_addr_out  <= wb_reg_addr_in;
         mem_op_out       <= mem_op_in;
         wb_op_out        <= wb_op_in;
         mem_wdata_out    <= mem_wdata_in;
+    // 上游无效：输出清空
     end
     else if (!valid) begin
         final_result_out <= 32'h0;
+        pc_out <= 32'h0;
         wb_reg_addr_out <= 5'h0;
         mem_op_out <= 2'h0;
         wb_op_out <= 1'h0;
         mem_wdata_out <= 32'h0;
+    // 下游反压或本级未就绪：保持当前值
     end
     else if (!readyGo | !allowIn) begin
         final_result_out <= final_result_out;
+        pc_out           <= pc_out;
         wb_reg_addr_out  <= wb_reg_addr_out;
         mem_op_out       <= mem_op_out;
         wb_op_out        <= wb_op_out;
         mem_wdata_out    <= mem_wdata_out;
+    // 兜底分支：保持安全清空语义
     end
     else begin
         final_result_out <= 32'h0;
+        pc_out <= 32'h0;
         wb_reg_addr_out <= 5'h0;
         mem_op_out <= 2'h0;
         wb_op_out <= 1'h0;

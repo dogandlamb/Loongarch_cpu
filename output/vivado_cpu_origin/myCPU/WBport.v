@@ -4,14 +4,16 @@ module WBport (
     input  wire        valid,
 
     input  wire [31:0] wb_wdata_in,
+    input  wire [31:0] pc_in,
     input  wire [ 4:0] wb_reg_addr_in,
     input  wire        wb_op_in,
 
-    output  reg        allowIn,
+    output  wire       allowIn,
 
-    output  reg [31:0] wb_wdata_out,
-    output  reg [ 4:0] wb_reg_addr_out,
-    output  reg        wb_op_out
+    output  wire [31:0] wb_wdata_out,
+    output  wire [31:0] pc_out,
+    output  wire [ 4:0] wb_reg_addr_out,
+    output  wire        wb_op_out
 );
 // ============================================================
 // 模块功能：
@@ -40,56 +42,14 @@ module WBport (
 // ============================================================
 
 wire wb_we;
-assign wb_we  = wb_op_in; //高电平写回使能
+assign wb_we = wb_op_in; // 高电平写回使能
 
-always @(posedge clk) begin
-    if (reset) begin
-        wb_wdata_out <= 32'b0;
-    end else if (valid) begin
-        wb_wdata_out <= wb_wdata_in;
-    end else if (!valid) begin
-        wb_wdata_out <= wb_wdata_out;
-    end else begin
-        wb_wdata_out <= 32'b0;
-    end
-end
-
-always @(posedge clk) begin
-    if (reset) begin
-        wb_reg_addr_out <= 5'b0;
-    end else if (valid) begin
-        wb_reg_addr_out <= wb_reg_addr_in;
-    end else if (!valid) begin
-        wb_reg_addr_out <= wb_reg_addr_out;
-    end else begin
-        wb_reg_addr_out <= 5'b0;
-    end
-end
-
-always @(posedge clk) begin
-    if (reset) begin
-        wb_op_out <= 1'b0;
-    end else if (valid) begin
-        wb_op_out <= wb_we;
-    end else if (!valid) begin
-        wb_op_out <= wb_op_out;
-    end else begin
-        wb_op_out <= 1'b0;
-    end
-end
-
-
-always @(posedge clk) begin
-    if (reset) begin
-        allowIn <= 1'b1;
-    end else if (valid) begin
-        allowIn <= 1'b1;
-    end else if (!valid) begin
-        allowIn <= 1'b0;
-    end else begin
-        allowIn <= 1'b0;
-    end
-end
+// 作为 WB 组合提交口使用，不额外引入一拍延迟。
+assign allowIn        = 1'b1;
+assign wb_wdata_out   = (reset || !valid) ? 32'b0 : wb_wdata_in;
+assign pc_out         = (reset || !valid) ? 32'b0 : pc_in;
+assign wb_reg_addr_out= (reset || !valid) ? 5'b0  : wb_reg_addr_in;
+assign wb_op_out      = (reset || !valid) ? 1'b0  : wb_we;
 
 
 

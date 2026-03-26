@@ -5,11 +5,11 @@ module IFport (
     input  wire [31:0] inst_in,//输入的指令
     input  wire [31:0] pc_in,//输入的pc地址
 
-    output reg         readyGo,
-    output reg         allowIn,
+    output wire        readyGo,
+    output wire        allowIn,
 
-    output reg  [31:0] inst_out,
-    output reg  [31:0] pc_out
+    output wire [31:0] inst_out,
+    output wire [31:0] pc_out
 );
 // ============================================================
 // 模块功能：
@@ -46,30 +46,9 @@ module IFport (
 // 2) 接口：明确 inst_in 来源（直接 SRAM ）。
 // 3) 验证：覆盖 reset 后首拍输出与连续取指传递。
 // ============================================================
-always @(posedge clk) begin
-    if (reset) begin
-        inst_out <= 32'b0;
-        pc_out   <= 32'b0;
-        readyGo  <=  1'b1; 
-        allowIn  <=  1'b1; 
-    end 
-    else if (valid) begin
-        inst_out <= inst_in; // 直接透传指令
-        pc_out   <=   pc_in; // 直接透传 PC
-        readyGo  <= 1'b1;    
-        allowIn  <= 1'b1;    
-    end 
-    else if (!valid) begin
-        inst_out <=inst_out; // 保持原值
-        pc_out   <=  pc_out; // 保持原值
-        readyGo  <= 1'b0;    
-        allowIn  <= 1'b0;    
-    end
-    else begin
-        inst_out <= 32'b0;
-        pc_out   <= 32'b0;
-        readyGo  <=  1'b0;    
-        allowIn  <=  1'b0;    
-    end
-end
+// IFport 作为组合透传口，避免与 IF_ID_reg 双重打一拍。
+assign readyGo  = 1'b1;
+assign allowIn  = 1'b1;
+assign inst_out = inst_in;
+assign pc_out   = pc_in;
 endmodule

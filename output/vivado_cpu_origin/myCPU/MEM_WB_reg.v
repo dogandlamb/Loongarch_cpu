@@ -1,27 +1,25 @@
 // ============================================================
 // 模块功能：
-// MEM/WB 流水寄存器。锁存 MEM 阶段输出的写回数据与控制信息，
-// 并向 WB 阶段提供稳定输入。
+// MEM/WB 级间流水寄存器，锁存 MEM 阶段形成的最终写回信息，
+// 交给 WB 阶段提交到寄存器堆与调试总线。
 //
 // 端口定义：
-// - 时序与握手输入：
-//   - clk     : 时钟信号。
-//   - reset   : 复位信号。
-//   - valid   : MEM 输出有效标志。
-//   - readyGo : 本级已就绪，可向下一级传递数据。
-//   - allowIn : 下一级（WB）允许本级写入标志。
-// - 输入（来自 MEM）：
-//   - wb_wdata_in    : 待写回寄存器的数据。
-//   - wb_reg_addr_in : 待写回寄存器地址。
-//   - wb_op_in       : 写回使能标志。
-// - 输出（送往 WB）：
-//   - wb_wdata_out    : 锁存后的写回数据。
-//   - wb_reg_addr_out : 锁存后的写回地址。
-//   - wb_op_out       : 锁存后的写回使能。
+// - 时序控制：
+//   - clk/reset    : 时钟与同步复位。
+//   - valid/readyGo/allowIn：标准流水握手控制。
+// - 数据输入（来自 MEM）：
+//   - wb_wdata_in：写回数据。
+//   - pc_in：提交 PC。
+//   - wb_reg_addr_in：写回寄存器号。
+//   - wb_op_in：写回使能。
+// - 数据输出（送往 WB）：
+//   - wb_wdata_out/pc_out/wb_reg_addr_out/wb_op_out。
 //
-// TODO：
-// 1) 时序：实现复位清零、握手更新、阻塞保持。
-// 2) 验证：检查 wb_op 与地址/数据在阻塞时不抖动。
+// 与 top 的关系：
+// - 上游连接 `MEMport`，下游连接 `WBport`。
+//
+// 时序优先级（高 -> 低）：
+// 1) reset 清空；2) 握手成功更新；3) valid=0 清空；4) 阻塞保持。
 // ============================================================
 module MEM_WB_reg (
     input  wire        clk,
@@ -31,37 +29,49 @@ module MEM_WB_reg (
     input  wire        allowIn,
 
     input  wire [31:0] wb_wdata_in,
+    input  wire [31:0] pc_in,
     input  wire [ 4:0] wb_reg_addr_in,
     input  wire        wb_op_in,
 
     output  reg [31:0] wb_wdata_out,
+    output  reg [31:0] pc_out,
     output  reg [ 4:0] wb_reg_addr_out,
     output  reg        wb_op_out
 );
 
 always @(posedge clk) begin
+    // 复位：清空本级提交信息
     if (reset) begin
         wb_wdata_out <= 32'b0;
+        pc_out <= 32'b0;
         wb_reg_addr_out <= 5'b0;
         wb_op_out <= 1'b0;
+    // 握手成功：推进 MEM 输出到 WB
     end
     else if (valid && readyGo && allowIn) begin
         wb_wdata_out <= wb_wdata_in;
+        pc_out <= pc_in;
         wb_reg_addr_out <= wb_reg_addr_in;
         wb_op_out <= wb_op_in;
+    // 上游无效：清空输出
     end
     else if (!valid) begin
         wb_wdata_out <= 32'b0;
+        pc_out <= 32'b0;
         wb_reg_addr_out <= 5'b0;
         wb_op_out <= 1'b0;
+    // 下游反压或本级未就绪：保持当前值
     end
     else if (!readyGo | !allowIn) begin
         wb_wdata_out <= wb_wdata_out;
+        pc_out <= pc_out;
         wb_reg_addr_out <= wb_reg_addr_out;
         wb_op_out <= wb_op_out;
+    // 兜底分支：保持安全清空语义
     end
     else begin
         wb_wdata_out <= 32'b0;
+        pc_out <= 32'b0;
         wb_reg_addr_out <= 5'b0;
         wb_op_out <= 1'b0;
     end

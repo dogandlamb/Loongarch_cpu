@@ -1,39 +1,36 @@
 // ============================================================
 // 模块功能：
-// ID/EXE 流水寄存器。负责将 ID 阶段译码得到的操作数和控制信号
-// 在握手成功时锁存并传递给 EXE 阶段。
+// ID/EXE 级间流水寄存器，锁存 ID 阶段生成的操作数、控制信号与 PC，
+// 在 EXE 阶段使用。支持冲刷、握手更新、阻塞保持与无效清空。
 //
 // 端口定义：
-// - 时序与握手输入：
-//   - clk     : 时钟信号。
-//   - reset   : 复位信号。
-//   - valid   : ID 输出有效标志。
-//   - readyGo : 本级已就绪，可向下一级传递数据。
-//   - allowIn : 下一级允许本级写入标志。
-// - 输入（来自 ID）：
-//   - wb_reg_addr_in : 目的寄存器地址。
-//   - alu_src1_in    : ALU 源操作数 1。
-//   - alu_src2_in    : ALU 源操作数 2。
-//   - br_imm_in      : 分支立即数/偏移量。
-//   - alu_op_in      : ALU 操作控制码。
-//   - br_op_in       : 分支操作控制码。
-// - 输出（送往 EXE）：
-//   - wb_reg_addr_out : 锁存后的目的寄存器地址。
-//   - alu_src1_out    : 锁存后的 ALU 源操作数 1。
-//   - alu_src2_out    : 锁存后的 ALU 源操作数 2。
-//   - br_imm_out      : 锁存后的分支立即数。
-//   - alu_op_out      : 锁存后的 ALU 操作控制码。
-//   - br_op_out       : 锁存后的分支操作控制码。
+// - 时序控制：
+//   - clk/reset    : 时钟与同步复位。
+//   - cancel_sig   : 分支冲刷信号（清空本级，防止错路指令进入 EXE）。
+//   - valid/readyGo/allowIn：标准流水握手控制。
+// - 数据输入（来自 ID）：
+//   - wb_reg_addr_in：目的寄存器号。
+//   - alu_src1_in/alu_src2_in：ALU 两路输入。
+//   - br_imm_in/br_op_in：分支偏移与分支类型。
+//   - alu_op_in：ALU 操作码。
+//   - mem_wdata_in/mem_op_in：访存写数据与访存控制。
+//   - wb_op_in：写回使能。
+//   - pc_in：当前指令 PC。
+// - 数据输出（送往 EXE）：
+//   - 对应输入信号的 *_out 锁存版本。
 //
-// TODO：
-// 1) 时序：补齐握手更新和保持策略。
-// 2) 控制：统一新增 mem_op/wb_op 的复位与透传（传给下一级的意思）规范。
-// 3) 验证： ID->EXE 控制/数据一致性。
+// 与 top 的关系：
+// - 上游连接 `IDport`（经 top 的 stall 插泡 mux）。
+// - 下游连接 `EXEport`。
+//
+// 时序优先级（高 -> 低）：
+// 1) reset/cancel 清空；2) 握手成功更新；3) valid=0 清空；4) 阻塞保持。
 // ============================================================
 
 module ID_EXE_reg (
     input  wire        clk,
     input  wire        reset,
+    input  wire        cancel_sig,
     input  wire        valid,
     input  wire        readyGo,
     input  wire        allowIn,
@@ -42,6 +39,7 @@ module ID_EXE_reg (
     input wire  [31:0] alu_src1_in,
     input wire  [31:0] alu_src2_in,
     input wire  [31:0] br_imm_in,
+    input wire  [31:0] pc_in,
     input wire  [11:0] alu_op_in,
     input wire  [ 4:0] br_op_in,
     input wire  [31:0] mem_wdata_in,
@@ -52,6 +50,7 @@ module ID_EXE_reg (
     output reg  [31:0] alu_src1_out,
     output reg  [31:0] alu_src2_out,
     output reg  [31:0] br_imm_out,
+    output reg  [31:0] pc_out,
     output reg  [11:0] alu_op_out,
     output reg  [31:0] mem_wdata_out,
 
@@ -61,60 +60,70 @@ module ID_EXE_reg (
 );
 
 always @(posedge clk) begin
-    if(reset) begin
+    // 复位或冲刷：将本级清空为 NOP
+    if(reset || cancel_sig) begin
         wb_reg_addr_out <= 5'h0;
         alu_src1_out <= 32'h0;
         alu_src2_out <= 32'h0;
         br_imm_out <= 32'h0;
+        pc_out <= 32'h0;
         alu_op_out <= 12'h0;
         mem_wdata_out <= 32'b0;
         br_op_out <= 5'h0;
         mem_op_out <= 2'h0;
-        wb_op_out <= 1'h0; 
+        wb_op_out <= 1'h0;
+    // 握手成功：锁存 ID 输出，推进到 EXE
     end
     else if(valid && readyGo && allowIn) begin
         wb_reg_addr_out <= wb_reg_addr_in;
         alu_src1_out <= alu_src1_in;
         alu_src2_out <= alu_src2_in;
         br_imm_out <= br_imm_in;
+        pc_out <= pc_in;
         alu_op_out <= alu_op_in;
         mem_wdata_out <= mem_wdata_in;
         br_op_out <= br_op_in;
         mem_op_out <= mem_op_in;
         wb_op_out <= wb_op_in;
+    // 上游无效：清空，防止无效数据传播
     end
     else if(!valid) begin
         wb_reg_addr_out <= 5'h0;
         alu_src1_out <= 32'h0;
         alu_src2_out <= 32'h0;
         br_imm_out <= 32'h0;
+        pc_out <= 32'h0;
         alu_op_out <= 12'h0;
         mem_wdata_out <= 32'b0;
         br_op_out <= 5'h0;
         mem_op_out <= 2'h0;
-        wb_op_out <= 1'h0; 
+        wb_op_out <= 1'h0;
+    // 下游反压或本级未就绪：保持当前值
     end
     else if(!readyGo | !allowIn) begin
         wb_reg_addr_out <= wb_reg_addr_out;
         alu_src1_out <= alu_src1_out;
         alu_src2_out <= alu_src2_out;
         br_imm_out <= br_imm_out;
+        pc_out <= pc_out;
         alu_op_out <= alu_op_out;
         mem_wdata_out <= mem_wdata_out;
         br_op_out <= br_op_out;
         mem_op_out <= mem_op_out;
         wb_op_out <= wb_op_out;
+    // 兜底分支：保持安全清空语义
     end
     else begin
         wb_reg_addr_out <= 5'h0;
         alu_src1_out <= 32'h0;
         alu_src2_out <= 32'h0;
         br_imm_out <= 32'h0;
+        pc_out <= 32'h0;
         alu_op_out <= 12'h0;
-        mem_wdata_out <= 32'b0;
+        mem_wdata_out <= 32'h0;
         br_op_out <= 5'h0;
         mem_op_out <= 2'h0;
-        wb_op_out <= 1'h0; 
+        wb_op_out <= 1'h0;
     end
 end
 
