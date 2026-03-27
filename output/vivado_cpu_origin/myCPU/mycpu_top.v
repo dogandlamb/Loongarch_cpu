@@ -26,14 +26,15 @@
 // ============================================================
 module mycpu_top(
     input  wire        clk,
-    
     input  wire        resetn,
 
+    output wire        inst_sram_en,   //改成bram后新增的输出
     output wire        inst_sram_we,
     output wire [31:0] inst_sram_addr,
     output wire [31:0] inst_sram_wdata,
     input  wire [31:0] inst_sram_rdata,
 
+    output wire        data_sram_en,   //改成bram后新增的输出
     output wire        data_sram_we,
     output wire [31:0] data_sram_addr,
     output wire [31:0] data_sram_wdata,
