@@ -5,6 +5,25 @@
 >  1. minicpu_env/miniCPU/目录下的代码功能不全，是有意为之，无需提issue修正。
 >  2. mycpu_env/myCPU/目录下的代码有功能错误，亦是有意为之，无需提issue修正。
 
+## 当前仓库开发入口（本工程）
+
+本仓库当前主要开发与验证目录为：
+
+- RTL 主目录：`output/vivado_cpu_origin/myCPU`
+- SoC 验证目录：`output/vivado_cpu_origin/soc_verify/soc_dram`
+- 仿真工程目录：`output/vivado_cpu_origin/soc_verify/soc_dram/run_vivado/project`
+
+### 已完成实现（阶段说明）
+
+- 五级流水：IF / ID / EXE / MEM / WB
+- 冲突处理：数据相关采用阻塞插泡，控制相关采用分支冲刷
+- 顶层集成：`mycpu_top` 已接入 `npc` 与 `WBport`
+
+
+### 版本控制说明
+
+仓库根目录已添加 `.gitignore`，用于忽略常见仿真/综合生成文件（如 `*.log`、`*.vcd`、Vivado `cache/sim/runs` 目录等），减少无关产物进入提交。
+
 ## 实验安排简介
 
 ### **文件路径：dc_env**
