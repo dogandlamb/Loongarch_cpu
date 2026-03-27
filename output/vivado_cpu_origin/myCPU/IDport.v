@@ -2,6 +2,7 @@ module IDport (
     input  wire        clk,
     input  wire        reset,
     input  wire        valid,
+    input  wire        stall,
 
     input  wire [31:0] inst,
     input  wire [31:0] src1_rdata,
@@ -36,6 +37,7 @@ module IDport (
 //   - clk     : 时钟信号。
 //   - reset   : 复位信号。
 //   - valid   : 当前 ID 级输入有效标志。
+//   - stall   : RAW 阻塞插泡信号（仅清空送 EXE 的控制/数据，不清读地址）。
 //   - allowIn : 本级是否允许上一级写入新数据。
 //   - readyGo : 本级是否已就绪，可向下一级传递数据。
 // - 输入：
@@ -99,6 +101,8 @@ wire [31:0] alu_imm_w;
 wire [31:0] br_imm_w;
 wire [31:0] alu_src1_w;
 wire [31:0] alu_src2_w;
+wire [4:0]  rf_raddr1_w;
+wire [4:0]  rf_raddr2_w;
 
 assign inst_ori = (inst[31:26] == 6'h00) && (inst[25:22] == 4'he);
 wire wb_op_w;
@@ -216,6 +220,34 @@ ALU_srcGenerator u_ALU_srcGenerator(
     .alu_src2     (alu_src2_w)
 );
 
+// 读寄存器地址统一由 get_reg_read_addr 生成，避免在 top/ID 重复维护规则
+get_reg_read_addr u_get_reg_read_addr(
+    .reset        (reset),
+    .inst         (inst),
+    .inst_add_w   (inst_add_w),
+    .inst_addi_w  (inst_addi_w),
+    .inst_sub_w   (inst_sub_w),
+    .inst_ld_w    (inst_ld_w),
+    .inst_st_w    (inst_st_w),
+    .inst_bne     (inst_bne),
+    .inst_slt     (inst_slt),
+    .inst_sltu    (inst_sltu),
+    .inst_and     (inst_and),
+    .inst_or      (inst_or),
+    .inst_nor     (inst_nor),
+    .inst_xor     (inst_xor),
+    .inst_slli_w  (inst_slli_w),
+    .inst_srli_w  (inst_srli_w),
+    .inst_srai_w  (inst_srai_w),
+    .inst_b       (inst_b),
+    .inst_bl      (inst_bl),
+    .inst_beq     (inst_beq),
+    .inst_jirl    (inst_jirl),
+    .inst_lu12i_w (inst_lu12i_w),
+    .rf_raddr1    (rf_raddr1_w),
+    .rf_raddr2    (rf_raddr2_w)
+);
+
 always @(*) begin
     allowIn     = 1'b1;
     readyGo     = 1'b1;
@@ -233,33 +265,34 @@ always @(*) begin
     pc_out      = 32'b0;
 
     if (!reset && valid) begin
-        src1_addr   = inst[9:5];
-        src2_addr   = inst[14:10];
-        wb_reg_addr = inst_bl ? 5'd1 : inst[4:0];
-        alu_src1    = alu_src1_w;
-        alu_src2    = alu_src2_w;
-        br_imm      = br_imm_w;
-        alu_op      = alu_op_w;
-        br_op       = br_op_w;
-        mem_op      = {inst_ld_w, inst_st_w};
-        mem_wdata   = src2_rdata;
-        wb_op       = wb_op_w;
-        pc_out      = pc_in;
+        src1_addr   = rf_raddr1_w;
+        src2_addr   = rf_raddr2_w;
+        // 注意：stall 只对送 EXE 的控制/数据插泡，不影响读寄存器地址。
+        wb_reg_addr = stall ? 5'd0  : (inst_bl ? 5'd1 : inst[4:0]);
+        alu_src1    = stall ? 32'd0 : alu_src1_w;
+        alu_src2    = stall ? 32'd0 : alu_src2_w;
+        br_imm      = stall ? 32'd0 : br_imm_w;
+        alu_op      = stall ? 12'd0 : alu_op_w;
+        br_op       = stall ? 5'd0  : br_op_w;
+        mem_op      = stall ? 2'd0  : {inst_ld_w, inst_st_w};
+        mem_wdata   = stall ? 32'd0 : src2_rdata;
+        wb_op       = stall ? 1'b0  : wb_op_w;
+        pc_out      = stall ? 32'd0 : pc_in;
 
-        // 补充 ori 的最小闭环译码（用于功能测试常见的 lu12i+ori 常量构造）
+        // ori 专用路径：使用零扩展 ui12，与通用译码输出保持一致的写回语义
         if (inst_ori) begin
-            src1_addr   = inst[9:5];
-            src2_addr   = 5'd0;
-            wb_reg_addr = inst[4:0];
-            alu_src1    = src1_rdata;
-            alu_src2    = {20'b0, inst[21:10]};
+            src1_addr   = rf_raddr1_w;
+            src2_addr   = rf_raddr2_w;
+            wb_reg_addr = stall ? 5'd0  : inst[4:0];
+            alu_src1    = stall ? 32'd0 : src1_rdata;
+            alu_src2    = stall ? 32'd0 : {20'b0, inst[21:10]};
             br_imm      = 32'b0;
-            alu_op      = 12'h040; // op_or
+            alu_op      = stall ? 12'd0 : 12'h040; // op_or
             br_op       = 5'b0;
             mem_op      = 2'b0;
             mem_wdata   = 32'b0;
-            wb_op       = 1'b1;
-            pc_out      = pc_in;
+            wb_op       = stall ? 1'b0 : 1'b1;
+            pc_out      = stall ? 32'd0 : pc_in;
         end
     end
 end

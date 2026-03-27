@@ -1,5 +1,23 @@
+// ============================================================
+// 模块功能：
+// 立即数/分支偏移生成器。根据指令类型选择并扩展不同位宽的立即数字段，
+// 输出：
+// - alu_imm：ALU 第二操作数相关立即数（含 ui5/si12/si20/si16/si26 及 link 的 +4）。
+// - br_imm ：分支目标偏移（仅 si16/si26 左移 2 位后的符号扩展值）。
+//
+// 端口定义：
+// - 输入：
+//   - inst：当前指令字。
+//   - inst_*：指令类型标志（决定立即数格式与扩展方式）。
+// - 输出：
+//   - alu_imm：供 `ALU_srcGenerator/IDport` 使用。
+//   - br_imm ：供分支跳转目标计算使用。
+//
+// 与 top 的关系：
+// - 由 `IDport` 实例化，输出进入 EXE 级（经 ID_EXE_reg 传递）。
+// ============================================================
 module imm_generator (
-    input wire reset,        // 目前还用不到
+    input wire reset,        // 保留接口（当前为组合逻辑，不直接使用）
     input wire [31:0] inst,
     input wire inst_add_w,
     input wire inst_addi_w,
@@ -65,5 +83,4 @@ module imm_generator (
                     need_si16 ? {{14{i16[15]}} , i16[15:0] , 2'b00}:
                     32'b0;
     
-    //todo:生成立即
 endmodule

@@ -18,7 +18,7 @@
 //
 // 与其他模块关系：
 // - 前端：pc + npc + IFport + IF_ID_reg。
-// - 译码：IDport + regfile + get_reg_read_addr + inst_dec。
+// - 译码：IDport（内部含 inst_dec/get_reg_read_addr/imm_generator/op_dec）+ regfile。
 // - 执行：ID_EXE_reg + EXEport + alu。
 // - 访存：EXE_MEM_reg + MEMport。
 // - 写回：MEM_WB_reg + WBport。
@@ -66,15 +66,10 @@ module mycpu_top(
 
     wire        stall;           // 顶层统一阻塞信号（当前等价于 block_sig）
     wire        pc_stall;        // PC 寄存器保持信号（阻塞且非分支重定向时拉高）
-    wire        raw_hazard;      // 综合 RAW 冲突（基础检测 + MEM/WB 补充窗口）
-    wire        raw_hazard_base; // conflict_detector 给出的基础 RAW 冲突
-    wire        raw_hazard_extra;// 顶层补充的 MEM->ID 同拍读写冲突检测
+    wire        raw_hazard;      // 综合 RAW 冲突（由 conflict_handle 输出）
+    wire        raw_hazard_det;  // conflict_detector 给出的 RAW 冲突检测结果
     wire        block_sig;       // 送入 controller/npc 的阻塞主信号
     wire        cancel_sig;      // 分支冲刷信号（清 IF/ID、ID/EXE）
-
-    assign raw_hazard = raw_hazard_base | raw_hazard_extra;
-    assign block_sig = raw_hazard;
-    assign stall     = block_sig;
 
     pc u_pc(
         .clk    (clk),
@@ -126,65 +121,10 @@ module mycpu_top(
     );
 
     //------------------------------------------------------------------
-    // ID：组合读寄存器堆地址（与 IF/ID 中指令对齐）
+    // ID
     //------------------------------------------------------------------
-    wire        d_add_w, d_addi_w, d_sub_w, d_ld_w, d_st_w, d_bne;
-    wire        d_slt, d_sltu, d_and, d_or, d_nor, d_xor;
-    wire        d_slli, d_srli, d_srai, d_b, d_bl, d_beq, d_jirl, d_lu12i;
-    inst_dec u_inst_dec_hdu(
-        .reset        (reset),
-        .inst         (inst_2ID),
-        .inst_add_w   (d_add_w),
-        .inst_addi_w  (d_addi_w),
-        .inst_sub_w   (d_sub_w),
-        .inst_ld_w    (d_ld_w),
-        .inst_st_w    (d_st_w),
-        .inst_bne     (d_bne),
-        .inst_slt     (d_slt),
-        .inst_sltu    (d_sltu),
-        .inst_and     (d_and),
-        .inst_or      (d_or),
-        .inst_nor     (d_nor),
-        .inst_xor     (d_xor),
-        .inst_slli_w  (d_slli),
-        .inst_srli_w  (d_srli),
-        .inst_srai_w  (d_srai),
-        .inst_b       (d_b),
-        .inst_bl      (d_bl),
-        .inst_beq     (d_beq),
-        .inst_jirl    (d_jirl),
-        .inst_lu12i_w (d_lu12i)
-    );
-
-    wire [4:0] rf_raddr1;        // regfile 读端口1地址（ID 源寄存器1）
-    wire [4:0] rf_raddr2;        // regfile 读端口2地址（ID 源寄存器2）
-
-    get_reg_read_addr u_get_reg_read_addr(
-        .reset        (reset),
-        .inst         (inst_2ID),
-        .inst_add_w   (d_add_w),
-        .inst_addi_w  (d_addi_w),
-        .inst_sub_w   (d_sub_w),
-        .inst_ld_w    (d_ld_w),
-        .inst_st_w    (d_st_w),
-        .inst_bne     (d_bne),
-        .inst_slt     (d_slt),
-        .inst_sltu    (d_sltu),
-        .inst_and     (d_and),
-        .inst_or      (d_or),
-        .inst_nor     (d_nor),
-        .inst_xor     (d_xor),
-        .inst_slli_w  (d_slli),
-        .inst_srli_w  (d_srli),
-        .inst_srai_w  (d_srai),
-        .inst_b       (d_b),
-        .inst_bl      (d_bl),
-        .inst_beq     (d_beq),
-        .inst_jirl    (d_jirl),
-        .inst_lu12i_w (d_lu12i),
-        .rf_raddr1    (rf_raddr1),
-        .rf_raddr2    (rf_raddr2)
-    );
+    wire [4:0] rf_raddr1;        // regfile 读端口1地址（来自 IDport）
+    wire [4:0] rf_raddr2;        // regfile 读端口2地址（来自 IDport）
 
     wire [31:0] rf_rdata1;       // regfile 读端口1数据
     wire [31:0] rf_rdata2;       // regfile 读端口2数据
@@ -209,6 +149,7 @@ module mycpu_top(
         .clk        (clk),
         .reset      (reset),
         .valid      (ID_valid),
+        .stall      (stall),
         .inst       (inst_2ID),
         .pc_in      (pc_2ID),
         .src1_rdata (rf_rdata1),
@@ -229,30 +170,9 @@ module mycpu_top(
         .wb_op      (wb_op_fromID)
     );
 
-    //------------------------------------------------------------------
-    // 阻塞：RAW 时在 ID/EXE 间插入气泡，写后读数据冲突
-    //------------------------------------------------------------------
-    wire [4:0]  wb_reg_addr_i;   // stall 时置 0，向 ID_EXE_reg 注入 NOP
-    wire [31:0] alu_src1_i;      // stall 气泡后的 ALU 源1
-    wire [31:0] alu_src2_i;      // stall 气泡后的 ALU 源2
-    wire [31:0] br_imm_i;        // stall 气泡后的分支偏移
-    wire [11:0] alu_op_i;        // stall 气泡后的 ALU 操作码
-    wire [4:0]  br_op_i;         // stall 气泡后的分支操作码
-    wire [31:0] mem_wdata_i;     // stall 气泡后的 store 数据
-    wire [1:0]  mem_op_i;        // stall 气泡后的访存操作码
-    wire        wb_op_i;         // stall 气泡后的写回使能
-    wire [31:0] pc_i;            // stall 气泡后的 PC
-
-    assign wb_reg_addr_i = stall ? 5'd0  : wb_reg_addr_fromID;
-    assign alu_src1_i    = stall ? 32'd0 : alu_src1_fromID;
-    assign alu_src2_i    = stall ? 32'd0 : alu_src2_fromID;
-    assign br_imm_i      = stall ? 32'd0 : br_imm_fromID;
-    assign alu_op_i      = stall ? 12'd0 : alu_op_fromID;
-    assign br_op_i       = stall ? 5'd0  : br_op_fromID;
-    assign mem_wdata_i   = stall ? 32'd0 : mem_wdata_fromID;
-    assign mem_op_i      = stall ? 2'd0  : mem_op_fromID;
-    assign wb_op_i       = stall ? 1'b0  : wb_op_fromID;
-    assign pc_i          = stall ? 32'd0 : id_pc_fromID;
+    // IDport 内部通过 get_reg_read_addr 生成读地址，直接驱动 regfile 读端口
+    assign rf_raddr1 = id_src1_addr;
+    assign rf_raddr2 = id_src2_addr;
 
     wire        ID_EXE_reg_valid; // ID_EXE_reg 输入 valid
     wire        ID_EXE_reg_allowIn;// ID_EXE_reg 允许写入
@@ -273,16 +193,16 @@ module mycpu_top(
         .valid           (ID_EXE_reg_valid),
         .readyGo         (ID_readyGo),
         .allowIn         (ID_EXE_reg_allowIn),
-        .wb_reg_addr_in  (wb_reg_addr_i),
-        .alu_src1_in     (alu_src1_i),
-        .alu_src2_in     (alu_src2_i),
-        .br_imm_in       (br_imm_i),
-        .alu_op_in       (alu_op_i),
-        .br_op_in        (br_op_i),
-        .mem_wdata_in    (mem_wdata_i),
-        .mem_op_in       (mem_op_i),
-        .wb_op_in        (wb_op_i),
-        .pc_in           (pc_i),
+        .wb_reg_addr_in  (wb_reg_addr_fromID),
+        .alu_src1_in     (alu_src1_fromID),
+        .alu_src2_in     (alu_src2_fromID),
+        .br_imm_in       (br_imm_fromID),
+        .alu_op_in       (alu_op_fromID),
+        .br_op_in        (br_op_fromID),
+        .mem_wdata_in    (mem_wdata_fromID),
+        .mem_op_in       (mem_op_fromID),
+        .wb_op_in        (wb_op_fromID),
+        .pc_in           (id_pc_fromID),
         .wb_reg_addr_out (wb_reg_addr_2EXE),
         .alu_src1_out    (alu_src1_2EXE),
         .alu_src2_out    (alu_src2_2EXE),
@@ -302,8 +222,6 @@ module mycpu_top(
     wire [31:0] npc_br_offs;     // 送 npc 的分支偏移
     wire [31:0] npc_rj_value;    // 送 npc 的 jirl 基址（rj）
     wire [31:0] npc_pc_in;       // 送 npc 的分支/顺序执行基准 PC
-
-    assign cancel_sig  = br_taken_comb;
 
     assign npc_br_taken = br_taken_comb;
     assign npc_br_op    = br_op_2EXE;
@@ -406,9 +324,6 @@ module mycpu_top(
     wire [31:0] mem_dsram_wdata;  // 数据 SRAM 写数据
     wire [31:0] mem_dsram_addr;   // 数据 SRAM 地址
     wire        mem_dsram_we;     // 数据 SRAM 写使能
-    assign raw_hazard_extra = mem_wb_op && (mem_wb_regaddr != 5'd0)
-                            && ((mem_wb_regaddr == rf_raddr1) || (mem_wb_regaddr == rf_raddr2));
-
     MEMport u_MEMport(
         .clk            (clk),
         .reset          (reset),
@@ -499,6 +414,7 @@ module mycpu_top(
     //------------------------------------------------------------------
     // 冒险与控制器
     //------------------------------------------------------------------
+
     conflict_detector u_conflict_detector(
         .id_rs1    (rf_raddr1),
         .id_rs2    (rf_raddr2),
@@ -506,9 +422,20 @@ module mycpu_top(
         .exe_wb    (wb_op_2EXE),
         .mem_rd    (em_wb_reg),
         .mem_wb    (em_wb_op),
+        .memwb_rd  (mem_wb_regaddr),
+        .memwb_wb  (mem_wb_op),
         .wb_rd     (wb_waddr),
         .wb_wb     (wb_we),
-        .raw_hazard(raw_hazard_base)
+        .raw_hazard(raw_hazard_det)
+    );
+
+    conflict_handle u_conflict_handle(
+        .raw_hazard_in(raw_hazard_det),
+        .br_taken_comb(br_taken_comb),
+        .raw_hazard  (raw_hazard),
+        .block_sig   (block_sig),
+        .stall       (stall),
+        .cancel_sig  (cancel_sig)
     );
 
     pipeline_controller u_pipeline_controller(
