@@ -5,8 +5,8 @@
 //
 // 端口定义：
 // - id_rs1/id_rs2：ID 级源寄存器地址。
-// - exe_rd/mem_rd/wb_rd：各级目的寄存器地址。
-// - exe_wb/mem_wb/wb_wb：各级是否会写回。
+// - exe_rd/mem_rd/memwb_rd/wb_rd：各级目的寄存器地址。
+// - exe_wb/mem_wb/memwb_wb/wb_wb：各级是否会写回。
 // - raw_hazard：任一级命中 RAW 冲突时置 1。
 //
 // 与 top 的联系：
@@ -20,6 +20,8 @@ module conflict_detector(
     input  wire        exe_wb,
     input  wire [ 4:0] mem_rd,
     input  wire        mem_wb,
+    input  wire [ 4:0] memwb_rd,
+    input  wire        memwb_wb,
     input  wire [ 4:0] wb_rd,
     input  wire        wb_wb,
 
@@ -30,9 +32,11 @@ wire hit_exe = exe_wb && (exe_rd != 5'd0)
     && ((exe_rd == id_rs1) || (exe_rd == id_rs2));
 wire hit_mem = mem_wb && (mem_rd != 5'd0)
     && ((mem_rd == id_rs1) || (mem_rd == id_rs2));
+wire hit_memwb = memwb_wb && (memwb_rd != 5'd0)
+    && ((memwb_rd == id_rs1) || (memwb_rd == id_rs2));
 wire hit_wb  = wb_wb  && (wb_rd  != 5'd0)
     && ((wb_rd  == id_rs1) || (wb_rd  == id_rs2));
 
-assign raw_hazard = hit_exe | hit_mem | hit_wb;
+assign raw_hazard = hit_exe | hit_mem | hit_memwb | hit_wb;
 
 endmodule
