@@ -36,9 +36,9 @@ module bram_data_stream_controller(
 
     output reg data_w_complete,
     output reg data_r_complete,
-    output reg inst_r_complete
+    output reg inst_r_complete,
 
-    output reg [31:0] pc_out_2ID;
+    output reg [31:0] pc_out_2ID
 
 );
 /*
@@ -118,19 +118,19 @@ end
 
 always @ (posedge clk) begin
     if(reset) data_w_complete <= 1'b0;
-    else if data_w_complete <= 1'b1;
+    else if(!data_w_wrong_local) data_w_complete <= 1'b1;
     else data_w_complete <= 1'b0;
 end
 
 always @ (posedge clk) begin
     if(reset) data_r_complete <= 1'b0;
-    else if data_r_complete <= 1'b1;
+    else if(!data_r_wrong_local) data_r_complete <= 1'b1;
     else data_r_complete <= 1'b0;
 end
 
 always @ (posedge clk) begin
     if(reset) inst_r_complete <= 1'b0;
-    else if inst_r_complete <= 1'b1;
+    else if(!inst_r_wrong_local) inst_r_complete <= 1'b1;
     else inst_r_complete <= 1'b0;
 end
 
