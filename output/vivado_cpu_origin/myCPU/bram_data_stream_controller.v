@@ -38,6 +38,8 @@ module bram_data_stream_controller(
     output reg data_r_complete,
     output reg inst_r_complete
 
+    output reg [31:0] pc_out_2ID;
+
 );
 /*
     inst_r_we_in_from_IF： 从IF阶段收到的指令读取使能
@@ -100,36 +102,41 @@ assign inst_rdata_2IF  = inst_rdata_from_bram;
 assign data_rdata_2MEM = data_rdata_from_bram;
 
 always @ (posedge clk) begin
-    if(reset) data_w_wrong = 1'b0;
+    if(reset) data_w_wrong <= 1'b0;
     else data_w_wrong <= data_w_wrong_local;
 end
 
 always @ (posedge clk) begin
-    if(reset) data_r_wrong = 1'b0;
+    if(reset) data_r_wrong <= 1'b0;
     else data_r_wrong <= data_r_wrong_local;
 end
 
 always @ (posedge clk) begin
-    if(reset) inst_r_wrong = 1'b0;
+    if(reset) inst_r_wrong <= 1'b0;
     else inst_r_wrong <= inst_r_wrong_local;
 end
 
 always @ (posedge clk) begin
-    if(reset) data_w_complete = 1'b0;
+    if(reset) data_w_complete <= 1'b0;
     else if data_w_complete <= 1'b1;
     else data_w_complete <= 1'b0;
 end
 
 always @ (posedge clk) begin
-    if(reset) data_r_complete = 1'b0;
+    if(reset) data_r_complete <= 1'b0;
     else if data_r_complete <= 1'b1;
     else data_r_complete <= 1'b0;
 end
 
 always @ (posedge clk) begin
-    if(reset) inst_r_complete = 1'b0;
+    if(reset) inst_r_complete <= 1'b0;
     else if inst_r_complete <= 1'b1;
     else inst_r_complete <= 1'b0;
+end
+
+always @ (posedge clk) begin
+    if(reset) pc_out_2ID <= 32'b0;
+    else pc_out_2ID <= pc_in_from_IF;
 end
 
 endmodule
