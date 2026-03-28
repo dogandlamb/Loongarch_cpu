@@ -67,7 +67,12 @@ module mycpu_top(
 
     wire        stall;           // 顶层统一阻塞信号（当前等价于 block_sig）
     wire        pc_stall;        // PC 寄存器保持信号（阻塞且非分支重定向时拉高）
-    wire        raw_hazard;      // 综合 RAW 冲突（由 conflict_handle 输出）
+    wire        hit_exe_rs1;         // 执行阶段冲突1
+    wire        hit_mem_rs1;         // 访存阶段冲突1
+    wire        hit_wb_rs1;          // 写回阶段冲突1
+    wire        hit_exe_rs2;         // 执行阶段冲突2
+    wire        hit_mem_rs2;         // 访存阶段冲突2
+    wire        hit_wb_rs2;          // 写回阶段冲突2
     wire        raw_hazard_det;  // conflict_detector 给出的 RAW 冲突检测结果
     wire        block_sig;       // 送入 controller/npc 的阻塞主信号
     wire        cancel_sig;      // 分支冲刷信号（清 IF/ID、ID/EXE）
@@ -153,8 +158,8 @@ module mycpu_top(
         .stall      (stall),
         .inst       (inst_2ID),
         .pc_in      (pc_2ID),
-        .src1_rdata (rf_rdata1),
-        .src2_rdata (rf_rdata2),
+        .src1_rdata (ID_src1_rdata),
+        .src2_rdata (ID_src2_rdata),
         .allowIn    (ID_allowIn),
         .readyGo    (ID_readyGo),
         .src1_addr  (id_src1_addr),
@@ -174,6 +179,9 @@ module mycpu_top(
     // IDport 内部通过 get_reg_read_addr 生成读地址，直接驱动 regfile 读端口
     assign rf_raddr1 = id_src1_addr;
     assign rf_raddr2 = id_src2_addr;
+
+    wire [31:0] ID_src1_rdata;
+    wire [31:0] ID_src2_rdata;//由前递模块返回的读取数据，可能为寄存器读取或者前递的数据
 
     wire        ID_EXE_reg_valid; // ID_EXE_reg 输入 valid
     wire        ID_EXE_reg_allowIn;// ID_EXE_reg 允许写入
@@ -417,26 +425,59 @@ module mycpu_top(
     //------------------------------------------------------------------
 
     conflict_detector u_conflict_detector(
-        .id_rs1    (rf_raddr1),
-        .id_rs2    (rf_raddr2),
-        .exe_rd    (wb_reg_addr_2EXE),
-        .exe_wb    (wb_op_2EXE),
-        .mem_rd    (em_wb_reg),
-        .mem_wb    (em_wb_op),
-        .memwb_rd  (mem_wb_regaddr),
-        .memwb_wb  (mem_wb_op),
-        .wb_rd     (wb_waddr),
-        .wb_wb     (wb_we),
-        .raw_hazard(raw_hazard_det)
+        .id_rs1        (rf_raddr1),
+        .id_rs2        (rf_raddr2),
+        .exe_rd        (wb_reg_addr_2EXE),
+        .exe_wb        (wb_op_2EXE),
+        .mem_rd        (em_wb_reg),
+        .mem_wb        (em_wb_op),
+        .memwb_rd      (mem_wb_regaddr),
+        .memwb_wb      (mem_wb_op),
+        .wb_rd         (wb_waddr),
+        .wb_wb         (wb_we),
+        .hit_exe_rs1   (hit_exe_rs1),
+        .hit_mem_rs1   (hit_mem_rs1),
+        .hit_wb_rs1    (hit_wb_rs1),
+        .hit_exe_rs2   (hit_exe_rs2),
+        .hit_mem_rs2   (hit_mem_rs2),
+        .hit_wb_rs2    (hit_wb_rs2)
     );
 
     conflict_handle u_conflict_handle(
-        .raw_hazard_in(raw_hazard_det),
+        .hit_exe_rs1   (hit_exe_rs1),
+        .hit_mem_rs1   (hit_mem_rs1),
+        .hit_wb_rs1    (hit_wb_rs1),
+        .hit_exe_rs2   (hit_exe_rs2),
+        .hit_mem_rs2   (hit_mem_rs2),
+        .hit_wb_rs2    (hit_wb_rs2),
         .br_taken_comb(br_taken_comb),
         .raw_hazard  (raw_hazard),
         .block_sig   (block_sig),
         .stall       (stall),
-        .cancel_sig  (cancel_sig)
+        .cancel_sig  (cancel_sig),
+        .FD_EXE_2rs1_sig  (FD_EXE_2rs1_sig),
+        .FD_MEM_2rs1_sig  (FD_MEM_2rs1_sig),
+        .FD_WB_2rs1_sig   (FD_WB_2rs1_sig),
+        .FD_EXE_2rs2_sig  (FD_EXE_2rs2_sig),
+        .FD_MEM_2rs2_sig  (FD_MEM_2rs2_sig),
+        .FD_WB_2rs2_sig   (FD_WB_2rs2_sig)
+    );
+
+    forward_deliver u_forward_deliver(
+        .FD_EXE_2rs1_sig  (FD_EXE_2rs1_sig),
+        .FD_MEM_2rs1_sig  (FD_MEM_2rs1_sig),
+        .FD_WB_2rs1_sig   (FD_WB_2rs1_sig),
+        .FD_EXE_2rs2_sig  (FD_EXE_2rs2_sig),
+        .FD_MEM_2rs2_sig  (FD_MEM_2rs2_sig),
+        .FD_WB_2rs2_sig   (FD_WB_2rs2_sig),
+        .rf_rdata1        (rf_rdata1),
+        .rf_rdata2        (rf_rdata2),
+        .EXE_data         (exe_final_result),
+        .MEM_data         (em_result),
+        .WB_data          (mwb_wdata),
+        .ID_src1_rdata    (ID_src1_rdata),
+        .ID_src2_rdata    (ID_src2_rdata)
+
     );
 
     pipeline_controller u_pipeline_controller(

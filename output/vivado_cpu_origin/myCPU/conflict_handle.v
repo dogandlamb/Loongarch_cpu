@@ -1,7 +1,9 @@
 // ============================================================
 // 模块功能：
 // 冲突控制汇总模块。统一组合生成：
-// - raw_hazard：综合 RAW 冲突
+// - hit_exe   : 执行阶段冲突
+// - hit_mem   : 访存阶段冲突
+// - hit_wb    : 访存阶段冲突
 // - block_sig ：流水阻塞主信号
 // - stall     ：插泡控制（当前等价 block_sig）
 // - cancel_sig：分支冲刷信号
@@ -13,22 +15,52 @@
 // - block_sig     ：阻塞主信号。
 // - stall         ：阻塞插泡信号。
 // - cancel_sig    ：冲刷信号（组合分支命中）。
+// - FD_EXE_sig    : EXE阶段数据前递信号
+// - FD_MEM_sig    : MEM阶段数据前递信号       
+// - FD_WB_sig     : WB阶段数据前递信号
 //
 // 与 top 的联系：
 // - 在 `mycpu_top` 中替代原先分散的 assign 组合逻辑，便于控制逻辑集中维护。
 // ============================================================
+//todo:注释还没有完全修改，待修改
 module conflict_handle(
-    input  wire raw_hazard_in,
+    input  wire hit_exe_rs1,
+    input  wire hit_mem_rs1,
+    input  wire hit_wb_rs1,
+    input  wire hit_exe_rs2,
+    input  wire hit_mem_rs2,
+    input  wire hit_wb_rs2,
     input  wire br_taken_comb,
     output wire raw_hazard,
     output wire block_sig,
     output wire stall,
-    output wire cancel_sig
+    output wire cancel_sig,
+    output wire FD_EXE_2rs1_sig,
+    output wire FD_MEM_2rs1_sig,
+    output wire FD_WB_2rs1_sig,
+    output wire FD_EXE_2rs2_sig,
+    output wire FD_MEM_2rs2_sig,
+    output wire FD_WB_2rs2_sig
 );
 
-assign raw_hazard = raw_hazard_in;
-assign block_sig  = raw_hazard;
-assign stall      = block_sig;
+parameter BLOCK_MODE_ENABLE = 1'b1;
+parameter FD_MODE_ENABLE    = 1'b0;
+
+wire hit_exe = hit_exe_rs1 | hit_exe_rs2;
+wire hit_mem = hit_exe_rs1 | hit_exe_rs2;
+wire hit_wb  = hit_wb_rs1  | hit_wb_rs2;
+
+assign raw_hazard = hit_exe | hit_mem | hit_wb;
+assign block_sig  = BLOCK_MODE_ENABLE ? raw_hazard : 1'b0;
+assign stall      = BLOCK_MODE_ENABLE ? block_sig  : 1'b0;
+
+assign FD_EXE_2rs1_sig = FD_MODE_ENABLE ? hit_exe_rs1 : 1'b0;
+assign FD_MEM_2rs1_sig = FD_MODE_ENABLE ? hit_mem_rs1 : 1'b0;
+assign FD_WB_2rs1_sig  = FD_MODE_ENABLE ? hit_wb_rs1  : 1'b0;
+assign FD_EXE_2rs2_sig = FD_MODE_ENABLE ? hit_exe_rs2 : 1'b0;
+assign FD_MEM_2rs2_sig = FD_MODE_ENABLE ? hit_mem_rs2 : 1'b0;
+assign FD_WB_2rs2_sig  = FD_MODE_ENABLE ? hit_wb_rs2  : 1'b0;
+
 assign cancel_sig = br_taken_comb;
 
 endmodule

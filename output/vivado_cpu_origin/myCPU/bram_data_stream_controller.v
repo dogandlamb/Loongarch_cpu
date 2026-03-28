@@ -4,12 +4,12 @@ module bram_data_stream_controller(
 
     input wire inst_r_we_in_from_IF,
     input wire data_w_we_in_from_EXE,
-    input wire data_r_we_in_from_MEM,
+    input wire data_r_we_in_from_EXE,
 
     input wire [31:0] pc_in_from_IF,
     input wire [31:0] data_raddr_from_EXE,
-    input wire [31:0] data_waddr_from_MEM,
-    input wire [31:0] data_wdata_from_MEM,
+    input wire [31:0] data_waddr_from_EXE,
+    input wire [31:0] data_wdata_from_EXE,
 
     input wire [31:0] inst_rdata_from_bram,
     input wire [31:0] data_rdata_from_bram,
@@ -44,12 +44,12 @@ module bram_data_stream_controller(
 /*
     inst_r_we_in_from_IF： 从IF阶段收到的指令读取使能
     data_w_we_in_from_EXE：从EXE阶段收到的数据读取使能
-    data_r_we_in_from_MEM：从MEM阶段收到的数据写入使能
+    data_r_we_in_from_EXE：从EXE阶段收到的数据写入使能
 
    pc_in_from_IF      ：从IF阶段收到的指令地址
    data_raddr_from_EXE：从EXE阶段收到的数据读取地址
-   data_waddr_from_MEM：从MEM阶段收到的数据写入地址
-   data_wdata_from_MEM：从MEM阶段收到的数据写入数据
+   data_waddr_from_EXE：从EXE阶段收到的数据写入地址
+   data_wdata_from_EXE：从EXE阶段收到的数据写入数据
 
    inst_rdata_from_bram：内存返回的指令数据
    data_rdata_from_bram：内存返回的数值数据
@@ -90,13 +90,13 @@ assign inst_r_wrong_local=1'b0;
 
 
 assign inst_r_we_out_2bram = inst_r_we_in_from_IF;
-assign data_r_we_out_2bram = data_r_we_in_from_MEM;
+assign data_r_we_out_2bram = data_r_we_in_from_EXE;
 assign data_w_we_out_2bram = data_w_we_in_from_EXE;
 
 assign inst_raddr_2bram = pc_in_from_IF;
 assign data_raddr_2bram = data_raddr_from_EXE;
-assign data_waddr_2bram = data_waddr_from_MEM;
-assign data_wdata_2bram = data_wdata_from_MEM;
+assign data_waddr_2bram = data_waddr_from_EXE;
+assign data_wdata_2bram = data_wdata_from_EXE;
 
 assign inst_rdata_2IF  = inst_rdata_from_bram;
 assign data_rdata_2MEM = data_rdata_from_bram;
@@ -118,19 +118,19 @@ end
 
 always @ (posedge clk) begin
     if(reset) data_w_complete <= 1'b0;
-    else if data_w_complete <= 1'b1;
+    else if(!data_w_wrong_local) data_w_complete <= data_w_we_in_from_EXE;
     else data_w_complete <= 1'b0;
 end
 
 always @ (posedge clk) begin
     if(reset) data_r_complete <= 1'b0;
-    else if data_r_complete <= 1'b1;
+    else if(!data_r_wrong_local) data_r_complete <= data_r_we_in_from_EXE;
     else data_r_complete <= 1'b0;
 end
 
 always @ (posedge clk) begin
     if(reset) inst_r_complete <= 1'b0;
-    else if inst_r_complete <= 1'b1;
+    else if(!inst_r_wrong_local) inst_r_complete <= inst_r_we_in_from_IF;
     else inst_r_complete <= 1'b0;
 end
 
