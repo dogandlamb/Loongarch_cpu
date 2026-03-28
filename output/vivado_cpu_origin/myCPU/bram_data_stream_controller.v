@@ -36,9 +36,9 @@ module bram_data_stream_controller(
 
     output reg data_w_complete,
     output reg data_r_complete,
-    output reg inst_r_complete
+    output reg inst_r_complete,
 
-    output reg [31:0] pc_out_2ID;
+    output reg [31:0] pc_out_2ID
 
 );
 /*
