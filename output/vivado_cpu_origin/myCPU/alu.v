@@ -1,8 +1,10 @@
 module alu(
-    input  wire [11:0] alu_op,
+    input  wire        clk,              //目前只用在乘法、除法
+    input  wire [13:0] alu_op,           //alu[12]指乘法操作、alu[13]指除法操作
     input  wire [31:0] alu_src1,
     input  wire [31:0] alu_src2,
-    output wire [31:0] alu_result
+    output wire [31:0] alu_result,
+    output wire        alu_result_valid  // ALU计算结果有效，主要处理除法运算结果
 );
 
 
@@ -12,6 +14,9 @@ wire op_add;    //add标志位
 wire op_sub;    //sub标志位
 wire op_slt;    //有符号数比较，小于时置1
 wire op_sltu;   //无符号数比较，小于时置1
+
+wire op_mul;    //乘法标志位
+wire op_div;    //除法标志位
 
 wire op_and;    //按位与
 wire op_nor;    //按位同或
@@ -37,6 +42,8 @@ assign op_sll  = alu_op[ 8];
 assign op_srl  = alu_op[ 9];
 assign op_sra  = alu_op[10];
 assign op_lui  = alu_op[11];
+assign op_mul  = alu_op[12];
+assign op_div  = alu_op[13];
 
 
 //////////////////////////////////////////////////
@@ -55,6 +62,9 @@ wire [31:0] sll_result;
 wire [63:0] sr64_result;
 wire [31:0] sr_result;
 
+wire [63:0] mul_result; //乘法运算结果，读出64位结果
+wire [31:0] div_result; //除法运算结果，读出商的结果
+
 /////////////////////////////////////////////////
 //计算临时变量
 wire [31:0] adder_a;
@@ -62,6 +72,7 @@ wire [31:0] adder_b;
 wire        adder_cin;
 wire [31:0] adder_result;
 wire        adder_cout;
+
 
 
 //////////////////////////////////////////////////
@@ -91,6 +102,25 @@ assign lui_result = alu_src2;
 assign sll_result = alu_src1 << alu_src2[4:0];
 assign sr64_result = {{32{op_sra & alu_src1[31]}},alu_src1[31:0]} >> alu_src2[4:0];//将rj寄存器里的数据右移i5位
 assign sr_result = sr64_result[31:0];
+
+//有符号乘法
+mult_gen_0 u_mult_gen_0(
+    .CLK(clk),
+    .A(alu_src1),//32位
+    .B(alu_src2),//32位
+    .P(mul_result)//64位
+);
+
+//有符号除法，需要多个时钟周期
+div_gen_0 u_div_gen_0(
+    .aclk(),
+    .s_axis_divisor_tdata(),//32位
+    .s_axis_divisor_tvalid(),
+    .s_axis_dividend_tdata(),//32位
+    .s_axis_dividend_tvalid(),
+    .m_axis_dout_tdata(),//64位
+    .m_axis_dout_tvalid()
+);
 
 //////////////////////////////////////////////////
 //结果选择，总输出
