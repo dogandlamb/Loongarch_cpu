@@ -274,7 +274,7 @@ $var wire 1 /" inst_jirl $end
 $var wire 1 0" inst_lu12i_w $end
 $var wire 1 1" inst_ori $end
 $var wire 12 2" alu_op_w [11:0] $end
-$var wire 5 3" br_op_w [4:0] $end
+$var wire 5 3" BR_OP_NUM [4:0] $end
 $var wire 32 4" alu_imm_w [31:0] $end
 $var wire 32 5" br_imm_w [31:0] $end
 $var wire 32 6" alu_src1_w [31:0] $end

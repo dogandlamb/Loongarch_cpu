@@ -27,36 +27,38 @@
 // 1) reset/cancel 清空；2) 握手成功更新；3) valid=0 清空；4) 阻塞保持。
 // ============================================================
 
+`include "cpu_defs.vh"
+
 module ID_EXE_reg (
-    input  wire        clk,
-    input  wire        reset,
-    input  wire        cancel_sig,
-    input  wire        valid,
-    input  wire        readyGo,
-    input  wire        allowIn,
+    input  wire                   clk,
+    input  wire                   reset,
+    input  wire                   cancel_sig,
+    input  wire                   valid,
+    input  wire                   readyGo,
+    input  wire                   allowIn,
+           
+    input wire  [4:0]             wb_reg_addr_in,
+    input wire  [31:0]            alu_src1_in,
+    input wire  [31:0]            alu_src2_in,
+    input wire  [31:0]            br_imm_in,
+    input wire  [31:0]            pc_in,
+    input wire  [`ALU_OP_NUM-1:0] alu_op_in,
+    input wire  [`BR_OP_NUM-1:0]  br_op_in,
+    input wire  [31:0]            mem_wdata_in,
+    input wire  [ 1:0]            mem_op_in,
+    input wire                    wb_op_in,
+        
+    output reg  [4:0]             wb_reg_addr_out,
+    output reg  [31:0]            alu_src1_out,
+    output reg  [31:0]            alu_src2_out,
+    output reg  [31:0]            br_imm_out,
+    output reg  [31:0]            pc_out,
+    output reg  [`ALU_OP_NUM-1:0] alu_op_out,
+    output reg  [31:0]            mem_wdata_out,   
 
-    input wire  [4:0]  wb_reg_addr_in,
-    input wire  [31:0] alu_src1_in,
-    input wire  [31:0] alu_src2_in,
-    input wire  [31:0] br_imm_in,
-    input wire  [31:0] pc_in,
-    input wire  [11:0] alu_op_in,
-    input wire  [ 4:0] br_op_in,
-    input wire  [31:0] mem_wdata_in,
-    input wire  [ 1:0] mem_op_in,
-    input wire         wb_op_in,
-
-    output reg  [4:0]  wb_reg_addr_out,
-    output reg  [31:0] alu_src1_out,
-    output reg  [31:0] alu_src2_out,
-    output reg  [31:0] br_imm_out,
-    output reg  [31:0] pc_out,
-    output reg  [11:0] alu_op_out,
-    output reg  [31:0] mem_wdata_out,
-
-    output reg  [ 4:0] br_op_out,
-    output reg  [ 1:0] mem_op_out,
-    output reg         wb_op_out
+    output reg  [`BR_OP_NUM-1:0]  br_op_out,
+    output reg  [ 1:0]            mem_op_out,
+    output reg                    wb_op_out
 );
 
 always @(posedge clk) begin
@@ -67,9 +69,9 @@ always @(posedge clk) begin
         alu_src2_out <= 32'h0;
         br_imm_out <= 32'h0;
         pc_out <= 32'h0;
-        alu_op_out <= 12'h0;
+        alu_op_out <= {`ALU_OP_NUM{1'b0}};
         mem_wdata_out <= 32'b0;
-        br_op_out <= 5'h0;
+        br_op_out <= {`BR_OP_NUM{1'b0}};
         mem_op_out <= 2'h0;
         wb_op_out <= 1'h0;
     // 握手成功：锁存 ID 输出，推进到 EXE
@@ -93,9 +95,9 @@ always @(posedge clk) begin
         alu_src2_out <= 32'h0;
         br_imm_out <= 32'h0;
         pc_out <= 32'h0;
-        alu_op_out <= 12'h0;
+        alu_op_out <= {`ALU_OP_NUM{1'b0}};
         mem_wdata_out <= 32'b0;
-        br_op_out <= 5'h0;
+        br_op_out <= {`BR_OP_NUM{1'b0}};
         mem_op_out <= 2'h0;
         wb_op_out <= 1'h0;
     // 下游反压或本级未就绪：保持当前值
@@ -119,9 +121,9 @@ always @(posedge clk) begin
         alu_src2_out <= 32'h0;
         br_imm_out <= 32'h0;
         pc_out <= 32'h0;
-        alu_op_out <= 12'h0;
+        alu_op_out <= {`ALU_OP_NUM{1'b0}};
         mem_wdata_out <= 32'h0;
-        br_op_out <= 5'h0;
+        br_op_out <= {`BR_OP_NUM{1'b0}};
         mem_op_out <= 2'h0;
         wb_op_out <= 1'h0;
     end

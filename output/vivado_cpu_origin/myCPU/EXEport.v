@@ -1,18 +1,20 @@
-module EXEport (
-    input wire        clk,
-    input wire        reset,
-    input wire        valid,
+`include "cpu_defs.vh"
 
-    input wire  [ 4:0] wb_reg_addr,
-    input wire  [31:0] alu_src1,
-    input wire  [31:0] alu_src2,
-    input wire  [31:0] pc_in,
-    input wire  [31:0] br_imm,
-    input wire  [11:0] alu_op,
-    input wire  [ 4:0] br_op,
-    input wire  [31:0] mem_wdata_in,
-    input wire  [ 1:0] mem_op_in,
-    input wire         wb_op_in,
+module EXEport (
+    input wire                  clk,
+    input wire                  reset,
+    input wire                  valid,
+
+    input wire  [ 4:0]          wb_reg_addr,
+    input wire  [31:0]          alu_src1,
+    input wire  [31:0]          alu_src2,
+    input wire  [31:0]          pc_in,
+    input wire  [31:0]          br_imm,
+    input wire  [`ALU_OP_NUM-1:0] alu_op,
+    input wire  [`BR_OP_NUM-1:0]  br_op,
+    input wire  [31:0]          mem_wdata_in,   //store 写数据
+    input wire  [ 1:0]          mem_op_in,
+    input wire                  wb_op_in,
 
 
     output reg         readyGo,
@@ -64,14 +66,17 @@ module EXEport (
 // ============================================================
 // output declaration of module alu
 wire [31:0] alu_result_w;
+wire        alu_result_valid_w;
 wire        br_taken_w;
 wire [31:0] link_pc4_w;
 
 alu u_alu(
+    .clk            (clk         ),
     .alu_op     	(alu_op      ),
     .alu_src1   	(alu_src1    ),
     .alu_src2   	(alu_src2    ),
-    .alu_result 	(alu_result_w)  
+    .alu_result 	(alu_result_w),
+    .alu_result_valid(alu_result_valid_w)
 );
 
 //inst_b 无条件跳转到目标地址，地址偏移值为i26offs26逻辑左移两位再符号拓展
@@ -80,7 +85,7 @@ alu u_alu(
 //inst_jirl 无条件跳转到目标地址，将pc值加＋存到rd，目标地址为i16offs16逻辑左移两位后再符号拓展加rj的值
 //inst_bne 将通用寄存器 rj 和通用寄存器 rd 的值进行比较，如果两者不等则跳转到目标地址，否则不跳转。
 //assign br_op  = {inst_jirl , inst_b , inst_bl , inst_beq , inst_bne};
-assign br_taken_w =(br_op[1] && (alu_src1 == alu_src2))   // beq
+assign br_taken_w =(br_op[1] && (alu_src1 == alu_src2))  // beq
                 | (br_op[0] && (alu_src1 != alu_src2))   // bne
                 |  br_op[4]                              // jirl
                 |  br_op[2]                              // bl
@@ -101,6 +106,7 @@ always @(*) begin
     wb_op           = 1'b0;
 
     if (!reset && valid) begin
+        readyGo         = alu_result_valid_w;
         br_taken        = br_taken_w;
         final_result    = (br_op[4] | br_op[2]) ? link_pc4_w : alu_result_w;
         pc_out          = pc_in;

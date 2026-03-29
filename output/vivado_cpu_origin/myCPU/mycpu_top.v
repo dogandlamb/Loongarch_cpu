@@ -24,6 +24,8 @@
 // - 写回：MEM_WB_reg + WBport。
 // - 控制：conflict_detector + pipeline_controller（配合 top 的 stall/bubble mux）。
 // ============================================================
+`include "cpu_defs.vh"
+
 module mycpu_top(
     input  wire        clk,
     input  wire        resetn,
@@ -73,7 +75,7 @@ module mycpu_top(
     wire        hit_exe_rs2;         // 执行阶段冲突2
     wire        hit_mem_rs2;         // 访存阶段冲突2
     wire        hit_wb_rs2;          // 写回阶段冲突2
-    wire        raw_hazard_det;  // conflict_detector 给出的 RAW 冲突检测结果
+    wire        raw_hazard;      // conflict_handle 给出的 RAW 冲突检测结果
     wire        block_sig;       // 送入 controller/npc 的阻塞主信号
     wire        cancel_sig;      // 分支冲刷信号（清 IF/ID、ID/EXE）
 
@@ -85,14 +87,25 @@ module mycpu_top(
         .pc     (pc)
     );
 
-    assign inst_sram_we    = 1'b0;
-    assign inst_sram_addr  = pc;
-    assign inst_sram_wdata = 32'b0;
+    // bram_data_stream_controller 相关信号（统一管理 IF/MEM 访问 BRAM）
+    wire        bram_inst_re;
+    wire        bram_data_we;
+    wire        bram_data_re;
+    wire [31:0] bram_inst_addr;
+    wire [31:0] bram_data_raddr;
+    wire [31:0] bram_data_waddr;
+    wire [31:0] bram_data_wdata;
+    wire [31:0] inst_rdata_2IF;
+    wire [31:0] data_rdata_2MEM;
+    wire        inst_r_complete;
+    wire [31:0] pc_2ID_from_bram;
 
     wire        IF_readyGo;      // IF 阶段就绪
     wire        IF_allowIn;      // IF 阶段允许接收（当前 IFport 常 1）
-    wire [31:0] pc_fromIF;       // IF 输出 PC（送 IF_ID_reg）
-    wire [31:0] inst_fromIF;     // IF 输出指令（送 IF_ID_reg）
+
+    wire [31:0] pc_2ram_data_controller;       // IF 当前请求 PC（pc1）
+    wire [31:0] inst_fromIF;     // IF 输出指令（送 IF_ID_reg, pc2对齐）
+    wire [31:0] pc_fromIF;       // IF 输出 PC（送 IF_ID_reg, pc2对齐）
 
     wire        IF_valid;        // IF 阶段有效位（controller 输出）
     wire        IF_ID_reg_valid; // IF_ID_reg 输入 valid
@@ -102,12 +115,17 @@ module mycpu_top(
         .clk     (clk),
         .reset   (reset),
         .valid   (IF_valid),
-        .inst_in (inst_sram_rdata),
-        .pc_in   (pc),
+
+        .pc_1in  (pc),            //要发指令读请求对应的PC
+        .inst_in (inst_rdata_2IF),//bram_data_stream_controller返回的指令
+        .pc_2in  (pc_2ID_from_bram),
+        .inst_valid_in(inst_r_complete),
+        .cancel_in(cancel_sig),
         .readyGo (IF_readyGo),
         .allowIn (IF_allowIn),
-        .inst_out(inst_fromIF),
-        .pc_out  (pc_fromIF)
+        .pc_1out  (pc_2ram_data_controller),    //送给bram_data_stream_controller的指令请求对应的 PC 值
+        .inst_out(inst_fromIF),  //真正送给下一级寄存器级的inst
+        .pc_2out  (pc_fromIF)     //真正送给下一级寄存器级的pc
     );
 
     wire [31:0] inst_2ID;        // IF_ID_reg 输出到 ID 的指令
@@ -145,11 +163,14 @@ module mycpu_top(
     wire [31:0] alu_src2_fromID; // ID 生成的 EXE 源操作数2
     wire [31:0] id_pc_fromID;    // ID 透传 PC
     wire [31:0] br_imm_fromID;   // ID 生成的分支偏移
-    wire [11:0] alu_op_fromID;   // ID 生成 ALU 操作码
+    wire [`ALU_OP_NUM-1:0] alu_op_fromID;   // ID 生成 ALU 操作码
     wire [4:0]  br_op_fromID;    // ID 生成分支操作码
     wire [1:0]  mem_op_fromID;   // ID 生成访存操作码
     wire [31:0] mem_wdata_fromID;// ID 输出 store 写数据
     wire        wb_op_fromID;    // ID 输出写回使能
+
+    wire [31:0] ID_src1_rdata;
+    wire [31:0] ID_src2_rdata;//由前递模块返回的读取数据，可能为寄存器读取或者前递的数据
 
     IDport u_IDport(
         .clk        (clk),
@@ -180,8 +201,6 @@ module mycpu_top(
     assign rf_raddr1 = id_src1_addr;
     assign rf_raddr2 = id_src2_addr;
 
-    wire [31:0] ID_src1_rdata;
-    wire [31:0] ID_src2_rdata;//由前递模块返回的读取数据，可能为寄存器读取或者前递的数据
 
     wire        ID_EXE_reg_valid; // ID_EXE_reg 输入 valid
     wire        ID_EXE_reg_allowIn;// ID_EXE_reg 允许写入
@@ -189,7 +208,7 @@ module mycpu_top(
     wire [31:0] alu_src1_2EXE;    // ID_EXE_reg 输出 EXE 源1
     wire [31:0] alu_src2_2EXE;    // ID_EXE_reg 输出 EXE 源2
     wire [31:0] br_imm_2EXE;      // ID_EXE_reg 输出分支偏移
-    wire [11:0] alu_op_2EXE;      // ID_EXE_reg 输出 ALU 操作码
+    wire [`ALU_OP_NUM-1:0] alu_op_2EXE;      // ID_EXE_reg 输出 ALU 操作码
     wire [31:0] mem_wdata_2EXE;   // ID_EXE_reg 输出 store 数据
     wire [4:0]  br_op_2EXE;       // ID_EXE_reg 输出分支控制
     wire [1:0]  mem_op_2EXE;      // ID_EXE_reg 输出访存控制
@@ -337,7 +356,7 @@ module mycpu_top(
         .clk            (clk),
         .reset          (reset),
         .valid          (MEM_valid),
-        .data_sram_rdata(data_sram_rdata),
+        .data_sram_rdata(data_rdata_2MEM),
         .exe_result     (em_result),
         .pc_in          (em_pc),
         .wb_reg_addr_in (em_wb_reg),
@@ -354,10 +373,6 @@ module mycpu_top(
         .data_sram_we   (mem_dsram_we),
         .wb_op_out      (mem_wb_op)
     );
-
-    assign data_sram_addr  = mem_dsram_addr;
-    assign data_sram_wdata = mem_dsram_wdata;
-    assign data_sram_we    = mem_dsram_we & MEM_valid;
 
     //------------------------------------------------------------------
     // WB
@@ -421,7 +436,7 @@ module mycpu_top(
     );
 
     //------------------------------------------------------------------
-    // 冒险与控制器
+    // 冲突检测与处理、前递、流水线控制器、bram数据交互
     //------------------------------------------------------------------
 
     conflict_detector u_conflict_detector(
@@ -503,6 +518,54 @@ module mycpu_top(
         .MEM_valid          (MEM_valid),
         .WB_valid           (WB_valid)
     );
+
+    // bram 数据交互（IF 连续请求；下一拍返回上一拍请求对应的指令/PC）
+    wire data_w_wrong;
+    wire data_r_wrong;
+    wire inst_r_wrong;
+    wire data_w_complete;
+    wire data_r_complete;
+    bram_data_stream_controller u_bram_data_stream_controller(
+        .clk               (clk),            // 时钟
+        .reset             (reset),          // 同步复位
+        .inst_re_in_from_IF (1'b1),       // 假设IF不会停止取指
+        .data_we_in_from_EXE(mem_dsram_we & MEM_valid), // MEM/EXE 发起数据写请求
+        .data_re_in_from_EXE(em_mem_op[1] & MEM_valid), // MEM/EXE 发起数据读请求
+        .pc_in_from_IF     (pc_2ram_data_controller),             // IF 本拍请求 PC（pc1）
+        .data_raddr_from_EXE(mem_dsram_addr),// 数据读地址
+        .data_waddr_from_EXE(mem_dsram_addr),// 数据写地址
+        .data_wdata_from_EXE(mem_dsram_wdata), // 数据写数据
+        .inst_rdata_from_bram(inst_sram_rdata), // BRAM 返回的指令
+        .data_rdata_from_bram(data_sram_rdata), // BRAM 返回的数据
+        .inst_re_out_2bram (bram_inst_re),   // 发往 BRAM 的指令读使能
+        .data_we_out_2bram (bram_data_we),   // 发往 BRAM 的数据写使能
+        .data_re_out_2bram (bram_data_re),   // 发往 BRAM 的数据读使能
+        .inst_raddr_2bram  (bram_inst_addr), // 发往 BRAM 的指令地址
+        .data_raddr_2bram  (bram_data_raddr),// 发往 BRAM 的数据读地址
+        .data_waddr_2bram  (bram_data_waddr),// 发往 BRAM 的数据写地址
+        .data_wdata_2bram  (bram_data_wdata),// 发往 BRAM 的数据写数据
+        .inst_rdata_2IF    (inst_rdata_2IF), // 返回 IF 的指令数据（对齐 pc2）
+        .data_rdata_2MEM   (data_rdata_2MEM),// 返回 MEM 的数据读结果
+        .data_w_wrong      (data_w_wrong),   // 数据写异常
+        .data_r_wrong      (data_r_wrong),   // 数据读异常
+        .inst_r_wrong      (inst_r_wrong),   // 取指异常
+        .data_w_complete   (data_w_complete),// 数据写完成
+        .data_r_complete   (data_r_complete),// 数据读完成
+        .inst_r_complete   (inst_r_complete),// 取指完成
+        .pc_out_2ID        (pc_2ID_from_bram) // 返回 IF 的“上一拍请求PC”（pc2）
+    );
+
+    assign inst_sram_en    = bram_inst_re;
+    assign inst_sram_we    = 1'b0;
+    assign inst_sram_addr  = bram_inst_addr;
+    assign inst_sram_wdata = 32'b0;
+
+    assign data_sram_en    = bram_data_we | bram_data_re;
+    assign data_sram_we    = bram_data_we;
+    assign data_sram_addr  = bram_data_we ? bram_data_waddr : bram_data_raddr;
+    assign data_sram_wdata = bram_data_wdata;
+
+
 
     //------------------------------------------------------------------
     // 调试：与参考核一致，报告 WB 级提交（含该指令 PC）

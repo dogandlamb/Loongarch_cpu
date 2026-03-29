@@ -1,3 +1,5 @@
+`include "cpu_defs.vh"
+
 module op_dec(
     input  wire        reset,//未使用
     input  wire        inst_add_w,
@@ -20,8 +22,13 @@ module op_dec(
     input  wire        inst_beq,
     input  wire        inst_jirl,
     input  wire        inst_lu12i_w,
-    output wire [11:0] alu_op,
-    output wire [ 4:0] br_op
+    input  wire        inst_mul_w,
+    input  wire        inst_mulh_w,
+    input  wire        inst_mulh_wu,
+    input  wire        inst_div_w,
+    input  wire        inst_div_wu,
+    output wire [`ALU_OP_NUM-1:0] alu_op,
+    output wire [`BR_OP_NUM-1:0]  br_op
 );
 
 
@@ -35,19 +42,24 @@ module op_dec(
 //alu_op[ 8：10]   移位操作
 //alu_op[ 11]      高位立即数加载
 
-    assign alu_op[ 0] = inst_add_w | inst_addi_w | inst_ld_w | inst_st_w 
+    assign alu_op[`ALU_OP_ADD] = inst_add_w | inst_addi_w | inst_ld_w | inst_st_w 
                     | inst_jirl | inst_bl;
-    assign alu_op[ 1] = inst_sub_w;
-    assign alu_op[ 2] = inst_slt;
-    assign alu_op[ 3] = inst_sltu;
-    assign alu_op[ 4] = inst_and;
-    assign alu_op[ 5] = inst_nor;
-    assign alu_op[ 6] = inst_or;
-    assign alu_op[ 7] = inst_xor;
-    assign alu_op[ 8] = inst_slli_w;
-    assign alu_op[ 9] = inst_srli_w;
-    assign alu_op[10] = inst_srai_w;
-    assign alu_op[11] = inst_lu12i_w;
+    assign alu_op[`ALU_OP_SUB] = inst_sub_w;
+    assign alu_op[`ALU_OP_SLT] = inst_slt;
+    assign alu_op[`ALU_OP_SLTU] = inst_sltu;
+    assign alu_op[`ALU_OP_AND] = inst_and;
+    assign alu_op[`ALU_OP_NOR] = inst_nor;
+    assign alu_op[`ALU_OP_OR] = inst_or;
+    assign alu_op[`ALU_OP_XOR] = inst_xor;
+    assign alu_op[`ALU_OP_SLL] = inst_slli_w;
+    assign alu_op[`ALU_OP_SRL] = inst_srli_w;
+    assign alu_op[`ALU_OP_SRA] = inst_srai_w;
+    assign alu_op[`ALU_OP_LUI] = inst_lu12i_w;
+    assign alu_op[`ALU_OP_MUL_W] = inst_mul_w;
+    assign alu_op[`ALU_OP_MULH_W] = inst_mulh_w;
+    assign alu_op[`ALU_OP_MULH_WU] = inst_mulh_wu;
+    assign alu_op[`ALU_OP_DIV_W] = inst_div_w;
+    assign alu_op[`ALU_OP_DIV_WU] = inst_div_wu;
 
 //分支跳转操作码生成
 //inst_b 无条件跳转到目标地址，地址偏移值为i26offs26逻辑左移两位再符号拓展

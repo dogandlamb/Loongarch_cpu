@@ -1,10 +1,12 @@
-module bram_data_stream_controller(
-    input wire clk,
-    input wire reset,
+//用以延迟一个时钟周期的控制器，主要用于协调指令和数据的读写时序
 
-    input wire inst_r_we_in_from_IF,
-    input wire data_w_we_in_from_EXE,
-    input wire data_r_we_in_from_EXE,
+module bram_data_stream_controller(
+    input  wire        clk,
+    input  wire        reset,
+
+    input  wire        inst_re_in_from_IF,
+    input  wire        data_we_in_from_EXE,
+    input  wire        data_re_in_from_EXE,
 
     input wire [31:0] pc_in_from_IF,
     input wire [31:0] data_raddr_from_EXE,
@@ -14,37 +16,36 @@ module bram_data_stream_controller(
     input wire [31:0] inst_rdata_from_bram,
     input wire [31:0] data_rdata_from_bram,
     
-    input wire inst_r_we_in_from_bram,
-    input wire data_w_we_in_from_bram,
-    input wire data_r_we_in_from_bram,
+    input wire inst_re_in_from_bram,
+    input wire data_we_in_from_bram,
+    input wire data_re_in_from_bram,
     
-    output wire inst_r_we_out_2bram,
-    output wire data_w_we_out_2bram,
-    output wire data_r_we_out_2bram,
+    output wire inst_re_out_2bram,
+    output wire data_we_out_2bram,
+    output wire data_re_out_2bram,
 
     output wire [31:0] inst_raddr_2bram,
     output wire [31:0] data_raddr_2bram,
     output wire [31:0] data_waddr_2bram,
     output wire [31:0] data_wdata_2bram,
 
-    output wire [31:0] inst_rdata_2IF,
-    output wire [31:0] data_rdata_2MEM,
-    
-    output reg data_w_wrong,
-    output reg data_r_wrong,
-    output reg inst_r_wrong,
+    output wire  [31:0] inst_rdata_2IF,
+    output wire  [31:0] data_rdata_2MEM,
 
-    output reg data_w_complete,
-    output reg data_r_complete,
-    output reg inst_r_complete,
+    output reg         data_w_wrong,
+    output reg         data_r_wrong,
+    output reg         inst_r_wrong,
 
-    output reg [31:0] pc_out_2ID
+    output reg         data_w_complete,
+    output reg         data_r_complete,
+    output reg         inst_r_complete,
 
+    output reg  [31:0] pc_out_2ID
 );
 /*
-    inst_r_we_in_from_IF： 从IF阶段收到的指令读取使能
-    data_w_we_in_from_EXE：从EXE阶段收到的数据读取使能
-    data_r_we_in_from_EXE：从EXE阶段收到的数据写入使能
+    inst_re_in_from_IF： 从IF阶段收到的指令读取使能
+    data_we_in_from_EXE：从EXE阶段收到的数据读取使能
+    data_re_in_from_EXE：从EXE阶段收到的数据写入使能
 
    pc_in_from_IF      ：从IF阶段收到的指令地址
    data_raddr_from_EXE：从EXE阶段收到的数据读取地址
@@ -54,13 +55,13 @@ module bram_data_stream_controller(
    inst_rdata_from_bram：内存返回的指令数据
    data_rdata_from_bram：内存返回的数值数据
     
-   inst_r_we_in_from_bram：从内存返回的指令有效标志
-   data_w_we_in_from_bram：从内存返回的数据写入有效标志
-   data_r_we_in_from_bram：从内存返回的数据读取有效标志
+   inst_re_in_from_bram：从内存返回的指令有效标志
+   data_we_in_from_bram：从内存返回的数据写入有效标志
+   data_re_in_from_bram：从内存返回的数据读取有效标志
     
-    inst_r_we_out_2bram：向内存发送的指令读取使能
-    data_w_we_out_2bram：向内存发送的数据写入使能
-    data_r_we_out_2bram：向内存发送的数据读取使能
+    inst_re_out_2bram：向内存发送的指令读取使能
+    data_we_out_2bram：向内存发送的数据写入使能
+    data_re_out_2bram：向内存发送的数据读取使能
 
     inst_raddr_2bram：向内存发送的指令读取地址
     data_raddr_2bram：向内存发送的数据读取地址
@@ -89,9 +90,9 @@ assign data_r_wrong_local=1'b0;
 assign inst_r_wrong_local=1'b0;
 
 
-assign inst_r_we_out_2bram = inst_r_we_in_from_IF;
-assign data_r_we_out_2bram = data_r_we_in_from_EXE;
-assign data_w_we_out_2bram = data_w_we_in_from_EXE;
+assign inst_re_out_2bram = inst_re_in_from_IF;
+assign data_re_out_2bram = data_re_in_from_EXE;
+assign data_we_out_2bram = data_we_in_from_EXE;
 
 assign inst_raddr_2bram = pc_in_from_IF;
 assign data_raddr_2bram = data_raddr_from_EXE;
@@ -102,35 +103,35 @@ assign inst_rdata_2IF  = inst_rdata_from_bram;
 assign data_rdata_2MEM = data_rdata_from_bram;
 
 always @ (posedge clk) begin
-    if(reset) data_w_wrong <= 1'b0;
-    else data_w_wrong <= data_w_wrong_local;
+    if (reset) data_w_wrong <= 1'b0;
+    else       data_w_wrong <= data_w_wrong_local;
 end
 
 always @ (posedge clk) begin
-    if(reset) data_r_wrong <= 1'b0;
-    else data_r_wrong <= data_r_wrong_local;
+    if (reset) data_r_wrong <= 1'b0;
+    else       data_r_wrong <= data_r_wrong_local;
 end
 
 always @ (posedge clk) begin
-    if(reset) inst_r_wrong <= 1'b0;
-    else inst_r_wrong <= inst_r_wrong_local;
+    if (reset) inst_r_wrong <= 1'b0;
+    else       inst_r_wrong <= inst_r_wrong_local;
 end
 
 always @ (posedge clk) begin
     if(reset) data_w_complete <= 1'b0;
-    else if(!data_w_wrong_local) data_w_complete <= data_w_we_in_from_EXE;
+    else if(!data_w_wrong_local) data_w_complete <= data_we_in_from_EXE;
     else data_w_complete <= 1'b0;
 end
 
 always @ (posedge clk) begin
     if(reset) data_r_complete <= 1'b0;
-    else if(!data_r_wrong_local) data_r_complete <= data_r_we_in_from_EXE;
+    else if(!data_r_wrong_local) data_r_complete <= data_re_in_from_EXE;
     else data_r_complete <= 1'b0;
 end
 
 always @ (posedge clk) begin
     if(reset) inst_r_complete <= 1'b0;
-    else if(!inst_r_wrong_local) inst_r_complete <= inst_r_we_in_from_IF;
+    else if(!inst_r_wrong_local) inst_r_complete <= inst_re_in_from_IF;
     else inst_r_complete <= 1'b0;
 end
 

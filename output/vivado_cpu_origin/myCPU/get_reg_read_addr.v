@@ -38,6 +38,11 @@ module get_reg_read_addr(
     input  wire        inst_beq,
     input  wire        inst_jirl,
     input  wire        inst_lu12i_w,
+    input  wire        inst_mul_w,     //乘法
+    input  wire        inst_mulh_w,    //有符号乘法高位结果
+    input  wire        inst_mulh_wu,   //有符号/无符号混合乘法高位结果
+    input  wire        inst_div_w,     //有符号除法
+    input  wire        inst_div_wu,    //无符号除法
     output wire [ 4:0] rf_raddr1,
     output wire [ 4:0] rf_raddr2
 );
@@ -58,10 +63,14 @@ assign inst_ori = (inst[31:26] == 6'h00) && (inst[25:22] == 4'he);
 assign need_rj = inst_add_w  | inst_addi_w | inst_sub_w | inst_ld_w | inst_st_w
                | inst_slt    | inst_sltu   | inst_and   | inst_or   | inst_nor
                | inst_xor    | inst_slli_w | inst_srli_w| inst_srai_w
-               | inst_beq    | inst_bne    | inst_jirl  | inst_ori;
+               | inst_beq    | inst_bne    | inst_jirl  | inst_ori
+               | inst_mul_w  | inst_mulh_w | inst_mulh_wu
+               | inst_div_w  | inst_div_wu;
 
 assign need_rk = inst_add_w | inst_sub_w | inst_slt | inst_sltu
-               | inst_and   | inst_or    | inst_nor | inst_xor;
+               | inst_and   | inst_or    | inst_nor | inst_xor
+               | inst_mul_w | inst_mulh_w | inst_mulh_wu
+               | inst_div_w | inst_div_wu;
 
 assign src_reg_is_rd = inst_st_w | inst_beq | inst_bne; // 第二源来自 rd 的指令
 

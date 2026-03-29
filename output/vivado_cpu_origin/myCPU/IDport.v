@@ -1,3 +1,5 @@
+`include "cpu_defs.vh"
+
 module IDport (
     input  wire        clk,
     input  wire        reset,
@@ -20,8 +22,8 @@ module IDport (
     output reg  [31:0] alu_src1,
     output reg  [31:0] alu_src2,
     output reg  [31:0] br_imm,
-    output reg  [11:0] alu_op,
-    output reg  [4:0]  br_op,
+    output reg  [`ALU_OP_NUM-1:0] alu_op,
+    output reg  [`BR_OP_NUM-1:0]  br_op,
     output reg  [1:0]  mem_op,
     output reg  [31:0] mem_wdata,
     output reg         wb_op,
@@ -70,39 +72,44 @@ module IDport (
 // ============================================================
 ////////////////////////////////////////////////
 //以下为指令标志
-wire inst_add_w;//rj+rk写入rd
-wire inst_addi_w;//rj+12位立即数扩展为32位，写入rd
-wire inst_sub_w;
-wire inst_ld_w;//从内存中取出32位，存入rd
-wire inst_st_w;//word访问内存，32位数据，目标地址为rj寄存器数据加上12位立即数扩展到32位的结果之和，储存数据为rd寄存器的数据
-wire inst_bne;
-wire inst_slt;//有符号数比较，src1<src2为1，否则为0
-wire inst_sltu;//无符号数比较，同上
+wire inst_add_w;     //rj+rk写入rd
+wire inst_addi_w;    //rj+12位立即数扩展为32位，写入rd
+wire inst_sub_w;     //rj-rk写入rd
+wire inst_ld_w;      //从内存中取出32位，存入rd
+wire inst_st_w;      //word访问内存，32位数据，目标地址为rj寄存器数据加上12位立即数扩展到32位的结果之和，储存数据为rd寄存器的数据
+wire inst_bne;       //rj!=rk跳转目标地址
+wire inst_slt;       //有符号数比较，src1<src2为1，否则为0
+wire inst_sltu;      //无符号数比较，同上
 
-wire inst_and;//与
-wire inst_or;//或
-wire inst_nor;//同或
-wire inst_xor;//异或
+wire inst_and;       //与，rj&rk写入rd
+wire inst_or;        //或，rj|rk写入rd
+wire inst_nor;       //同或，~(rj|rk)写入rd
+wire inst_xor;       //异或，rj^rk写入rd
 
-wire inst_slli_w;//rj数据逻辑左移ui5，存入rd
-wire inst_srli_w;//rj数据逻辑右移ui5，存入rd
-wire inst_srai_w;//rj数据算术右移ui5，存入rd
+wire inst_slli_w;    //rj数据逻辑左移ui5，存入rd
+wire inst_srli_w;    //rj数据逻辑右移ui5，存入rd
+wire inst_srai_w;    //rj数据算术右移ui5，存入rd
+    
+wire inst_b;         //无条件跳转到目标地址，地址偏移值为i26offs26逻辑左移两位再符号拓展
+wire inst_bl;        //无条件跳转到目标地址，偏移值同上，同时将该指令的pc＋4存到rl
+wire inst_beq;       //rjrd相等跳转目标地址
+wire inst_jirl;      //无条件跳转到目标地址，将pc值加＋存到rd，目标地址为i16offs16逻辑左移两位后再符号拓展加rj的值
+wire inst_lu12i_w;   //用于将20位bit立即数链接上12bit0后写入rd
+wire inst_ori;       //ori: rj | ui12 -> rd
+wire inst_mul_w;     //乘法
+wire inst_mulh_w;    //有符号乘法高位结果
+wire inst_mulh_wu;   //有符号/无符号混合乘法高位结果
+wire inst_div_w;     //有符号除法
+wire inst_div_wu;    //无符号除法
 
-wire inst_b;//无条件跳转到目标地址，地址偏移值为i26offs26逻辑左移两位再符号拓展
-wire inst_bl;//无条件跳转到目标地址，偏移值同上，同时将该指令的pc＋4存到rl
-wire inst_beq;//rjrd相等跳转目标地址
-wire inst_jirl;//无条件跳转到目标地址，将pc值加＋存到rd，目标地址为i16offs16逻辑左移两位后再符号拓展加rj的值
-wire inst_lu12i_w;//用于将20位bit立即数链接上12bit0后写入rd
-wire inst_ori;//ori: rj | ui12 -> rd
-
-wire [11:0] alu_op_w;
-wire [4:0]  br_op_w;
-wire [31:0] alu_imm_w;
-wire [31:0] br_imm_w;
-wire [31:0] alu_src1_w;
-wire [31:0] alu_src2_w;
-wire [4:0]  rf_raddr1_w;
-wire [4:0]  rf_raddr2_w;
+wire [`ALU_OP_NUM-1:0] alu_op_inner; //内部ALU操作码，后续看条件赋值给output alu_op
+wire [`BR_OP_NUM-1:0]  br_op_inner;  //内部分支跳转操作码，后续看条件赋值给output br_op
+wire [31:0]            alu_imm_w;
+wire [31:0]            br_imm_w;
+wire [31:0]            alu_src1_w;
+wire [31:0]            alu_src2_w;
+wire [4:0]             rf_raddr1_w;
+wire [4:0]             rf_raddr2_w;
 
 assign inst_ori = (inst[31:26] == 6'h00) && (inst[25:22] == 4'he);
 wire wb_op_w;
@@ -110,7 +117,8 @@ assign wb_op_w = inst_add_w | inst_addi_w | inst_sub_w | inst_ld_w
                | inst_slt   | inst_sltu   | inst_and   | inst_or
                | inst_nor   | inst_xor    | inst_slli_w| inst_srli_w
                | inst_srai_w| inst_lu12i_w| inst_bl    | inst_jirl
-               | inst_ori;
+               | inst_ori    | inst_mul_w  | inst_mulh_w
+               | inst_mulh_wu| inst_div_w  | inst_div_wu;
 
 inst_dec u_inst_dec(
     .reset        (reset),
@@ -134,7 +142,12 @@ inst_dec u_inst_dec(
     .inst_bl      (inst_bl),
     .inst_beq     (inst_beq),
     .inst_jirl    (inst_jirl),
-    .inst_lu12i_w (inst_lu12i_w)
+    .inst_lu12i_w (inst_lu12i_w),
+    .inst_mul_w   (inst_mul_w),
+    .inst_mulh_w  (inst_mulh_w),
+    .inst_mulh_wu (inst_mulh_wu),
+    .inst_div_w   (inst_div_w),
+    .inst_div_wu  (inst_div_wu)
 );
 
 op_dec u_op_dec(
@@ -159,8 +172,13 @@ op_dec u_op_dec(
     .inst_beq     (inst_beq),
     .inst_jirl    (inst_jirl),
     .inst_lu12i_w (inst_lu12i_w),
-    .alu_op       (alu_op_w),
-    .br_op        (br_op_w)
+    .inst_mul_w   (inst_mul_w),
+    .inst_mulh_w  (inst_mulh_w),
+    .inst_mulh_wu (inst_mulh_wu),
+    .inst_div_w   (inst_div_w),
+    .inst_div_wu  (inst_div_wu),
+    .alu_op       (alu_op_inner),
+    .br_op        (br_op_inner)
 );
 
 imm_generator u_imm_generator(
@@ -244,6 +262,11 @@ get_reg_read_addr u_get_reg_read_addr(
     .inst_beq     (inst_beq),
     .inst_jirl    (inst_jirl),
     .inst_lu12i_w (inst_lu12i_w),
+    .inst_mul_w   (inst_mul_w),
+    .inst_mulh_w  (inst_mulh_w),
+    .inst_mulh_wu (inst_mulh_wu),
+    .inst_div_w   (inst_div_w),
+    .inst_div_wu  (inst_div_wu),
     .rf_raddr1    (rf_raddr1_w),
     .rf_raddr2    (rf_raddr2_w)
 );
@@ -257,8 +280,8 @@ always @(*) begin
     alu_src1    = 32'b0;
     alu_src2    = 32'b0;
     br_imm      = 32'b0;
-    alu_op      = 12'b0;
-    br_op       = 5'b0;
+    alu_op      = {`ALU_OP_NUM{1'b0}};
+    br_op       = {`BR_OP_NUM{1'b0}};
     mem_op      = 2'b0;
     mem_wdata   = 32'b0;
     wb_op       = 1'b0;
@@ -272,8 +295,8 @@ always @(*) begin
         alu_src1    = stall ? 32'd0 : alu_src1_w;
         alu_src2    = stall ? 32'd0 : alu_src2_w;
         br_imm      = stall ? 32'd0 : br_imm_w;
-        alu_op      = stall ? 12'd0 : alu_op_w;
-        br_op       = stall ? 5'd0  : br_op_w;
+        alu_op      = stall ? {`ALU_OP_NUM{1'b0}} : alu_op_inner;
+        br_op       = stall ? {`BR_OP_NUM{1'b0}}  : br_op_inner;
         mem_op      = stall ? 2'd0  : {inst_ld_w, inst_st_w};
         mem_wdata   = stall ? 32'd0 : src2_rdata;
         wb_op       = stall ? 1'b0  : wb_op_w;
@@ -287,8 +310,8 @@ always @(*) begin
             alu_src1    = stall ? 32'd0 : src1_rdata;
             alu_src2    = stall ? 32'd0 : {20'b0, inst[21:10]};
             br_imm      = 32'b0;
-            alu_op      = stall ? 12'd0 : 12'h040; // op_or
-            br_op       = 5'b0;
+            alu_op      = stall ? {`ALU_OP_NUM{1'b0}} : ({`ALU_OP_NUM{1'b0}} | ({{(`ALU_OP_NUM-1){1'b0}},1'b1} << `ALU_OP_OR)); // op_or
+            br_op       = {`BR_OP_NUM{1'b0}};
             mem_op      = 2'b0;
             mem_wdata   = 32'b0;
             wb_op       = stall ? 1'b0 : 1'b1;

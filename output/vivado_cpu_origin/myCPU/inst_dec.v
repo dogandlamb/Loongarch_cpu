@@ -1,3 +1,5 @@
+`include "cpu_defs.vh"
+
 module inst_dec(
     input  wire        reset,
     input  wire [31:0] inst,
@@ -20,7 +22,12 @@ module inst_dec(
     output wire        inst_bl,
     output wire        inst_beq,
     output wire        inst_jirl,
-    output wire        inst_lu12i_w
+    output wire        inst_lu12i_w,
+    output wire        inst_mul_w,
+    output wire        inst_mulh_w,
+    output wire        inst_mulh_wu,
+    output wire        inst_div_w,
+    output wire        inst_div_wu
 );
 //todo:指令译码，输出指令标志位
 
@@ -70,5 +77,11 @@ assign inst_beq     = op_31_26_d[6'h16];
 assign inst_bne     = op_31_26_d[6'h17];
 
 assign inst_lu12i_w = op_31_26_d[6'h05] & ~inst[25];
+
+assign inst_mul_w   = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h1c];
+assign inst_mulh_w  = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h1d];
+assign inst_mulh_wu = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h1e];
+assign inst_div_w   = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h2] & op_19_15_d[5'h00];
+assign inst_div_wu  = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h2] & op_19_15_d[5'h02];
 
 endmodule
