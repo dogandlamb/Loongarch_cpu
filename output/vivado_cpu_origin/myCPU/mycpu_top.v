@@ -45,7 +45,8 @@ module mycpu_top(
     output wire [ 4:0] debug_wb_rf_wnum,
     output wire [31:0] debug_wb_rf_wdata
 );
-
+    parameter BR_OP_NUM = 5;
+    parameter ALU_OP_NUM = 12;
     // 同步高有效复位（由外部低有效复位 resetn 翻转得到）
     reg reset;
     always @(posedge clk) reset <= ~resetn;
