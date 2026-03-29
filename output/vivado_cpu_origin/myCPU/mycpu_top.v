@@ -40,14 +40,15 @@ module mycpu_top(
     output wire        data_sram_we,
     output wire [31:0] data_sram_addr,
     output wire [31:0] data_sram_wdata,
-    input  wire [31:0] data_sram_rdata,
+    input  wire [31:0] data_bram_rdata,
 
     output wire [31:0] debug_wb_pc,
     output wire [ 3:0] debug_wb_rf_we,
     output wire [ 4:0] debug_wb_rf_wnum,
     output wire [31:0] debug_wb_rf_wdata
 );
-
+    parameter BR_OP_NUM = 5;
+    parameter ALU_OP_NUM = 12;
     // 同步高有效复位（由外部低有效复位 resetn 翻转得到）
     reg reset;
     always @(posedge clk) reset <= ~resetn;
@@ -285,8 +286,6 @@ module mycpu_top(
     wire        exe_wb_op;        // EXE 输出写回使能
 
     EXEport u_EXEport(
-        .clk             (clk),
-        .reset           (reset),
         .valid           (EXE_valid),
         .wb_reg_addr     (wb_reg_addr_2EXE),
         .alu_src1        (alu_src1_2EXE),
@@ -301,13 +300,18 @@ module mycpu_top(
         .readyGo         (EXE_readyGo),
         .allowIn         (EXE_allowIn),
         .br_taken        (br_taken_q),
-        .br_taken_comb   (br_taken_comb),
         .final_result    (exe_final_result),
         .pc_out          (exe_pc_2MEM),
         .wb_reg_addr_out (exe_wb_reg_addr),
         .mem_op          (exe_mem_op),
         .mem_wdata_out   (exe_mem_wdata),
-        .wb_op           (exe_wb_op)
+        .wb_op           (exe_wb_op),
+        .data_we_from_EXE (data_we_from_EXE),
+        .data_re_from_EXE (data_re_from_EXE),
+        .pc_from_IF       (pc_from_IF),
+        .data_raddr_from_EXE (data_raddr_from_EXE),
+        .data_waddr_from_EXE (data_waddr_from_EXE),
+        .data_wdata_from_EXE (data_wdata_from_EXE)
     );
 
     //------------------------------------------------------------------
@@ -353,8 +357,6 @@ module mycpu_top(
     wire [31:0] mem_dsram_addr;   // 数据 SRAM 地址
     wire        mem_dsram_we;     // 数据 SRAM 写使能
     MEMport u_MEMport(
-        .clk            (clk),
-        .reset          (reset),
         .valid          (MEM_valid),
         .data_sram_rdata(data_rdata_2MEM),
         .exe_result     (em_result),
@@ -363,14 +365,14 @@ module mycpu_top(
         .mem_op         (em_mem_op),
         .wb_op_in       (em_wb_op),
         .mem_wdata_in   (em_mem_wdata),
+        .data_rdata_2MEM(data_rdata_2MEM),
+        .data_w_complete(data_w_complete),
+        .data_r_complete(data_r_complete),
         .readyGo        (MEM_readyGo),
         .allowIn        (MEM_allowIn),
         .wb_wdata       (mem_wb_wdata),
         .pc_out         (mem_pc_2WB),
         .wb_reg_addr_out(mem_wb_regaddr),
-        .data_sram_wdata(mem_dsram_wdata),
-        .data_sram_addr (mem_dsram_addr),
-        .data_sram_we   (mem_dsram_we),
         .wb_op_out      (mem_wb_op)
     );
 
@@ -554,6 +556,82 @@ module mycpu_top(
         .inst_r_complete   (inst_r_complete),// 取指完成
         .pc_out_2ID        (pc_2ID_from_bram) // 返回 IF 的“上一拍请求PC”（pc2）
     );
+
+
+
+// bram数据交互模块
+    //------------------------------------------------------------------
+    wire inst_re_in_from_IF;
+    wire data_we_in_from_EXE;
+    wire data_re_in_from_EXE;
+    wire pc_in_from_IF;
+    wire data_raddr_from_EXE;
+    wire data_waddr_from_EXE;
+    wire data_wdata_from_EXE;   
+    wire [31:0] inst_rdata_from_bram;
+    wire [31:0] data_rdata_from_bram;
+    wire inst_re_in_from_bram;
+    wire data_we_in_from_bram;
+    wire data_re_in_from_bram;
+    wire inst_re_out_2bram;
+    wire data_we_out_2bram;
+    wire data_re_out_2bram;
+    wire [31:0] inst_raddr_2bram;
+    wire [31:0] data_raddr_2bram;
+    wire [31:0] data_waddr_2bram;
+    wire [31:0] data_wdata_2bram;
+    wire [31:0] inst_rdata_2IF;
+    wire [31:0] data_rdata_2MEM;
+    wire data_w_wrong;
+    wire data_r_wrong;
+    wire inst_r_wrong;
+    wire data_w_complete;
+    wire data_r_complete;
+    wire inst_r_complete;
+    wire [31:0] pc_out_2ID;
+    bram_data_stream_controller u_bram_data_stream_controller(
+        .clk                    (clk),
+        .reset                  (reset),
+        .inst_re_in_from_IF     (inst_re_in_from_IF),
+        .data_we_in_from_EXE    (data_we_in_from_EXE),
+        .data_re_in_from_EXE    (data_re_in_from_EXE),
+        .pc_in_from_IF          (pc_in_from_IF),
+        .data_raddr_from_EXE    (data_raddr_from_EXE),
+        .data_waddr_from_EXE    (data_waddr_from_EXE),
+        .data_wdata_from_EXE    (data_wdata_from_EXE),
+        .inst_rdata_from_bram   (data_rdata_from_bram),
+        .data_rdata_from_bram   (data_rdata_from_bram),
+        .inst_re_in_from_bram   (inst_re_in_from_bram),
+        .data_we_in_from_bram   (data_we_in_from_bram),
+        .data_re_in_from_bram   (data_re_in_from_bram),
+        .inst_re_out_2bram      (inst_re_out_2bram),
+        .data_we_out_2bram      (data_we_out_2bram),
+        .data_re_out_2bram      (data_re_out_2bram),
+        .inst_raddr_2bram       (inst_raddr_2bram),
+        .data_raddr_2bram       (data_raddr_2bram),
+        .data_waddr_2bram       (data_waddr_2bram),
+        .data_wdata_2bram       (data_wdata_2bram),
+        .inst_rdata_2IF         (inst_rdata_2IF),
+        .data_rdata_2MEM        (data_rdata_2MEM),
+        .data_w_wrong           (data_w_wrong),
+        .data_r_wrong           (data_r_wrong),
+        .inst_r_wrong           (inst_r_wrong),
+        .data_w_complete        (data_w_complete),
+        .data_r_complete        (data_r_complete),
+        .inst_r_complete        (inst_r_complete),
+        .pc_out_2ID             (pc_out_2ID)
+    );.
+
+
+
+
+
+
+
+
+
+
+
 
     assign inst_sram_en    = bram_inst_re;
     assign inst_sram_we    = 1'b0;

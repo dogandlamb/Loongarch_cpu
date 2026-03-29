@@ -1,8 +1,6 @@
 `include "cpu_defs.vh"
 
 module EXEport (
-    input wire                  clk,
-    input wire                  reset,
     input wire                  valid,
 
     input wire  [ 4:0]          wb_reg_addr,
@@ -17,18 +15,25 @@ module EXEport (
     input wire                  wb_op_in,
 
 
-    output reg         readyGo,
-    output reg         allowIn,
+    output wire        readyGo,
+    output wire        allowIn,
 
-    output reg         br_taken,
-    output wire        br_taken_comb,
+    output wire        br_taken,
 
-    output reg [31:0]  final_result,
-    output reg [31:0]  pc_out,
-    output reg [ 4:0]  wb_reg_addr_out,
-    output reg [ 1:0]  mem_op,
-    output reg [31:0]  mem_wdata_out,
-    output reg         wb_op
+    output wire [31:0]  final_result,
+    output wire [31:0]  pc_out,
+    output wire [ 4:0]  wb_reg_addr_out,
+    output wire [ 1:0]  mem_op,
+    output wire [31:0]  mem_wdata_out,
+    output wire         wb_op,
+
+    output wire data_we_from_EXE,
+    output wire data_re_from_EXE,
+
+    output wire [31:0] pc_from_IF,
+    output wire [31:0] data_raddr_from_EXE,
+    output wire [31:0] data_waddr_from_EXE,
+    output wire [31:0] data_wdata_from_EXE
 );
 // ============================================================
 // 模块功能：
@@ -37,8 +42,6 @@ module EXEport (
 //
 // 端口定义：
 // - 时序与握手：
-//   - clk     : 时钟信号。
-//   - reset   : 复位信号。
 //   - valid   : 当前 EXE 级输入有效。
 //   - readyGo : 本级是否已就绪，可向下一级传递数据。
 //   - allowIn : 本级是否允许上一级写入新数据（通常受下一级反压影响）。
@@ -70,6 +73,8 @@ wire        alu_result_valid_w;
 wire        br_taken_w;
 wire [31:0] link_pc4_w;
 
+
+
 alu u_alu(
     .clk            (clk         ),
     .alu_op     	(alu_op      ),
@@ -85,36 +90,30 @@ alu u_alu(
 //inst_jirl 无条件跳转到目标地址，将pc值加＋存到rd，目标地址为i16offs16逻辑左移两位后再符号拓展加rj的值
 //inst_bne 将通用寄存器 rj 和通用寄存器 rd 的值进行比较，如果两者不等则跳转到目标地址，否则不跳转。
 //assign br_op  = {inst_jirl , inst_b , inst_bl , inst_beq , inst_bne};
-assign br_taken_w =(br_op[1] && (alu_src1 == alu_src2))  // beq
-                | (br_op[0] && (alu_src1 != alu_src2))   // bne
-                |  br_op[4]                              // jirl
-                |  br_op[2]                              // bl
-                |  br_op[3];                             // b
+assign br_taken_w =(br_op[`BR_OP_JIRL] && (alu_src1 == alu_src2))   // beq
+                | (br_op[`BR_OP_BEQ] && (alu_src1 != alu_src2))   // bne
+                |  br_op[`BR_OP_B]                              // jirl
+                |  br_op[`BR_OP_BNE]                              // bl
+                |  br_op[`BR_OP_BL];                             // b
 
-assign br_taken_comb = valid && br_taken_w;
-assign link_pc4_w    = pc_in + 32'd4;
+assign readyGo       = 1'b1;
+assign allowIn       = 1'b1;
 
-always @(*) begin
-    readyGo         = 1'b1;
-    allowIn         = 1'b1;
-    br_taken        = 1'b0;
-    final_result    = 32'b0;
-    pc_out          = 32'b0;
-    wb_reg_addr_out = 5'b0;
-    mem_op          = 2'b0;
-    mem_wdata_out   = 32'b0;
-    wb_op           = 1'b0;
+assign br_taken        = valid && br_taken_w;
+assign link_pc4_w      = pc_in + 32'd4;
 
-    if (!reset && valid) begin
-        readyGo         = alu_result_valid_w;
-        br_taken        = br_taken_w;
-        final_result    = (br_op[4] | br_op[2]) ? link_pc4_w : alu_result_w;
-        pc_out          = pc_in;
-        wb_reg_addr_out = wb_reg_addr;
-        mem_op          = mem_op_in;
-        mem_wdata_out   = mem_wdata_in;
-        wb_op           = wb_op_in;
-    end
-end
+assign  final_result    = valid ? ((br_op[`BR_OP_JIRL] | br_op[`BR_OP_BEQ]) ? link_pc4_w : alu_result_w) : 1'b0;
+assign  pc_out          = valid ? pc_in : 32'b0;
+assign  wb_reg_addr_out = valid ? wb_reg_addr : 5'b0;
+assign  mem_op          = valid ? mem_op_in : 2'b0;
+assign  mem_wdata_out   = valid ? mem_wdata_in : 32'b0;
+assign  wb_op           = valid ? wb_op_in : 1'b0;
+
+assign data_we_from_EXE = valid ? mem_op[`MEM_OP_LD_W] : 1'b0;
+assign data_re_from_EXE = valid ? mem_op[`MEM_OP_ST_W] : 1'b0;
+     
+assign data_raddr_from_EXE = valid ? final_result : 32'b0; 
+assign data_waddr_from_EXE = valid ? final_result : 32'b0;
+assign data_wdata_from_EXE = valid ? mem_wdata_in : 32'b0;
 
 endmodule

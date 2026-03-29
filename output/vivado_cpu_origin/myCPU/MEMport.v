@@ -1,27 +1,28 @@
 module MEMport (
-    input  wire        clk,
-    input  wire        reset,
     input  wire        valid,
 
-    input wire  [31:0] data_sram_rdata, //from data memory, added by sssafridi
+    input wire  [31:0]  data_bram_rdata, //from data memory, added by sssafridi
     
-    input wire  [31:0] exe_result, // renamed 
-    input wire  [31:0] pc_in,
-    input wire  [ 4:0] wb_reg_addr_in,
-    input wire  [ 1:0] mem_op,
-    input wire         wb_op_in,
-    input wire  [31:0] mem_wdata_in, //由dogandlamb添加，对齐寄存器级的输出
+    input wire  [31:0]  exe_result, // renamed 
+    input wire  [31:0]  pc_in,
+    input wire  [ 4:0]  wb_reg_addr_in,
+    input wire  [ 1:0]  mem_op,
+    input wire          wb_op_in,
+    input wire  [31:0]  mem_wdata_in, //由dogandlamb添加，对齐寄存器级的输出
 
-    output reg         readyGo,
-    output reg         allowIn,
+    input wire  [31:0]  data_rdata_2MEM,
 
-    output reg  [31:0] wb_wdata,
-    output reg  [31:0] pc_out,
-    output reg  [ 4:0] wb_reg_addr_out,
-    output reg  [31:0] data_sram_wdata,
-    output reg  [31:0] data_sram_addr,
-    output reg         data_sram_we,
-    output reg         wb_op_out
+    input wire          data_w_complete,
+    input wire          data_r_complete,
+
+
+    output wire         readyGo,
+    output wire         allowIn,
+
+    output wire  [31:0] wb_wdata,
+    output wire  [31:0] pc_out,
+    output wire  [ 4:0] wb_reg_addr_out,
+    output wire         wb_op_out
 );
 // ============================================================
 // 模块功能：
@@ -30,8 +31,6 @@ module MEMport (
 //
 // 端口定义：
 // - 时序与握手：
-//   - clk     : 时钟信号。
-//   - reset   : 复位信号。
 //   - valid   : MEM 级输入有效标志。
 //   - readyGo : 本级已就绪，可向下一级传递数据。
 //   - allowIn : 本级是否允许上一级写入新数据。
@@ -40,7 +39,9 @@ module MEMport (
 //   - wb_reg_addr_in: 目的寄存器地址。
 //   - mem_op        : 访存操作控制码。
 //   - wb_op_in      : 写回使能输入。
-//   - data_sram_rdata : 从数据存储器来的数据。
+//   - data_bram_rdata : 从数据存储器来的数据。
+//   - data_r_complete : 内存交互模块发回的内存读取数据有效的标志位
+//   - data_w_complete : 内存交互模块发回的内存写入数据有效的标志位
 // - 输出（送往 MEM/WB_reg）：
 //   - wb_wdata      : 最终写回数据（访存读出或透传结果）。
 //   - wb_reg_addr_out : 写回寄存器地址。
@@ -52,30 +53,17 @@ module MEMport (
 // 3) 验证：覆盖 load/store 与非访存指令透传（传给下一级）路径。
 // ============================================================
 
-wire   d_sram_re, d_sram_we;
-assign d_sram_re = mem_op[1];
-assign d_sram_we = mem_op[0];
+wire   bram_re, bram_we;
+assign bram_re = mem_op[MEM_OP_LD_W];
+assign bram_we = mem_op[MEM_OP_ST_W];
 
-always @(*) begin
-    readyGo         = 1'b1;
-    allowIn         = 1'b1;
-    wb_wdata        = 32'b0;
-    pc_out          = 32'b0;
-    wb_reg_addr_out = 5'b0;
-    data_sram_wdata = 32'b0;
-    data_sram_addr  = 32'b0;
-    data_sram_we    = 1'b0;
-    wb_op_out       = 1'b0;
+assign readyGo = 1'b1;
+assign allowIn = 1'b1;
 
-    if (!reset && valid) begin
-        wb_wdata        = d_sram_re ? data_sram_rdata : exe_result;
-        pc_out          = pc_in;
-        wb_reg_addr_out = wb_reg_addr_in;
-        data_sram_wdata = mem_wdata_in;
-        data_sram_addr  = exe_result;
-        data_sram_we    = d_sram_we;
-        wb_op_out       = wb_op_in;
-    end
-end
+assign wb_wdata        = valid ? (data_r_complete ? data_sram_rdata : exe_result) : 32'b0;
+assign pc_out          = valid ? pc_in : 32'b0;
+assign wb_reg_addr_out = valid ? wb_reg_addr_in : 5'b0;
+assign wb_op_out       = valid ? wb_op_in : 1'b0;
+
 
 endmodule
