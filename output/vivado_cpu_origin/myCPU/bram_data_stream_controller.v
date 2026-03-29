@@ -2,9 +2,9 @@ module bram_data_stream_controller(
     input wire clk,
     input wire reset,
 
-    input wire inst_r_we_in_from_IF,
-    input wire data_w_we_in_from_EXE,
-    input wire data_r_we_in_from_EXE,
+    input wire inst_re_in_from_IF,
+    input wire data_we_in_from_EXE,
+    input wire data_re_in_from_EXE,
 
     input wire [31:0] pc_in_from_IF,
     input wire [31:0] data_raddr_from_EXE,
@@ -14,13 +14,13 @@ module bram_data_stream_controller(
     input wire [31:0] inst_rdata_from_bram,
     input wire [31:0] data_rdata_from_bram,
     
-    input wire inst_r_we_in_from_bram,
-    input wire data_w_we_in_from_bram,
-    input wire data_r_we_in_from_bram,
+    input wire inst_re_in_from_bram,
+    input wire data_we_in_from_bram,
+    input wire data_re_in_from_bram,
     
-    output wire inst_r_we_out_2bram,
-    output wire data_w_we_out_2bram,
-    output wire data_r_we_out_2bram,
+    output wire inst_re_out_2bram,
+    output wire data_we_out_2bram,
+    output wire data_re_out_2bram,
 
     output wire [31:0] inst_raddr_2bram,
     output wire [31:0] data_raddr_2bram,
@@ -89,9 +89,9 @@ assign data_r_wrong_local=1'b0;
 assign inst_r_wrong_local=1'b0;
 
 
-assign inst_r_we_out_2bram = inst_r_we_in_from_IF;
-assign data_r_we_out_2bram = data_r_we_in_from_EXE;
-assign data_w_we_out_2bram = data_w_we_in_from_EXE;
+assign inst_r_we_out_2bram = inst_re_in_from_IF;
+assign data_r_we_out_2bram = data_re_in_from_EXE;
+assign data_w_we_out_2bram = data_we_in_from_EXE;
 
 assign inst_raddr_2bram = pc_in_from_IF;
 assign data_raddr_2bram = data_raddr_from_EXE;
@@ -118,19 +118,19 @@ end
 
 always @ (posedge clk) begin
     if(reset) data_w_complete <= 1'b0;
-    else if(!data_w_wrong_local) data_w_complete <= data_w_we_in_from_EXE;
+    else if(!data_w_wrong_local) data_w_complete <= data_we_in_from_EXE;
     else data_w_complete <= 1'b0;
 end
 
 always @ (posedge clk) begin
     if(reset) data_r_complete <= 1'b0;
-    else if(!data_r_wrong_local) data_r_complete <= data_r_we_in_from_EXE;
+    else if(!data_r_wrong_local) data_r_complete <= data_re_in_from_EXE;
     else data_r_complete <= 1'b0;
 end
 
 always @ (posedge clk) begin
     if(reset) inst_r_complete <= 1'b0;
-    else if(!inst_r_wrong_local) inst_r_complete <= inst_r_we_in_from_IF;
+    else if(!inst_r_wrong_local) inst_r_complete <= inst_re_in_from_IF;
     else inst_r_complete <= 1'b0;
 end
 
