@@ -25,8 +25,8 @@ module EXEport (
     output wire [31:0]  mem_wdata_out,
     output wire         wb_op,
 
-    output wire data_w_we_from_EXE,
-    output wire data_r_we_from_EXE,
+    output wire data_we_from_EXE,
+    output wire data_re_from_EXE,
 
     output wire [31:0] pc_from_IF,
     output wire [31:0] data_raddr_from_EXE,
