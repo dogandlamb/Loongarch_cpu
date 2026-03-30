@@ -46,18 +46,16 @@ module pipeline_controller(
 //逻辑为如果有出现数据冲突就阻塞IF和ID，直到冲突接除；如果出现跳转就取消正在ID和IF阶段的两条指令
 
 always @(*) begin
-    IF_ID_reg_allowIn = (!reset) && (!block_sig) && ID_allowIn;
+    IF_ID_reg_allowIn = (!reset) && (!block_sig) && ID_allowIn && ID_EXE_reg_allowIn;
 end
 
 // 阻塞时在 ID/EXE 边界插入气泡：流水寄存器仍接收写使能，数据由顶层 mux 置 nop
-always @ (posedge clk)begin
-    if(reset) ID_EXE_reg_allowIn <= 0;
-    else      ID_EXE_reg_allowIn <= EXE_allowIn;
+always @(*) begin
+    ID_EXE_reg_allowIn = (!reset) && EXE_allowIn && EXE_MEM_reg_allowIn;
 end
 
-always @ (posedge clk)begin
-    if(reset) EXE_MEM_reg_allowIn <= 0;
-    else      EXE_MEM_reg_allowIn <= 1'b1;
+always @(*) begin
+    EXE_MEM_reg_allowIn = (!reset) && MEM_allowIn;
 end
 
 always @ (posedge clk)begin

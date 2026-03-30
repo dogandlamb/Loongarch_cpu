@@ -22,6 +22,6 @@ assign ID_src1_rdata = FD_EXE_2rs1_sig ? EXE_data :
 assign ID_src2_rdata = FD_EXE_2rs2_sig ? EXE_data :
                        FD_MEM_2rs2_sig ? MEM_data : 
                        FD_WB_2rs2_sig  ? WB_data  :
-                       rf_rdata1;
+                       rf_rdata2;
     
 endmodule

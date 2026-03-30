@@ -29,8 +29,8 @@ module bram_data_stream_controller(
     output wire [31:0] data_waddr_2bram,
     output wire [31:0] data_wdata_2bram,
 
-    output wire  [31:0] inst_rdata_2IF,
-    output wire  [31:0] data_rdata_2MEM,
+    output reg  [31:0] inst_rdata_2IF,
+    output reg  [31:0] data_rdata_2MEM,
 
     output reg         data_w_wrong,
     output reg         data_r_wrong,
@@ -101,6 +101,19 @@ assign data_wdata_2bram = data_wdata_from_EXE;
 
 assign inst_rdata_2IF  = inst_rdata_from_bram;
 assign data_rdata_2MEM = data_rdata_from_bram;
+
+always @ (posedge clk) begin
+    if(reset) inst_rdata_2IF <= 32'b0;
+    else if(!inst_r_wrong_local) inst_rdata_2IF <= inst_rdata_from_bram;
+    else inst_rdata_2IF <= inst_rdata_2IF;
+end
+
+
+always @ (posedge clk) begin
+    if(reset) data_rdata_2MEM <= 32'b0;
+    else if(!data_r_wrong_local) data_rdata_2MEM <= data_rdata_from_bram;
+    else data_rdata_2MEM <= data_rdata_2MEM;
+end
 
 always @ (posedge clk) begin
     if (reset) data_w_wrong <= 1'b0;

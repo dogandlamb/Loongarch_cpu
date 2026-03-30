@@ -26,7 +26,7 @@ module npc(
     input  wire [31:0] rj_value,
     input  wire [31:0] pc,
     input  wire        block_sig,
-    output wire [31:0] nextpc
+    output reg  [31:0] nextpc
 );
 
 //分支跳转
@@ -42,8 +42,17 @@ wire [31:0] seq_pc;//pc+4的值，顺序执行时的下一条指令地址
 
 //下一指令地址赋值
 assign seq_pc = pc + 32'h4;
-// 分支重定向优先于 block；否则 block 时保持当前 pc，避免组合自反馈导致 nextpc 变成 X
-assign nextpc = br_taken ? br_target : (block_sig ? pc : seq_pc);//每个指令占32位，四个字节
-assign br_target = (br_op[4]) ? (rj_value + br_offs) : (pc + br_offs);//jirl跳转指定地址，其它转到偏移量
+assign br_target = br_op[`BR_OP_JIRL] ? (rj_value + br_offs) : (pc + br_offs);//jirl使用寄存器基址，其它分支使用pc相对偏移
+
+// 对控制信号中的 X 做容错，避免 nextpc 在复位释放阶段被污染成 X
+always @(*) begin
+    nextpc = seq_pc;
+    if (br_taken === 1'b1) begin
+        nextpc = br_target;
+    end
+    else if (block_sig === 1'b1) begin
+        nextpc = pc;
+    end
+end
 
 endmodule

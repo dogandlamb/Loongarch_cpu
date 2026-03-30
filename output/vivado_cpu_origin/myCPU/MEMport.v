@@ -1,7 +1,11 @@
-module MEMport (
-    input  wire        valid,
+`include "cpu_defs.vh"
 
-    input wire  [31:0]  data_bram_rdata, //from data memory, added by sssafridi
+module MEMport (
+    input  wire         clk,
+    input  wire         reset,
+    input  wire         valid,
+
+    input wire  [31:0]  data_sram_rdata, //from data memory, added by sssafridi
     
     input wire  [31:0]  exe_result, // renamed 
     input wire  [31:0]  pc_in,
@@ -54,13 +58,22 @@ module MEMport (
 // ============================================================
 
 wire   bram_re, bram_we;
-assign bram_re = mem_op[MEM_OP_LD_W];
-assign bram_we = mem_op[MEM_OP_ST_W];
+assign bram_re = mem_op[`MEM_OP_LD_W];
+assign bram_we = mem_op[`MEM_OP_ST_W];
+// complete 当拍采样 dout；同拍组合 rdata 参与写回，其余拍用 hold，减轻 dout 相对 complete 的相位差
+reg [31:0] load_rdata_hold;
+always @(posedge clk) begin
+    if (reset || !bram_re)
+        load_rdata_hold <= 32'b0;
+    else if (data_r_complete)
+        load_rdata_hold <= data_sram_rdata;
+end
+wire [31:0] load_wdata = data_r_complete ? data_sram_rdata : load_rdata_hold;
 
-assign readyGo = 1'b1;
-assign allowIn = 1'b1;
+assign readyGo = bram_re ? data_r_complete : 1'b1;
+assign allowIn = readyGo;
 
-assign wb_wdata        = valid ? (data_r_complete ? data_sram_rdata : exe_result) : 32'b0;
+assign wb_wdata        = valid ? (bram_re ? load_wdata : exe_result) : 32'b0;
 assign pc_out          = valid ? pc_in : 32'b0;
 assign wb_reg_addr_out = valid ? wb_reg_addr_in : 5'b0;
 assign wb_op_out       = valid ? wb_op_in : 1'b0;

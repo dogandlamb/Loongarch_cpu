@@ -30,6 +30,8 @@ module conflict_handle(
     input  wire hit_exe_rs2,
     input  wire hit_mem_rs2,
     input  wire hit_wb_rs2,
+    // MEM 级为 load 时不能把 em_result 当数据前递，必须阻塞到数据就绪
+    input  wire mem_stage_is_load,
     input  wire br_taken_comb,
     output wire raw_hazard,
     output wire block_sig,
@@ -44,13 +46,14 @@ module conflict_handle(
 );
 
 parameter BLOCK_MODE_ENABLE = 1'b1;
-parameter FD_MODE_ENABLE    = 1'b0;
+parameter FD_MODE_ENABLE    = 1'b1;
 
-wire hit_exe = hit_exe_rs1 | hit_exe_rs2;
-wire hit_mem = hit_exe_rs1 | hit_exe_rs2;
-wire hit_wb  = hit_wb_rs1  | hit_wb_rs2;
+wire hit_exe = (hit_exe_rs1 === 1'b1) | (hit_exe_rs2 === 1'b1);
+wire hit_mem = (hit_mem_rs1 === 1'b1) | (hit_mem_rs2 === 1'b1);
+wire hit_wb  = (hit_wb_rs1  === 1'b1) | (hit_wb_rs2  === 1'b1);
 
-assign raw_hazard = hit_exe | hit_mem | hit_wb;
+// EXE 级 RAW 必须阻塞；MEM 级 load 不能以前递地址冒充数据，亦需阻塞；非 load 的 MEM 仍走前递
+assign raw_hazard = hit_exe | (hit_mem & mem_stage_is_load);
 assign block_sig  = BLOCK_MODE_ENABLE ? raw_hazard : 1'b0;
 assign stall      = BLOCK_MODE_ENABLE ? block_sig  : 1'b0;
 
@@ -61,6 +64,6 @@ assign FD_EXE_2rs2_sig = FD_MODE_ENABLE ? hit_exe_rs2 : 1'b0;
 assign FD_MEM_2rs2_sig = FD_MODE_ENABLE ? hit_mem_rs2 : 1'b0;
 assign FD_WB_2rs2_sig  = FD_MODE_ENABLE ? hit_wb_rs2  : 1'b0;
 
-assign cancel_sig = br_taken_comb;
+assign cancel_sig = (br_taken_comb === 1'b1);
 
 endmodule

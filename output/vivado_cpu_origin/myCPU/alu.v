@@ -1,12 +1,12 @@
 `include "cpu_defs.vh"
 
 module alu(
-    input  wire                  clk,              // 乘除法 IP 使用时钟
+    input  wire                    clk,              // 乘除法 IP 使用时钟
     input  wire [`ALU_OP_NUM-1:0]  alu_op,
-    input  wire [31:0]           alu_src1,
-    input  wire [31:0]           alu_src2,
-    output wire [31:0]           alu_result,
-    output wire                  alu_result_valid  // 结果有效，mul/div 会拉低直到完成
+    input  wire [31:0]             alu_src1,
+    input  wire [31:0]             alu_src2,
+    output wire [31:0]             alu_result,
+    output wire                    alu_result_valid  // 结果有效，mul/div.w 会拉低直到完成
 );
 
 /////////////////////////////////////////////
@@ -90,7 +90,7 @@ assign sr64_result    = {{32{op_sra & alu_src1[31]}}, alu_src1[31:0]} >> alu_src
 assign sr_result      = sr64_result[31:0];
 
 //////////////////////////////////////////////////
-// 乘法 IP：mult_gen_0（1拍输出）
+// 乘法 IP：mult_gen_0（PipeStages=1，P 比输入晚 1 拍）
 wire [32:0] mul_a = op_mulh_wu ? {1'b0, alu_src1} : {alu_src1[31], alu_src1};
 wire [32:0] mul_b = op_mulh_wu ? {1'b0, alu_src2} : {alu_src2[31], alu_src2};
 wire [65:0] mul_result_raw;
@@ -102,27 +102,23 @@ mult_gen_0 u_mult_gen_0(
     .P  (mul_result_raw)
 );
 
-wire signed [63:0] mul_signed_res   = $signed(alu_src1) * $signed(alu_src2);
-wire [63:0]        mul_unsigned_res = $unsigned(alu_src1) * $unsigned(alu_src2);
-wire [31:0]        mul_w_result     = mul_signed_res[31:0];
-wire [31:0]        mulh_w_result    = mul_signed_res[63:32];
-wire [31:0]        mulh_wu_result   = mul_unsigned_res[63:32];
+// 与 33×33 有符号乘法一致：低 64 位为 32×32 有符号全宽积（mulh_wu 为零扩展 33 位，积的高 32 位）
+wire [31:0] mul_w_result   = mul_result_raw[31:0];
+wire [31:0] mulh_w_result  = mul_result_raw[63:32];
+wire [31:0] mulh_wu_result = mul_result_raw[63:32];
+
+reg op_mul_any_d;
+always @(posedge clk) begin
+    op_mul_any_d <= op_mul_any;
+end
 
 //////////////////////////////////////////////////
-// 除法 IP：div_gen_0（signed）
+// 除法 IP：div_gen_0（仅 div.w；div.wu 为无符号，与 Signed IP 语义不同，仍用组合）
 wire [31:0] div_divisor_data  = alu_src2;
 wire [31:0] div_dividend_data = alu_src1;
-wire        div_in_valid;
+reg         div_in_valid;
 wire        div_out_valid;
 wire [63:0] div_out_data;
-wire signed [31:0] div_src1_signed;
-wire signed [31:0] div_src2_signed;
-wire signed [31:0] div_w_quot_signed;
-
-assign div_src1_signed = alu_src1;
-assign div_src2_signed = alu_src2;
-
-assign div_in_valid = 1'b0;
 
 div_gen_0 u_div_gen_0(
     .aclk                   (clk),
@@ -134,13 +130,52 @@ div_gen_0 u_div_gen_0(
     .m_axis_dout_tvalid     (div_out_valid)
 );
 
-assign div_w_quot_signed = (div_src2_signed == 32'b0) ? 32'sb0 : (div_src1_signed / div_src2_signed);
-wire [31:0] div_w_quot  = div_w_quot_signed;
-wire [31:0] div_wu_quot = (alu_src2 == 32'b0) ? 32'b0 : ($unsigned(alu_src1) / $unsigned(alu_src2));
+localparam DIV_ST_IDLE = 1'b0;
+localparam DIV_ST_WAIT = 1'b1;
+reg div_st;
+reg [31:0] div_w_quot_reg;
+
+initial begin
+    div_st = DIV_ST_IDLE;
+    div_w_quot_reg = 32'b0;
+    div_in_valid   = 1'b0;
+end
+
+always @(posedge clk) begin
+    div_in_valid <= 1'b0;
+    case (div_st)
+        DIV_ST_IDLE: begin
+            if (op_div_w) begin
+                div_in_valid <= 1'b1;
+                div_st       <= DIV_ST_WAIT;
+            end
+        end
+        DIV_ST_WAIT: begin
+            if (div_out_valid) begin
+                div_w_quot_reg <= div_out_data[31:0];
+                div_st         <= DIV_ST_IDLE;
+            end
+        end
+        default: div_st <= DIV_ST_IDLE;
+    endcase
+end
+
+wire [31:0] div_w_quot  = div_w_quot_reg;
+wire [31:0] div_wu_quot = (alu_src2 == 32'b0) ? 32'b0
+                         : ($unsigned(alu_src1) / $unsigned(alu_src2));
 
 //////////////////////////////////////////////////
-// 输出有效控制（mul/div 会等待完成）
-assign alu_result_valid = 1'b1;
+// 输出有效控制
+wire op_alu_1cycle = op_add | op_sub | op_slt | op_sltu | op_and | op_nor | op_or | op_xor
+                   | op_sll | op_srl | op_sra | op_lui | op_div_wu;
+
+wire mul_result_ok = op_mul_any && op_mul_any_d;
+
+wire div_w_result_ok = (div_st == DIV_ST_WAIT) && div_out_valid;
+
+assign alu_result_valid = op_alu_1cycle
+                        | mul_result_ok
+                        | div_w_result_ok;
 
 //////////////////////////////////////////////////
 // 结果选择，总输出

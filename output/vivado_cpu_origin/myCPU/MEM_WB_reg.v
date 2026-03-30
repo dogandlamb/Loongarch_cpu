@@ -66,7 +66,8 @@ always @(posedge clk) begin
         wb_wdata_out <= wb_wdata_out;
         pc_out <= pc_out;
         wb_reg_addr_out <= wb_reg_addr_out;
-        wb_op_out <= wb_op_out;
+        // 停顿拍禁止重复提交，避免同一条指令被 testbench 计为多次写回
+        wb_op_out <= 1'b0;
     // 兜底分支：保持安全清空语义
     end
     else begin

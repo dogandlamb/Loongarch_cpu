@@ -67,6 +67,10 @@ module op_dec(
 //inst_beq rjrd相等跳转目标地址
 //inst_jirl 无条件跳转到目标地址，将pc值加＋存到rd，目标地址为i16offs16逻辑左移两位后再符号拓展加rj的值
 //inst_bne 将通用寄存器 rj 和通用寄存器 rd 的值进行比较，如果两者不等则跳转到目标地址，否则不跳转。
-    assign br_op      = {inst_jirl , inst_b , inst_bl , inst_beq , inst_bne};
+    assign br_op[`BR_OP_BEQ]  = inst_beq;
+    assign br_op[`BR_OP_BNE]  = inst_bne;
+    assign br_op[`BR_OP_JIRL] = inst_jirl;
+    assign br_op[`BR_OP_BL]   = inst_bl;
+    assign br_op[`BR_OP_B]    = inst_b;
 
 endmodule

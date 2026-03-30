@@ -41,7 +41,7 @@ assign hit_mem_rs1 = mem_wb && (mem_rd != 5'd0) && (mem_rd == id_rs1);
 assign hit_mem_rs2 = mem_wb && (mem_rd != 5'd0) && (mem_rd == id_rs2);
 // wire hit_memwb = memwb_wb && (memwb_rd != 5'd0)
 //     && ((memwb_rd == id_rs1) || (memwb_rd == id_rs2));看不懂，先注释了
-assign hit_wb_rs1  = wb_wb  && (wb_rd  != 5'd0) && (wb_rd  == id_rs1);
-assign hit_wb_rs1  = wb_wb  && (wb_rd  != 5'd0) && (wb_rd  == id_rs1);
+ assign hit_wb_rs1 = wb_wb && (wb_rd != 5'd0) && (wb_rd == id_rs1);
+assign hit_wb_rs2 = wb_wb && (wb_rd != 5'd0) && (wb_rd == id_rs2);
 
 endmodule

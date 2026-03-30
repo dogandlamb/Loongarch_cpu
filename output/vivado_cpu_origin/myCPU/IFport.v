@@ -13,7 +13,7 @@ module IFport (
     output wire        allowIn,
 
     output wire [31:0] pc_1out,
-    output wire [31:0] inst_2out,
+    output wire [31:0] inst_out,
     output wire [31:0] pc_2out
 );
 // ============================================================

@@ -30,7 +30,6 @@ module EXEport (
     output wire data_we_from_EXE,
     output wire data_re_from_EXE,
 
-    output wire [31:0] pc_from_IF,
     output wire [31:0] data_raddr_from_EXE,
     output wire [31:0] data_waddr_from_EXE,
     output wire [31:0] data_wdata_from_EXE
@@ -89,12 +88,13 @@ alu u_alu(
 //inst_beq rjrd相等跳转目标地址
 //inst_jirl 无条件跳转到目标地址，将pc值加＋存到rd，目标地址为i16offs16逻辑左移两位后再符号拓展加rj的值
 //inst_bne 将通用寄存器 rj 和通用寄存器 rd 的值进行比较，如果两者不等则跳转到目标地址，否则不跳转。
-//assign br_op  = {inst_jirl , inst_b , inst_bl , inst_beq , inst_bne};
-assign br_taken_w =(br_op[`BR_OP_JIRL] && (alu_src1 == alu_src2))   // beq
-                | (br_op[`BR_OP_BEQ] && (alu_src1 != alu_src2))   // bne
-                |  br_op[`BR_OP_B]                              // jirl
-                |  br_op[`BR_OP_BNE]                              // bl
-                |  br_op[`BR_OP_BL];                             // b
+// br_op 位定义见 cpu_defs.vh：
+// BEQ=0, BNE=1, JIRL=2, BL=3, B=4
+assign br_taken_w = (br_op[`BR_OP_BEQ]  && (alu_src1 == alu_src2)) // beq
+                  | (br_op[`BR_OP_BNE]  && (alu_src1 != alu_src2)) // bne
+                  |  br_op[`BR_OP_JIRL]                             // jirl
+                  |  br_op[`BR_OP_BL]                               // bl
+                  |  br_op[`BR_OP_B];                               // b
 
 assign readyGo       = 1'b1;
 assign allowIn       = 1'b1;
@@ -102,15 +102,15 @@ assign allowIn       = 1'b1;
 assign br_taken        = valid && br_taken_w;
 assign link_pc4_w      = pc_in + 32'd4;
 
-assign  final_result    = valid ? ((br_op[`BR_OP_JIRL] | br_op[`BR_OP_BEQ]) ? link_pc4_w : alu_result_w) : 1'b0;
+assign  final_result    = valid ? ((br_op[`BR_OP_JIRL] | br_op[`BR_OP_BL]) ? link_pc4_w : alu_result_w) : 1'b0;
 assign  pc_out          = valid ? pc_in : 32'b0;
 assign  wb_reg_addr_out = valid ? wb_reg_addr : 5'b0;
 assign  mem_op          = valid ? mem_op_in : 2'b0;
 assign  mem_wdata_out   = valid ? mem_wdata_in : 32'b0;
 assign  wb_op           = valid ? wb_op_in : 1'b0;
 
-assign data_we_from_EXE = valid ? mem_op[`MEM_OP_LD_W] : 1'b0;
-assign data_re_from_EXE = valid ? mem_op[`MEM_OP_ST_W] : 1'b0;
+assign data_we_from_EXE = valid ? mem_op[`MEM_OP_ST_W] : 1'b0;
+assign data_re_from_EXE = valid ? mem_op[`MEM_OP_LD_W] : 1'b0;
      
 assign data_raddr_from_EXE = valid ? final_result : 32'b0; 
 assign data_waddr_from_EXE = valid ? final_result : 32'b0;
