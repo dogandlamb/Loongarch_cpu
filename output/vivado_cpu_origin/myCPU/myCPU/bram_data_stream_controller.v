@@ -29,8 +29,8 @@ module bram_data_stream_controller(
     output wire [31:0] data_waddr_2bram,
     output wire [31:0] data_wdata_2bram,
 
-    output reg  [31:0] inst_rdata_2IF,
-    output reg  [31:0] data_rdata_2MEM,
+    output wire [31:0] inst_rdata_2IF,
+    output wire [31:0] data_rdata_2MEM,
 
     output reg         data_w_wrong,
     output reg         data_r_wrong,
@@ -84,6 +84,11 @@ module bram_data_stream_controller(
 wire data_w_wrong_local;
 wire data_r_wrong_local;
 wire inst_r_wrong_local;
+reg  data_we_req_d1;
+reg  data_re_req_d1;
+reg  data_w_pending;
+reg  data_r_pending;
+reg  data_r_complete_d; // expr 打一拍再输出 complete，与 pending 同块且对齐读数据
 
 assign data_w_wrong_local=1'b0;//需要异常处理可以修改这部分逻辑，同时保留对外的接口
 assign data_r_wrong_local=1'b0;
@@ -103,17 +108,52 @@ assign inst_rdata_2IF  = inst_rdata_from_bram;
 assign data_rdata_2MEM = data_rdata_from_bram;
 
 always @ (posedge clk) begin
-    if(reset) inst_rdata_2IF <= 32'b0;
-    else if(!inst_r_wrong_local) inst_rdata_2IF <= inst_rdata_from_bram;
-    else inst_rdata_2IF <= inst_rdata_2IF;
+    if (reset) begin
+        data_we_req_d1 <= 1'b0;
+        data_re_req_d1 <= 1'b0;
+        data_w_pending <= 1'b0;
+        data_r_pending <= 1'b0;
+        data_r_complete_d <= 1'b0;
+        data_r_complete   <= 1'b0;
+    end
+    else begin
+        data_we_req_d1 <= data_we_in_from_EXE;
+        data_re_req_d1 <= data_re_in_from_EXE;
+
+        // 每个请求仅登记一次 pending，等待对应返回后清除
+        if (!data_w_pending && data_we_in_from_EXE) begin
+            data_w_pending <= 1'b1;
+        end
+        else if (data_w_pending && !data_we_in_from_EXE && data_we_in_from_bram) begin
+            data_w_pending <= 1'b0;
+        end
+        else begin
+            data_w_pending <= data_w_pending;
+        end
+
+        // 读 pending：re 为高登记；清除须在 re 已拉低后进行（与常 1 的 bram 应答配合）
+        if (!data_r_pending && data_re_in_from_EXE) begin
+            data_r_pending <= 1'b1;
+        end
+        else if (data_r_pending && !data_re_in_from_EXE && data_re_in_from_bram) begin
+            data_r_pending <= 1'b0;
+        end
+        else begin
+            data_r_pending <= data_r_pending;
+        end
+
+        // 读完成：expr 与 pending 同块；complete 为 expr 延迟一拍（单拍脉冲）
+        if (!data_r_wrong_local) begin
+            data_r_complete_d <= data_r_pending & !data_re_in_from_EXE & data_re_in_from_bram;
+            data_r_complete   <= data_r_complete_d;
+        end
+        else begin
+            data_r_complete_d <= 1'b0;
+            data_r_complete   <= 1'b0;
+        end
+    end
 end
 
-
-always @ (posedge clk) begin
-    if(reset) data_rdata_2MEM <= 32'b0;
-    else if(!data_r_wrong_local) data_rdata_2MEM <= data_rdata_from_bram;
-    else data_rdata_2MEM <= data_rdata_2MEM;
-end
 
 always @ (posedge clk) begin
     if (reset) data_w_wrong <= 1'b0;
@@ -132,19 +172,13 @@ end
 
 always @ (posedge clk) begin
     if(reset) data_w_complete <= 1'b0;
-    else if(!data_w_wrong_local) data_w_complete <= data_we_in_from_EXE;
+    else if(!data_w_wrong_local) data_w_complete <= data_w_pending & !data_we_in_from_EXE & data_we_in_from_bram;
     else data_w_complete <= 1'b0;
 end
 
 always @ (posedge clk) begin
-    if(reset) data_r_complete <= 1'b0;
-    else if(!data_r_wrong_local) data_r_complete <= data_re_in_from_EXE;
-    else data_r_complete <= 1'b0;
-end
-
-always @ (posedge clk) begin
     if(reset) inst_r_complete <= 1'b0;
-    else if(!inst_r_wrong_local) inst_r_complete <= inst_re_in_from_IF;
+    else if(!inst_r_wrong_local) inst_r_complete <= inst_re_in_from_IF & inst_re_in_from_bram;
     else inst_r_complete <= 1'b0;
 end
 

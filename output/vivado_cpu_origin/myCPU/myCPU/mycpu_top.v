@@ -415,10 +415,13 @@ module mycpu_top(
     always @(posedge clk) begin
         if (reset)
             ld_req_issued <= 1'b0;
+        // 仅在该 load 槽位完成并成功被 MEM 级推进后清除 issued，避免尾部槽位挂住
+        else if (ld_slot_match && MEM_readyGo && MEM_allowIn)
+            ld_req_issued <= 1'b0;
         else if (data_re_issue_ld) begin
-            ld_req_issued <= 1'b1;
-            ld_req_pc   <= em_pc;
-            ld_req_reg  <= em_wb_reg;
+            ld_req_issued   <= 1'b1;
+            ld_req_pc       <= em_pc;
+            ld_req_reg      <= em_wb_reg;
         end
     end
 
@@ -508,7 +511,9 @@ module mycpu_top(
         .hit_wb_rs2    (hit_wb_rs2)
     );
 
-    wire mem_stage_is_load = MEM_valid & em_mem_op[`MEM_OP_LD_W];
+    wire mem_stage_is_load = MEM_valid
+                              & em_mem_op[`MEM_OP_LD_W]
+                              & ~data_r_complete;
 
     conflict_handle u_conflict_handle(
         .hit_exe_rs1   (hit_exe_rs1),

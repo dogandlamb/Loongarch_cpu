@@ -34,3 +34,5 @@ output/vivado_cpu_origin/soc_verify/**/run_vivado/project/**/*.xpr
 output/vivado_cpu_origin/soc_verify/**/testbench/dump.vcd
 output/vivado_cpu_origin/soc_verify/**/testbench/project/**/gettrace
 
+*.vcd
+*.vcd

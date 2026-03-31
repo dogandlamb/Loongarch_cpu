@@ -1,35 +1,37 @@
 # compile verilog/system verilog design source files
-verilog xil_defaultlib  --include "../../../../loongson.ip_user_files/ipstatic" \
+verilog xil_defaultlib  --include "../../../../../../../../myCPU/myCPU" --include "../../../../loongson.ip_user_files/ipstatic" \
 "../../../../../../rtl/xilinx_ip/clk_pll/clk_pll_clk_wiz.v" \
 "../../../../../../rtl/xilinx_ip/clk_pll/clk_pll.v" \
 "../../../../../../rtl/xilinx_ip/data_ram/sim/data_ram.v" \
 "../../../../../../rtl/xilinx_ip/inst_ram/sim/inst_ram.v" \
-"../../../../../../../../myCPU/ALU_srcGenerator.v" \
-"../../../../../../../../myCPU/EXE_MEM_reg.v" \
-"../../../../../../../../myCPU/EXEport.v" \
-"../../../../../../../../myCPU/ID_EXE_reg.v" \
-"../../../../../../../../myCPU/IDport.v" \
-"../../../../../../../../myCPU/IF_ID_reg.v" \
-"../../../../../../../../myCPU/IFport.v" \
-"../../../../../../../../myCPU/MEM_WB_reg.v" \
-"../../../../../../../../myCPU/MEMport.v" \
-"../../../../../../../../myCPU/WBport.v" \
-"../../../../../../../../myCPU/alu.v" \
+"../../../../../../../../myCPU/myCPU/ALU_srcGenerator.v" \
+"../../../../../../../../myCPU/myCPU/EXE_MEM_reg.v" \
+"../../../../../../../../myCPU/myCPU/EXEport.v" \
+"../../../../../../../../myCPU/myCPU/ID_EXE_reg.v" \
+"../../../../../../../../myCPU/myCPU/IDport.v" \
+"../../../../../../../../myCPU/myCPU/IF_ID_reg.v" \
+"../../../../../../../../myCPU/myCPU/IFport.v" \
+"../../../../../../../../myCPU/myCPU/MEM_WB_reg.v" \
+"../../../../../../../../myCPU/myCPU/MEMport.v" \
+"../../../../../../../../myCPU/myCPU/WBport.v" \
+"../../../../../../../../myCPU/myCPU/alu.v" \
+"../../../../../../../../myCPU/myCPU/bram_data_stream_controller.v" \
 "../../../../../../rtl/BRIDGE/bridge_1x2.v" \
-"../../../../../../../../myCPU/conflict_detector.v" \
-"../../../../../../../../myCPU/conflict_handle.v" \
+"../../../../../../../../myCPU/myCPU/conflict_detector.v" \
+"../../../../../../../../myCPU/myCPU/conflict_handle.v" \
 "../../../../../../rtl/CONFREG/confreg.v" \
-"../../../../../../../../myCPU/get_reg_read_addr.v" \
-"../../../../../../../../myCPU/imm_generator.v" \
-"../../../../../../../../myCPU/inst_dec.v" \
-"../../../../../../../../myCPU/mycpu_top.v" \
-"../../../../../../../../myCPU/npc.v" \
-"../../../../../../../../myCPU/op_dec.v" \
-"../../../../../../../../myCPU/pc.v" \
-"../../../../../../../../myCPU/pipeline_controller.v" \
-"../../../../../../../../myCPU/regfile.v" \
+"../../../../../../../../myCPU/myCPU/forward_deliver.v" \
+"../../../../../../../../myCPU/myCPU/get_reg_read_addr.v" \
+"../../../../../../../../myCPU/myCPU/imm_generator.v" \
+"../../../../../../../../myCPU/myCPU/inst_dec.v" \
+"../../../../../../../../myCPU/myCPU/mycpu_top.v" \
+"../../../../../../../../myCPU/myCPU/npc.v" \
+"../../../../../../../../myCPU/myCPU/op_dec.v" \
+"../../../../../../../../myCPU/myCPU/pc.v" \
+"../../../../../../../../myCPU/myCPU/pipeline_controller.v" \
+"../../../../../../../../myCPU/myCPU/regfile.v" \
 "../../../../../../rtl/soc_lite_top.v" \
-"../../../../../../../../myCPU/tools.v" \
+"../../../../../../../../myCPU/myCPU/tools.v" \
 "../../../../../../testbench/mycpu_tb.v" \
 
 # compile glbl module

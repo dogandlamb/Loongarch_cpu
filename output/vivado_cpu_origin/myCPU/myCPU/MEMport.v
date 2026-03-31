@@ -19,7 +19,6 @@ module MEMport (
     input wire          data_w_complete,
     input wire          data_r_complete,
 
-
     output wire         readyGo,
     output wire         allowIn,
 
@@ -60,7 +59,7 @@ module MEMport (
 wire   bram_re, bram_we;
 assign bram_re = mem_op[`MEM_OP_LD_W];
 assign bram_we = mem_op[`MEM_OP_ST_W];
-// complete 当拍采样 dout；同拍组合 rdata 参与写回，其余拍用 hold，减轻 dout 相对 complete 的相位差
+// complete 当拍采样 dout；同拍组合 rdata 参与写回，其余拍用 hold
 reg [31:0] load_rdata_hold;
 always @(posedge clk) begin
     if (reset || !bram_re)
@@ -70,7 +69,32 @@ always @(posedge clk) begin
 end
 wire [31:0] load_wdata = data_r_complete ? data_sram_rdata : load_rdata_hold;
 
-assign readyGo = bram_re ? data_r_complete : 1'b1;
+// 对当前 MEM 槽位做“完成后保持就绪”（按 pc+rd 精确匹配槽位）
+reg        load_done_hold;
+reg [31:0] load_done_pc;
+reg [ 4:0] load_done_rd;
+wire       load_done_match = load_done_hold
+                           && (pc_in == load_done_pc)
+                           && (wb_reg_addr_in == load_done_rd);
+always @(posedge clk) begin
+    if (reset)
+        load_done_hold <= 1'b0;
+    else if (!valid || !bram_re)
+        load_done_hold <= 1'b0;
+    // hold 只用于补偿完成后的下一次推进；被消费后立即清掉，防止同一槽重复提交
+    else if (load_done_match && !data_r_complete)
+        load_done_hold <= 1'b0;
+    else if (load_done_hold && !((pc_in == load_done_pc) && (wb_reg_addr_in == load_done_rd)))
+        load_done_hold <= 1'b0;
+    else if (data_r_complete) begin
+        load_done_hold <= 1'b1;
+        load_done_pc   <= pc_in;
+        load_done_rd   <= wb_reg_addr_in;
+    end
+end
+
+// load：未完成前不可推进；一旦完成，保持 ready 直到该 load 槽位离开 MEM
+assign readyGo = bram_re ? (data_r_complete | load_done_match) : 1'b1;
 assign allowIn = readyGo;
 
 assign wb_wdata        = valid ? (bram_re ? load_wdata : exe_result) : 32'b0;
