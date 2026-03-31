@@ -3,12 +3,16 @@
 
 
 /* 分支/跳转操作码宏定义 */
-`define BR_OP_NUM       5     // 分支/跳转有多少种操作，与br_op有关 
+`define BR_OP_NUM       9     // 分支/跳转有多少种操作，与br_op有关 
 `define BR_OP_BEQ       0     // beq
 `define BR_OP_BNE       1     // bne
 `define BR_OP_JIRL      2     // jirl
 `define BR_OP_BL        3     // bl
 `define BR_OP_B         4     // b
+`define BR_OP_BLT       5     // blt
+`define BR_OP_BGE       6     // bge
+`define BR_OP_BLTU      7     // bltu
+`define BR_OP_BGEU      8     // bgeu
 
 
 /* ALU操作码宏定义 */
@@ -30,6 +34,7 @@
 `define ALU_OP_MULH_WU  14  // 有符号/无符号混合乘法高位结果
 `define ALU_OP_DIV_W    15  // 有符号除法
 `define ALU_OP_DIV_WU   16  // 无符号除法
+
 
 
 /* mem_op操作码宏定义 */

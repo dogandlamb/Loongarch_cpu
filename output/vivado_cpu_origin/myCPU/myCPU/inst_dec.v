@@ -21,6 +21,10 @@ module inst_dec(
     output wire        inst_b,
     output wire        inst_bl,
     output wire        inst_beq,
+    output wire        inst_blt,
+    output wire        inst_bge,
+    output wire        inst_bltu,
+    output wire        inst_bgeu,
     output wire        inst_jirl,
     output wire        inst_lu12i_w,
     output wire        inst_mul_w,
@@ -75,6 +79,10 @@ assign inst_b       = op_31_26_d[6'h14];
 assign inst_bl      = op_31_26_d[6'h15];
 assign inst_beq     = op_31_26_d[6'h16];
 assign inst_bne     = op_31_26_d[6'h17];
+assign inst_blt     = op_31_26_d[6'h18];
+assign inst_bge     = op_31_26_d[6'h19];
+assign inst_bltu    = op_31_26_d[6'h1a];
+assign inst_bgeu    = op_31_26_d[6'h1b];
 
 assign inst_lu12i_w = op_31_26_d[6'h05] & ~inst[25];
 

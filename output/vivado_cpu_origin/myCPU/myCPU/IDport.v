@@ -93,6 +93,10 @@ wire inst_srai_w;    //rj数据算术右移ui5，存入rd
 wire inst_b;         //无条件跳转到目标地址，地址偏移值为i26offs26逻辑左移两位再符号拓展
 wire inst_bl;        //无条件跳转到目标地址，偏移值同上，同时将该指令的pc＋4存到rl
 wire inst_beq;       //rjrd相等跳转目标地址
+wire inst_blt;       //有符号数比较，src1<src2跳转目标地址
+wire inst_bge;       //有符号数比较，src1>=src2跳转目标地址
+wire inst_bltu;      //无符号数比较，src1<src2跳
+wire inst_bgeu;      //无符号数比较，src1>=src2跳转目标地址
 wire inst_jirl;      //无条件跳转到目标地址，将pc值加＋存到rd，目标地址为i16offs16逻辑左移两位后再符号拓展加rj的值
 wire inst_lu12i_w;   //用于将20位bit立即数链接上12bit0后写入rd
 wire inst_ori;       //ori: rj | ui12 -> rd
@@ -147,7 +151,11 @@ inst_dec u_inst_dec(
     .inst_mulh_w  (inst_mulh_w),
     .inst_mulh_wu (inst_mulh_wu),
     .inst_div_w   (inst_div_w),
-    .inst_div_wu  (inst_div_wu)
+    .inst_div_wu  (inst_div_wu),
+    .inst_blt     (inst_blt),
+    .inst_bge     (inst_bge),
+    .inst_bltu    (inst_bltu),
+    .inst_bgeu    (inst_bgeu)
 );
 
 op_dec u_op_dec(

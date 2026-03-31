@@ -37,6 +37,10 @@ module imm_generator (
     input wire inst_b,
     input wire inst_bl,
     input wire inst_beq,
+    input wire inst_blt,
+    input wire inst_bge,
+    input wire inst_bltu,
+    input wire inst_bgeu,
     input wire inst_jirl,
     input wire inst_lu12i_w,
 
@@ -60,7 +64,7 @@ module imm_generator (
     
     assign need_ui5  = inst_slli_w | inst_srli_w | inst_srai_w;
     assign need_si12 = inst_addi_w | inst_ld_w | inst_st_w;
-    assign need_si16 = inst_jirl | inst_beq | inst_bne;
+    assign need_si16 = inst_jirl | inst_beq | inst_bne | inst_blt | inst_bge | inst_bltu | inst_bgeu;
     assign need_si20 = inst_lu12i_w;
     assign need_si26 = inst_b | inst_bl;
     assign src2_is_4 = inst_jirl | inst_bl;

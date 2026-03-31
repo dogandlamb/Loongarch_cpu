@@ -88,10 +88,18 @@ alu u_alu(
 //inst_beq rjrd相等跳转目标地址
 //inst_jirl 无条件跳转到目标地址，将pc值加＋存到rd，目标地址为i16offs16逻辑左移两位后再符号拓展加rj的值
 //inst_bne 将通用寄存器 rj 和通用寄存器 rd 的值进行比较，如果两者不等则跳转到目标地址，否则不跳转。
+//inst_blt 将通用寄存器 rj 和通用寄存器 rd 的值进行比较，如果 rj 小于 rd 则跳转到目标地址，否则不跳转。
+//inst_bge 将通用寄存器 rj 和通用寄存器 rd 的值进行比较，如果 rj 大于或等于 rd 则跳转到目标地址，否则不跳转。
+//inst_bltu 将通用寄存器 rj 和通用寄存器 rd 的值进行比较（无符号比较），如果 rj 小于 rd 则跳转到目标地址，否则不跳转。
+//inst_bgeu 将通用寄存器 rj 和通用寄存器 rd 的值进行比较（无符号比较），如果 rj 大于或等于 rd 则跳转到目标地址，否则不跳转。
 // br_op 位定义见 cpu_defs.vh：
 // BEQ=0, BNE=1, JIRL=2, BL=3, B=4
 assign br_taken_w = (br_op[`BR_OP_BEQ]  && (alu_src1 == alu_src2)) // beq
                   | (br_op[`BR_OP_BNE]  && (alu_src1 != alu_src2)) // bne
+                  | (br_op[`BR_OP_BLT]  && ($signed(alu_src1) < $signed(alu_src2))) // blt
+                  | (br_op[`BR_OP_BGE]  && ($signed(alu_src1) >= $signed(alu_src2))) // bge
+                  | (br_op[`BR_OP_BLTU] && (alu_src1 < alu _src2)) // bltu
+                  | (br_op[`BR_OP_BGEU] && (alu_src1 >= alu_src2)) // bgeu
                   |  br_op[`BR_OP_JIRL]                             // jirl
                   |  br_op[`BR_OP_BL]                               // bl
                   |  br_op[`BR_OP_B];                               // b

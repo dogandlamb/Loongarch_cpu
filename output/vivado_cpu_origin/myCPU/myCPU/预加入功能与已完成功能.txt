@@ -4,3 +4,4 @@
 
 已加入功能：
 1.五级流水
+2.加入blt/bge/bltu/bgeu指令（完全复用beq/bne路线）

@@ -20,6 +20,10 @@ module op_dec(
     input  wire        inst_b,
     input  wire        inst_bl,
     input  wire        inst_beq,
+    input  wire        inst_blt,
+    input  wire        inst_bge,
+    input  wire        inst_bltu,
+    input  wire        inst_bgeu,
     input  wire        inst_jirl,
     input  wire        inst_lu12i_w,
     input  wire        inst_mul_w,
@@ -72,5 +76,9 @@ module op_dec(
     assign br_op[`BR_OP_JIRL] = inst_jirl;
     assign br_op[`BR_OP_BL]   = inst_bl;
     assign br_op[`BR_OP_B]    = inst_b;
+    assign br_op[`BR_OP_BLT]  = inst_blt;
+    assign br_op[`BR_OP_BGE]  = inst_bge;
+    assign br_op[`BR_OP_BLTU] = inst_bltu;
+    assign br_op[`BR_OP_BGEU] = inst_bgeu;
 
 endmodule

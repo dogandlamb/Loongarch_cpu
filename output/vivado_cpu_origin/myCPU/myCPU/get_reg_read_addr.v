@@ -36,6 +36,10 @@ module get_reg_read_addr(
     input  wire        inst_b,
     input  wire        inst_bl,
     input  wire        inst_beq,
+    input  wire        inst_blt,
+    input  wire        inst_bge,
+    input  wire        inst_bltu,
+    input  wire        inst_bgeu,
     input  wire        inst_jirl,
     input  wire        inst_lu12i_w,
     input  wire        inst_mul_w,     //乘法
@@ -72,7 +76,8 @@ assign need_rk = inst_add_w | inst_sub_w | inst_slt | inst_sltu
                | inst_mul_w | inst_mulh_w | inst_mulh_wu
                | inst_div_w | inst_div_wu;
 
-assign src_reg_is_rd = inst_st_w | inst_beq | inst_bne; // 第二源来自 rd 的指令
+assign src_reg_is_rd = inst_st_w | inst_beq | inst_bne 
+                    |inst_blt | inst_bge | inst_bltu | inst_bgeu; // 第二源来自 rd 的指令
 
 assign rf_raddr1 = need_rj ? rj : 5'd0;
 assign rf_raddr2 = src_reg_is_rd ? rd : (need_rk ? rk : 5'd0);
