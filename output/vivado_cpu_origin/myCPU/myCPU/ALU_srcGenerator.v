@@ -5,6 +5,8 @@ module ALU_srcGenerator(
     input  wire        inst_sub_w,
     input  wire        inst_ld_w,
     input  wire        inst_st_w,
+    input  wire        inst_st_b,
+    input  wire        inst_st_h,
     input  wire        inst_bne,
     input  wire        inst_slt,
     input  wire        inst_sltu,
@@ -45,6 +47,8 @@ assign src2_is_imm   = inst_slli_w
                      | inst_addi_w 
                      | inst_ld_w 
                      | inst_st_w
+                     | inst_st_b
+                     | inst_st_h
                      | inst_lu12i_w
                      | inst_jirl
                      | inst_bl;

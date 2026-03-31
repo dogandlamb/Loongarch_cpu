@@ -7,6 +7,8 @@ module op_dec(
     input  wire        inst_sub_w,
     input  wire        inst_ld_w,
     input  wire        inst_st_w,
+    input  wire        inst_st_b,
+    input  wire        inst_st_h,
     input  wire        inst_bne,
     input  wire        inst_slt,
     input  wire        inst_sltu,
@@ -47,7 +49,7 @@ module op_dec(
 //alu_op[ 11]      高位立即数加载
 
     assign alu_op[`ALU_OP_ADD] = inst_add_w | inst_addi_w | inst_ld_w | inst_st_w 
-                    | inst_jirl | inst_bl;
+                    | inst_jirl | inst_bl | inst_st_b | inst_st_h; // 注意 st_b/st_h 也需要加法操作来计算地址
     assign alu_op[`ALU_OP_SUB] = inst_sub_w;
     assign alu_op[`ALU_OP_SLT] = inst_slt;
     assign alu_op[`ALU_OP_SLTU] = inst_sltu;
@@ -71,6 +73,10 @@ module op_dec(
 //inst_beq rjrd相等跳转目标地址
 //inst_jirl 无条件跳转到目标地址，将pc值加＋存到rd，目标地址为i16offs16逻辑左移两位后再符号拓展加rj的值
 //inst_bne 将通用寄存器 rj 和通用寄存器 rd 的值进行比较，如果两者不等则跳转到目标地址，否则不跳转。
+//inst_blt 将通用寄存器 rj 和通用寄存器 rd 的值进行比较，如果 rj 的值小于 rd 的值（有符号比较），则跳转到目标地址，否则不跳转。
+//inst_bge 将通用寄存器 rj 和通用寄存器 rd 的值进行比较，如果 rj 的值大于或等于 rd 的值（有符号比较），则跳转到目标地址，否则不跳转。
+//inst_bltu 将通用寄存器 rj 和通用寄存器 rd 的值进行比较，如果 rj 的值小于 rd 的值（无符号比较），则跳转到目标地址，否则不跳转。
+//inst_bgeu 将通用寄存器 rj 和通用寄存器 rd 的值进行比较，如果 rj 的值大于或等于 rd 的值（无符号比较），则跳转到目标地址，否则不跳转。
     assign br_op[`BR_OP_BEQ]  = inst_beq;
     assign br_op[`BR_OP_BNE]  = inst_bne;
     assign br_op[`BR_OP_JIRL] = inst_jirl;

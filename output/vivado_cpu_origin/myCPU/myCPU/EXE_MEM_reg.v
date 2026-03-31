@@ -33,14 +33,14 @@ module EXE_MEM_reg (
     input  wire [31:0] final_result_in,
     input  wire [31:0] pc_in,
     input  wire [ 4:0] wb_reg_addr_in,
-    input  wire [ 1:0] mem_op_in,
+    input  wire [`MEM_OP_NUM-1:0] mem_op_in,
     input  wire        wb_op_in,
     input  wire [31:0] mem_wdata_in,
 
     output reg  [31:0] final_result_out,
     output reg  [31:0] pc_out,
     output reg  [ 4:0] wb_reg_addr_out,
-    output reg  [ 1:0] mem_op_out,
+    output reg  [`MEM_OP_NUM-1:0] mem_op_out,
     output reg         wb_op_out,
     output reg  [31:0] mem_wdata_out
 );
@@ -51,7 +51,7 @@ always @(posedge clk) begin
         final_result_out <= 32'h0;
         pc_out <= 32'h0;
         wb_reg_addr_out <= 5'h0;
-        mem_op_out <= 2'h0;
+        mem_op_out <= {`MEM_OP_NUM{1'b0}};
         wb_op_out <= 1'h0;
         mem_wdata_out <= 32'h0;
     // 握手成功：推进 EXE 输出到 MEM
@@ -69,7 +69,7 @@ always @(posedge clk) begin
         final_result_out <= 32'h0;
         pc_out <= 32'h0;
         wb_reg_addr_out <= 5'h0;
-        mem_op_out <= 2'h0;
+        mem_op_out <= {`MEM_OP_NUM{1'b0}};
         wb_op_out <= 1'h0;
         mem_wdata_out <= 32'h0;
     // 下游反压或本级未就绪：保持当前值
@@ -87,7 +87,7 @@ always @(posedge clk) begin
         final_result_out <= 32'h0;
         pc_out <= 32'h0;
         wb_reg_addr_out <= 5'h0;
-        mem_op_out <= 2'h0;
+        mem_op_out <= {`MEM_OP_NUM{1'b0}};
         wb_op_out <= 1'h0;
         mem_wdata_out <= 32'h0;
     end

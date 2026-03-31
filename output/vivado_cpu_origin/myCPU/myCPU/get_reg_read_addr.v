@@ -23,6 +23,8 @@ module get_reg_read_addr(
     input  wire        inst_sub_w,
     input  wire        inst_ld_w,
     input  wire        inst_st_w,
+    input  wire        inst_st_b,
+    input  wire        inst_st_h,
     input  wire        inst_bne,
     input  wire        inst_slt,
     input  wire        inst_sltu,
@@ -64,7 +66,7 @@ assign rj       = inst[ 9: 5];
 assign rk       = inst[14:10];
 assign inst_ori = (inst[31:26] == 6'h00) && (inst[25:22] == 4'he);
 
-assign need_rj = inst_add_w  | inst_addi_w | inst_sub_w | inst_ld_w | inst_st_w
+assign need_rj = inst_add_w  | inst_addi_w | inst_sub_w | inst_ld_w | inst_st_w |inst_st_b | inst_st_h
                | inst_slt    | inst_sltu   | inst_and   | inst_or   | inst_nor
                | inst_xor    | inst_slli_w | inst_srli_w| inst_srai_w
                | inst_beq    | inst_bne    | inst_jirl  | inst_ori
@@ -76,7 +78,7 @@ assign need_rk = inst_add_w | inst_sub_w | inst_slt | inst_sltu
                | inst_mul_w | inst_mulh_w | inst_mulh_wu
                | inst_div_w | inst_div_wu;
 
-assign src_reg_is_rd = inst_st_w | inst_beq | inst_bne 
+assign src_reg_is_rd = inst_st_w | inst_beq | inst_bne | inst_st_b | inst_st_h
                     |inst_blt | inst_bge | inst_bltu | inst_bgeu; // 第二源来自 rd 的指令
 
 assign rf_raddr1 = need_rj ? rj : 5'd0;

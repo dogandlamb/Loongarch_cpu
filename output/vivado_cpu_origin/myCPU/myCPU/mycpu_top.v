@@ -166,8 +166,8 @@ module mycpu_top(
     wire [31:0] id_pc_fromID;    // ID 透传 PC
     wire [31:0] br_imm_fromID;   // ID 生成的分支偏移
     wire [`ALU_OP_NUM-1:0] alu_op_fromID;   // ID 生成 ALU 操作码
-    wire [4:0]  br_op_fromID;    // ID 生成分支操作码
-    wire [1:0]  mem_op_fromID;   // ID 生成访存操作码
+    wire [`BR_OP_NUM-1:0]  br_op_fromID;    // ID 生成分支操作码
+    wire [`MEM_OP_NUM-1:0] mem_op_fromID;   // ID 生成访存操作码
     wire [31:0] mem_wdata_fromID;// ID 输出 store 写数据
     wire        wb_op_fromID;    // ID 输出写回使能
 
@@ -212,8 +212,8 @@ module mycpu_top(
     wire [31:0] br_imm_2EXE;      // ID_EXE_reg 输出分支偏移
     wire [`ALU_OP_NUM-1:0] alu_op_2EXE;      // ID_EXE_reg 输出 ALU 操作码
     wire [31:0] mem_wdata_2EXE;   // ID_EXE_reg 输出 store 数据
-    wire [4:0]  br_op_2EXE;       // ID_EXE_reg 输出分支控制
-    wire [1:0]  mem_op_2EXE;      // ID_EXE_reg 输出访存控制
+    wire [`BR_OP_NUM-1:0]  br_op_2EXE;       // ID_EXE_reg 输出分支控制
+    wire [`MEM_OP_NUM-1:0]  mem_op_2EXE;      // ID_EXE_reg 输出访存控制
     wire        wb_op_2EXE;       // ID_EXE_reg 输出写回使能
 
     // 阻塞时在 ID/EXE 边界注入气泡，打断 load-use 自阻塞环
@@ -223,8 +223,8 @@ module mycpu_top(
     wire [31:0]              id2exe_br_imm      = block_sig ? 32'b0 : br_imm_fromID;
     wire [31:0]              id2exe_mem_wdata   = block_sig ? 32'b0 : mem_wdata_fromID;
     wire [`ALU_OP_NUM-1:0]   id2exe_alu_op      = block_sig ? {`ALU_OP_NUM{1'b0}} : alu_op_fromID;
-    wire [4:0]               id2exe_br_op       = block_sig ? 5'b0 : br_op_fromID;
-    wire [1:0]               id2exe_mem_op      = block_sig ? 2'b0 : mem_op_fromID;
+    wire [`BR_OP_NUM-1:0]    id2exe_br_op       = block_sig ? {`BR_OP_NUM{1'b0}} : br_op_fromID;
+    wire [`MEM_OP_NUM-1:0]   id2exe_mem_op      = block_sig ? {`MEM_OP_NUM{1'b0}} : mem_op_fromID;
     wire                     id2exe_wb_op       = block_sig ? 1'b0 : wb_op_fromID;
     wire [31:0]              id2exe_pc          = block_sig ? 32'b0 : id_pc_fromID;
 
@@ -260,7 +260,7 @@ module mycpu_top(
     wire br_taken_q;             // EXE 组合分支命中（用于重定向/冲刷）
     wire npc_br_taken;           // 送 npc 的分支命中信号
     wire npc_br_taken_safe;      // 对 X 容错后的分支命中
-    wire [4:0]  npc_br_op;       // 送 npc 的分支类型编码
+    wire [`BR_OP_NUM-1:0]  npc_br_op;       // 送 npc 的分支类型编码
     wire [31:0] npc_br_offs;     // 送 npc 的分支偏移
     wire [31:0] npc_rj_value;    // 送 npc 的 jirl 基址（rj）
     wire [31:0] npc_pc_in;       // 送 npc 的分支/顺序执行基准 PC
@@ -296,7 +296,7 @@ module mycpu_top(
     wire [31:0] exe_final_result; // EXE 结果（ALU 或 link pc+4）
     wire [31:0] exe_pc_2MEM;      // EXE 透传到 MEM 的 PC
     wire [4:0]  exe_wb_reg_addr;  // EXE 输出目的寄存器号
-    wire [1:0]  exe_mem_op;       // EXE 输出访存控制
+    wire [`MEM_OP_NUM-1:0]  exe_mem_op;       // EXE 输出访存控制
     wire [31:0] exe_mem_wdata;    // EXE 输出 store 写数据
     wire        exe_wb_op;        // EXE 输出写回使能
     
@@ -344,7 +344,7 @@ module mycpu_top(
     wire        MEM_valid;         // MEM 阶段有效位
     wire [31:0] em_result;         // EXE_MEM_reg 输出结果
     wire [4:0]  em_wb_reg;         // EXE_MEM_reg 输出目的寄存器号
-    wire [1:0]  em_mem_op;         // EXE_MEM_reg 输出访存控制
+    wire [`MEM_OP_NUM-1:0]  em_mem_op;         // EXE_MEM_reg 输出访存控制
     wire        em_wb_op;          // EXE_MEM_reg 输出写回使能
     wire [31:0] em_mem_wdata;      // EXE_MEM_reg 输出 store 数据
     wire [31:0] em_pc;             // EXE_MEM_reg 输出 PC

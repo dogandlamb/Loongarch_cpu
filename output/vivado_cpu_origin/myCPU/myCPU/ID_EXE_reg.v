@@ -45,7 +45,7 @@ module ID_EXE_reg (
     input wire  [`ALU_OP_NUM-1:0] alu_op_in,
     input wire  [`BR_OP_NUM-1:0]  br_op_in,
     input wire  [31:0]            mem_wdata_in,
-    input wire  [ 1:0]            mem_op_in,
+    input wire  [`MEM_OP_NUM-1:0] mem_op_in,
     input wire                    wb_op_in,
         
     output reg  [4:0]             wb_reg_addr_out,
@@ -57,7 +57,7 @@ module ID_EXE_reg (
     output reg  [31:0]            mem_wdata_out,   
 
     output reg  [`BR_OP_NUM-1:0]  br_op_out,
-    output reg  [ 1:0]            mem_op_out,
+    output reg  [`MEM_OP_NUM-1:0] mem_op_out,
     output reg                    wb_op_out
 );
 
@@ -72,7 +72,7 @@ always @(posedge clk) begin
         alu_op_out <= {`ALU_OP_NUM{1'b0}};
         mem_wdata_out <= 32'b0;
         br_op_out <= {`BR_OP_NUM{1'b0}};
-        mem_op_out <= 2'h0;
+        mem_op_out <= {`MEM_OP_NUM{1'b0}};
         wb_op_out <= 1'h0;
     // 握手成功：锁存 ID 输出，推进到 EXE
     end
@@ -98,7 +98,7 @@ always @(posedge clk) begin
         alu_op_out <= {`ALU_OP_NUM{1'b0}};
         mem_wdata_out <= 32'b0;
         br_op_out <= {`BR_OP_NUM{1'b0}};
-        mem_op_out <= 2'h0;
+        mem_op_out <= {`MEM_OP_NUM{1'b0}};
         wb_op_out <= 1'h0;
     // 下游反压或本级未就绪：保持当前值
     end
@@ -124,7 +124,7 @@ always @(posedge clk) begin
         alu_op_out <= {`ALU_OP_NUM{1'b0}};
         mem_wdata_out <= 32'h0;
         br_op_out <= {`BR_OP_NUM{1'b0}};
-        mem_op_out <= 2'h0;
+        mem_op_out <= {`MEM_OP_NUM{1'b0}};
         wb_op_out <= 1'h0;
     end
 end

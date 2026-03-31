@@ -11,7 +11,7 @@ module EXEport (
     input wire  [`ALU_OP_NUM-1:0] alu_op,
     input wire  [`BR_OP_NUM-1:0]  br_op,
     input wire  [31:0]          mem_wdata_in,   //store 写数据
-    input wire  [ 1:0]          mem_op_in,
+    input wire  [`MEM_OP_NUM-1:0] mem_op_in,
     input wire                  wb_op_in,
 
 
@@ -23,7 +23,7 @@ module EXEport (
     output wire [31:0]  final_result,
     output wire [31:0]  pc_out,
     output wire [ 4:0]  wb_reg_addr_out,
-    output wire [ 1:0]  mem_op,
+    output wire [`MEM_OP_NUM-1:0]  mem_op,
     output wire [31:0]  mem_wdata_out,
     output wire         wb_op,
 
@@ -118,6 +118,8 @@ assign  mem_wdata_out   = valid ? mem_wdata_in : 32'b0;
 assign  wb_op           = valid ? wb_op_in : 1'b0;
 
 assign data_we_from_EXE = valid ? mem_op[`MEM_OP_ST_W] : 1'b0;
+assign data_we_from_EXE = valid ? mem_op[`MEM_OP_ST_B] : 1'b0;
+assign data_we_from_EXE = valid ? mem_op[`MEM_OP_ST_H] : 1'b0;
 assign data_re_from_EXE = valid ? mem_op[`MEM_OP_LD_W] : 1'b0;
      
 assign data_raddr_from_EXE = valid ? final_result : 32'b0; 

@@ -8,6 +8,8 @@ module inst_dec(
     output wire        inst_sub_w,
     output wire        inst_ld_w,
     output wire        inst_st_w,
+    output wire        inst_st_b,
+    output wire        inst_st_h,
     output wire        inst_bne,
     output wire        inst_slt,
     output wire        inst_sltu,
@@ -73,6 +75,8 @@ assign inst_srai_w  = op_31_26_d[6'h00] & op_25_22_d[4'h1] & op_21_20_d[2'h0] & 
 
 assign inst_ld_w    = op_31_26_d[6'h0a] & op_25_22_d[4'h2];
 assign inst_st_w    = op_31_26_d[6'h0a] & op_25_22_d[4'h6];
+assign inst_st_b    = op_31_26_d[6'h0a] & op_25_22_d[4'h4];
+assign inst_st_h    = op_31_26_d[6'h0a] & op_25_22_d[4'h5];
 
 assign inst_jirl    = op_31_26_d[6'h13];
 assign inst_b       = op_31_26_d[6'h14];

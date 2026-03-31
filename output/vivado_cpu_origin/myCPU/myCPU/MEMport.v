@@ -10,7 +10,7 @@ module MEMport (
     input wire  [31:0]  exe_result, // renamed 
     input wire  [31:0]  pc_in,
     input wire  [ 4:0]  wb_reg_addr_in,
-    input wire  [ 1:0]  mem_op,
+    input wire  [`MEM_OP_NUM-1:0]  mem_op,
     input wire          wb_op_in,
     input wire  [31:0]  mem_wdata_in, //由dogandlamb添加，对齐寄存器级的输出
 
