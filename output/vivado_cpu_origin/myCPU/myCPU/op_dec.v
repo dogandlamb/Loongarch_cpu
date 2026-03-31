@@ -6,6 +6,10 @@ module op_dec(
     input  wire        inst_addi_w,
     input  wire        inst_sub_w,
     input  wire        inst_ld_w,
+    input  wire        inst_ld_h,
+    input  wire        inst_ld_b,
+    input  wire        inst_ld_hu,
+    input  wire        inst_ld_bu,
     input  wire        inst_st_w,
     input  wire        inst_st_b,
     input  wire        inst_st_h,
@@ -49,7 +53,8 @@ module op_dec(
 //alu_op[ 11]      高位立即数加载
 
     assign alu_op[`ALU_OP_ADD] = inst_add_w | inst_addi_w | inst_ld_w | inst_st_w 
-                    | inst_jirl | inst_bl | inst_st_b | inst_st_h; // 注意 st_b/st_h 也需要加法操作来计算地址
+                    | inst_jirl | inst_bl | inst_st_b | inst_st_h
+                    | inst_ld_h | inst_ld_b | inst_ld_hu | inst_ld_bu; // 注意 st_b/st_h 也需要加法操作来计算地址
     assign alu_op[`ALU_OP_SUB] = inst_sub_w;
     assign alu_op[`ALU_OP_SLT] = inst_slt;
     assign alu_op[`ALU_OP_SLTU] = inst_sltu;

@@ -76,6 +76,10 @@ wire inst_add_w;     //rj+rk写入rd
 wire inst_addi_w;    //rj+12位立即数扩展为32位，写入rd
 wire inst_sub_w;     //rj-rk写入rd
 wire inst_ld_w;      //从内存中取出32位，存入rd
+wire inst_ld_h;      //从内存中取出16位，存入rd
+wire inst_ld_b;      //从内存中取出8位，存入rd
+wire inst_ld_hu;     //从内存中取出16位，无符号扩展后存入rd
+wire inst_ld_bu;     //从内存中取出8位，无符号扩展后存入rd
 wire inst_st_w;      //word访问内存，32位数据，目标地址为rj寄存器数据加上12位立即数扩展到32位的结果之和，储存数据为rd寄存器的数据
 wire inst_st_b;      //byte访问内存，8位数据，目标地址同上，储存数据同inst_st_w, 但只存入内存地址对应的8位
 wire inst_st_h;      //half访问内存，16位数据，目标地址同上，储存数据同inst_st_w，但只存入内存地址对应的16位
@@ -110,6 +114,7 @@ wire inst_div_wu;    //无符号除法
 
 wire [`ALU_OP_NUM-1:0] alu_op_inner; //内部ALU操作码，后续看条件赋值给output alu_op
 wire [`BR_OP_NUM-1:0]  br_op_inner;  //内部分支跳转操作码，后续看条件赋值给output br_op
+wire [`MEM_OP_NUM-1:0] mem_op_inner; //内部访存操作码，后续看条件赋值给output mem_op
 wire [31:0]            alu_imm_w;
 wire [31:0]            br_imm_w;
 wire [31:0]            alu_src1_w;
@@ -124,7 +129,8 @@ assign wb_op_w = inst_add_w | inst_addi_w | inst_sub_w | inst_ld_w
                | inst_nor   | inst_xor    | inst_slli_w| inst_srli_w
                | inst_srai_w| inst_lu12i_w| inst_bl    | inst_jirl
                | inst_ori    | inst_mul_w  | inst_mulh_w
-               | inst_mulh_wu| inst_div_w  | inst_div_wu;
+               | inst_mulh_wu| inst_div_w  | inst_div_wu
+               | inst_ld_h   | inst_ld_b   | inst_ld_hu  | inst_ld_bu; 
 
 inst_dec u_inst_dec(
     .reset        (reset),
@@ -133,6 +139,10 @@ inst_dec u_inst_dec(
     .inst_addi_w  (inst_addi_w),
     .inst_sub_w   (inst_sub_w),
     .inst_ld_w    (inst_ld_w),
+    .inst_ld_h    (inst_ld_h),
+    .inst_ld_b    (inst_ld_b),
+    .inst_ld_hu   (inst_ld_hu),
+    .inst_ld_bu   (inst_ld_bu),
     .inst_st_w    (inst_st_w),
     .inst_bne     (inst_bne),
     .inst_slt     (inst_slt),
@@ -168,6 +178,10 @@ op_dec u_op_dec(
     .inst_addi_w  (inst_addi_w),
     .inst_sub_w   (inst_sub_w),
     .inst_ld_w    (inst_ld_w),
+    .inst_ld_h    (inst_ld_h),
+    .inst_ld_b    (inst_ld_b),
+    .inst_ld_hu   (inst_ld_hu),
+    .inst_ld_bu   (inst_ld_bu),
     .inst_st_w    (inst_st_w),
     .inst_st_b    (inst_st_b),
     .inst_st_h    (inst_st_h),
@@ -206,6 +220,10 @@ imm_generator u_imm_generator(
     .inst_addi_w  (inst_addi_w),
     .inst_sub_w   (inst_sub_w),
     .inst_ld_w    (inst_ld_w),
+    .inst_ld_h    (inst_ld_h),
+    .inst_ld_b    (inst_ld_b),
+    .inst_ld_hu   (inst_ld_hu),
+    .inst_ld_bu   (inst_ld_bu),
     .inst_st_w    (inst_st_w),
     .inst_st_b    (inst_st_b),
     .inst_st_h    (inst_st_h),
@@ -238,6 +256,10 @@ ALU_srcGenerator u_ALU_srcGenerator(
     .inst_addi_w  (inst_addi_w),
     .inst_sub_w   (inst_sub_w),
     .inst_ld_w    (inst_ld_w),
+    .inst_ld_h    (inst_ld_h),
+    .inst_ld_b    (inst_ld_b),
+    .inst_ld_hu   (inst_ld_hu),
+    .inst_ld_bu   (inst_ld_bu),
     .inst_st_w    (inst_st_w),
     .inst_st_b    (inst_st_b),
     .inst_st_h    (inst_st_h),
@@ -276,6 +298,10 @@ get_reg_read_addr u_get_reg_read_addr(
     .inst_addi_w  (inst_addi_w),
     .inst_sub_w   (inst_sub_w),
     .inst_ld_w    (inst_ld_w),
+    .inst_ld_h    (inst_ld_h),
+    .inst_ld_b    (inst_ld_b),
+    .inst_ld_hu   (inst_ld_hu),
+    .inst_ld_bu   (inst_ld_bu),
     .inst_st_w    (inst_st_w),
     .inst_st_b    (inst_st_b),
     .inst_st_h    (inst_st_h),
@@ -333,7 +359,7 @@ always @(*) begin
         br_imm      = stall ? 32'd0 : br_imm_w;
         alu_op      = stall ? {`ALU_OP_NUM{1'b0}} : alu_op_inner;
         br_op       = stall ? {`BR_OP_NUM{1'b0}}  : br_op_inner;
-        mem_op      = stall ? {`MEM_OP_NUM{1'b0}} : {inst_ld_w, inst_st_w, inst_st_b, inst_st_h}; // 注意 mem_op 的编码规范
+        mem_op      = stall ? {`MEM_OP_NUM{1'b0}} : mem_op_inner; // 注意 mem_op 的编码规范
         mem_wdata   = stall ? 32'd0 : src2_rdata;
         wb_op       = stall ? 1'b0  : wb_op_w;
         pc_out      = stall ? 32'd0 : pc_in;

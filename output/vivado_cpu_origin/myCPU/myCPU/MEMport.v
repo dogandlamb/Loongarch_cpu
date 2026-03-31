@@ -57,7 +57,7 @@ module MEMport (
 // ============================================================
 
 wire   bram_re, bram_we;
-assign bram_re = mem_op[`MEM_OP_LD_W];
+assign bram_re = mem_op[`MEM_OP_LD_W | `MEM_OP_LD_H | `MEM_OP_LD_B | `MEM_OP_LD_HU | `MEM_OP_LD_BU];
 assign bram_we = mem_op[`MEM_OP_ST_W];
 // complete 当拍采样 dout；同拍组合 rdata 参与写回，其余拍用 hold
 reg [31:0] load_rdata_hold;

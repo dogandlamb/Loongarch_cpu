@@ -117,10 +117,8 @@ assign  mem_op          = valid ? mem_op_in : 2'b0;
 assign  mem_wdata_out   = valid ? mem_wdata_in : 32'b0;
 assign  wb_op           = valid ? wb_op_in : 1'b0;
 
-assign data_we_from_EXE = valid ? mem_op[`MEM_OP_ST_W] : 1'b0;
-assign data_we_from_EXE = valid ? mem_op[`MEM_OP_ST_B] : 1'b0;
-assign data_we_from_EXE = valid ? mem_op[`MEM_OP_ST_H] : 1'b0;
-assign data_re_from_EXE = valid ? mem_op[`MEM_OP_LD_W] : 1'b0;
+assign data_we_from_EXE = valid ? (mem_op[`MEM_OP_ST_W] | mem_op[`MEM_OP_ST_B] | mem_op[`MEM_OP_ST_H]) : 1'b0;
+assign data_re_from_EXE = valid ? (mem_op[`MEM_OP_LD_W] | mem_op[`MEM_OP_LD_H] | mem_op[`MEM_OP_LD_B] | mem_op[`MEM_OP_LD_HU] | mem_op[`MEM_OP_LD_BU]) : 1'b0;
      
 assign data_raddr_from_EXE = valid ? final_result : 32'b0; 
 assign data_waddr_from_EXE = valid ? final_result : 32'b0;

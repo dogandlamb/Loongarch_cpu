@@ -7,6 +7,10 @@ module inst_dec(
     output wire        inst_addi_w,
     output wire        inst_sub_w,
     output wire        inst_ld_w,
+    output wire        inst_ld_h,
+    output wire        inst_ld_b,
+    output wire        inst_ld_hu,
+    output wire        inst_ld_bu,
     output wire        inst_st_w,
     output wire        inst_st_b,
     output wire        inst_st_h,
@@ -74,6 +78,10 @@ assign inst_srli_w  = op_31_26_d[6'h00] & op_25_22_d[4'h1] & op_21_20_d[2'h0] & 
 assign inst_srai_w  = op_31_26_d[6'h00] & op_25_22_d[4'h1] & op_21_20_d[2'h0] & op_19_15_d[5'h11];
 
 assign inst_ld_w    = op_31_26_d[6'h0a] & op_25_22_d[4'h2];
+assign inst_ld_b    = op_31_26_d[6'h0a] & op_25_22_d[4'h0];
+assign inst_ld_h    = op_31_26_d[6'h0a] & op_25_22_d[4'h1];
+assign inst_ld_bu   = op_31_26_d[6'h0a] & op_25_22_d[4'h4];
+assign inst_ld_hu   = op_31_26_d[6'h0a] & op_25_22_d[4'h5];
 assign inst_st_w    = op_31_26_d[6'h0a] & op_25_22_d[4'h6];
 assign inst_st_b    = op_31_26_d[6'h0a] & op_25_22_d[4'h4];
 assign inst_st_h    = op_31_26_d[6'h0a] & op_25_22_d[4'h5];

@@ -22,6 +22,10 @@ module get_reg_read_addr(
     input  wire        inst_addi_w,
     input  wire        inst_sub_w,
     input  wire        inst_ld_w,
+    input  wire        inst_ld_h,
+    input  wire        inst_ld_b,
+    input  wire        inst_ld_hu,
+    input  wire        inst_ld_bu,
     input  wire        inst_st_w,
     input  wire        inst_st_b,
     input  wire        inst_st_h,
@@ -70,6 +74,7 @@ assign need_rj = inst_add_w  | inst_addi_w | inst_sub_w | inst_ld_w | inst_st_w 
                | inst_slt    | inst_sltu   | inst_and   | inst_or   | inst_nor
                | inst_xor    | inst_slli_w | inst_srli_w| inst_srai_w
                | inst_beq    | inst_bne    | inst_jirl  | inst_ori
+               | inst_b      | inst_bl     | inst_blt   | inst_bge
                | inst_mul_w  | inst_mulh_w | inst_mulh_wu
                | inst_div_w  | inst_div_wu;
 
