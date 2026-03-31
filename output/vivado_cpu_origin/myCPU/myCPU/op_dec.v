@@ -38,7 +38,8 @@ module op_dec(
     input  wire        inst_div_w,
     input  wire        inst_div_wu,
     output wire [`ALU_OP_NUM-1:0] alu_op,
-    output wire [`BR_OP_NUM-1:0]  br_op
+    output wire [`BR_OP_NUM-1:0]  br_op,
+    output wire [`MEM_OP_NUM-1:0] mem_op
 );
 
 
@@ -52,9 +53,7 @@ module op_dec(
 //alu_op[ 8：10]   移位操作
 //alu_op[ 11]      高位立即数加载
 
-    assign alu_op[`ALU_OP_ADD] = inst_add_w | inst_addi_w | inst_ld_w | inst_st_w 
-                    | inst_jirl | inst_bl | inst_st_b | inst_st_h
-                    | inst_ld_h | inst_ld_b | inst_ld_hu | inst_ld_bu; // 注意 st_b/st_h 也需要加法操作来计算地址
+    assign alu_op[`ALU_OP_ADD] = inst_add_w | inst_addi_w | inst_jirl | inst_bl ; // 注意 st_b/st_h 也需要加法操作来计算地址
     assign alu_op[`ALU_OP_SUB] = inst_sub_w;
     assign alu_op[`ALU_OP_SLT] = inst_slt;
     assign alu_op[`ALU_OP_SLTU] = inst_sltu;
@@ -91,5 +90,23 @@ module op_dec(
     assign br_op[`BR_OP_BGE]  = inst_bge;
     assign br_op[`BR_OP_BLTU] = inst_bltu;
     assign br_op[`BR_OP_BGEU] = inst_bgeu;
+
+// mem_op操作码生成
+// `define MEM_OP_LD_W     1   // load，从内存取数据写入寄存器堆（与 {inst_ld_w, inst_st_w} 对齐）
+// `define MEM_OP_ST_W     0   // store，从寄存器堆数据存入内存（与 {inst_ld_w, inst_st_w} 对齐）
+// `define MEM_OP_ST_B     2   // store byte，从寄存器堆数据存入内存（与 {inst_ld_b, inst_st_b} 对齐）
+// `define MEM_OP_ST_H     3   // store half，从寄存器堆数据存入内存（与 {inst_ld_h, inst_st_h} 对齐）
+// `define MEM_OP_LD_B     4   // load byte，从内存取数据写入寄存器堆（与 {inst_ld_b, inst_st_b} 对齐）
+// `define MEM_OP_LD_H     5   // load half，从内存取数据写入寄存器堆（与 {inst_ld_h, inst_st_h} 对齐）    
+// `define MEM_OP_LD_BU    6   // load byte unsigned，从内存取数据写入寄存器堆（与 {inst_ld_b, inst_st_b} 对齐）
+// `define MEM_OP_LD_HU    7   // load half unsigned，从内存取数据写入寄存器堆（与 {inst_ld_h, inst_st_h} 对齐）
+    assign mem_op[`MEM_OP_ST_W] = inst_st_w;
+    assign mem_op[`MEM_OP_ST_B] = inst_st_b;
+    assign mem_op[`MEM_OP_ST_H] = inst_st_h;
+    assign mem_op[`MEM_OP_LD_W] = inst_ld_w;
+    assign mem_op[`MEM_OP_LD_H] = inst_ld_h;
+    assign mem_op[`MEM_OP_LD_B] = inst_ld_b;
+    assign mem_op[`MEM_OP_LD_HU] = inst_ld_hu;
+    assign mem_op[`MEM_OP_LD_BU] = inst_ld_bu;
 
 endmodule

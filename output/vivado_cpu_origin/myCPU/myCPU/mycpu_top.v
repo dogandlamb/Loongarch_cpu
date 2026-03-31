@@ -384,7 +384,7 @@ module mycpu_top(
     reg        ld_req_issued;
     reg [31:0] ld_req_pc;
     reg [4:0]  ld_req_reg;
-    wire       ld_in_mem = em_mem_op[`MEM_OP_LD_W] & MEM_valid;
+    wire       ld_in_mem = em_mem_op[`MEM_OP_LD_W | `MEM_OP_LD_H | `MEM_OP_LD_B| `MEM_OP_LD_HU | `MEM_OP_LD_BU] & MEM_valid;
     wire       ld_slot_match = ld_req_issued & ld_in_mem
                                & (em_pc == ld_req_pc) & (em_wb_reg == ld_req_reg);
     wire       data_re_issue_ld = ld_in_mem & ~ld_slot_match;
@@ -513,7 +513,7 @@ module mycpu_top(
     );
 
     wire mem_stage_is_load = MEM_valid
-                              & em_mem_op[`MEM_OP_LD_W]
+                              & em_mem_op[`MEM_OP_LD_W | `MEM_OP_LD_H | `MEM_OP_LD_B| `MEM_OP_LD_HU | `MEM_OP_LD_BU];
                               & ~data_r_complete;
 
     conflict_handle u_conflict_handle(

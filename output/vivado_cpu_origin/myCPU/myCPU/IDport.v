@@ -210,7 +210,8 @@ op_dec u_op_dec(
     .inst_div_w   (inst_div_w),
     .inst_div_wu  (inst_div_wu),
     .alu_op       (alu_op_inner),
-    .br_op        (br_op_inner)
+    .br_op        (br_op_inner),
+    .mem_op       (mem_op_inner)
 );
 
 imm_generator u_imm_generator(
