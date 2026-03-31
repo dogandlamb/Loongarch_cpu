@@ -36,3 +36,5 @@ output/vivado_cpu_origin/soc_verify/**/testbench/project/**/gettrace
 
 *.vcd
 *.vcd
+output/vivado_cpu_origin/soc_verify/soc_bram/run_vivado/project/loongson.sim/sim_1/behav/xsim/dump.vcd
+output/vivado_cpu_origin/soc_verify/soc_bram/run_vivado/project/loongson.sim/sim_1/behav/xsim/dump.vcd

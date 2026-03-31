@@ -270,4 +270,35 @@ begin
 	    $finish;
 	end
 end
+
+// 关键窗口日志：定位 0x1c0e41e4/0x1c0e41e8 附近握手与提交是否对齐
+always @(posedge soc_clk)
+begin
+    #1;
+    if (resetn && (
+        (soc_lite.cpu.mem_pc_2WB == 32'h1c0e41dc) ||
+        (soc_lite.cpu.mem_pc_2WB == 32'h1c0e41e0) ||
+        (soc_lite.cpu.mem_pc_2WB == 32'h1c0e41e4) ||
+        (soc_lite.cpu.mem_pc_2WB == 32'h1c0e41e8) ||
+        (soc_lite.cpu.pc_2ID == 32'h1c0e41e4) ||
+        (soc_lite.cpu.pc_2ID == 32'h1c0e41e8) ||
+        soc_lite.cpu.data_r_complete
+    )) begin
+        $display("[DBG %t] d_r_cmp=%0d MEM_rdy=%0d MEM_alw=%0d MEM_v=%0d mem_op=%0d | mem_pc_2WB=%h em_pc=%h | IFID_alw=%0d pc_2ID=%h | wb_we=%0d wb_pc=%h wb_waddr=%0d",
+                 $time,
+                 soc_lite.cpu.data_r_complete,
+                 soc_lite.cpu.MEM_readyGo,
+                 soc_lite.cpu.MEM_allowIn,
+                 soc_lite.cpu.MEM_valid,
+                 soc_lite.cpu.em_mem_op,
+                 soc_lite.cpu.mem_pc_2WB,
+                 soc_lite.cpu.em_pc,
+                 soc_lite.cpu.IF_ID_reg_allowIn,
+                 soc_lite.cpu.pc_2ID,
+                 soc_lite.cpu.wb_we,
+                 soc_lite.cpu.wb_pc,
+                 soc_lite.cpu.wb_waddr);
+    end
+end
+
 endmodule

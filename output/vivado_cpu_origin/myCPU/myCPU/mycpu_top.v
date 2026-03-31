@@ -122,6 +122,7 @@ module mycpu_top(
         .pc_2in  (pc_2ID_from_bram),
         .inst_valid_in(inst_r_complete),
         .cancel_in(cancel_sig),
+        .downstream_allowIn(IF_ID_reg_allowIn),
         .readyGo (IF_readyGo),
         .allowIn (IF_allowIn),
         .pc_1out  (pc_2ram_data_controller),    // 发往bram_data_stream_controller的请求 PC（pc1）
@@ -411,14 +412,14 @@ module mycpu_top(
         .wb_op_out      (mem_wb_op)
     );
 
-    // 不在 !ld_in_mem 时清 issued：mem_op 若出现短暂 0 会误清并导致同槽再次 data_re_issue_ld
+    // load 请求跟踪：同一 MEM 槽位只发一次 data_re，直到槽位离开 MEM 才允许新槽位再发
     always @(posedge clk) begin
         if (reset)
             ld_req_issued <= 1'b0;
-        // 仅在该 load 槽位完成并成功被 MEM 级推进后清除 issued，避免尾部槽位挂住
-        else if (ld_slot_match && MEM_readyGo && MEM_allowIn)
+        // 槽位离开（非 load / 无效 / pc或rd变化）后再清 issued，避免同槽重复发读请求
+        else if (ld_req_issued && (!ld_in_mem || (em_pc != ld_req_pc) || (em_wb_reg != ld_req_reg)))
             ld_req_issued <= 1'b0;
-        else if (data_re_issue_ld) begin
+        else if (!ld_req_issued && data_re_issue_ld) begin
             ld_req_issued   <= 1'b1;
             ld_req_pc       <= em_pc;
             ld_req_reg      <= em_wb_reg;
