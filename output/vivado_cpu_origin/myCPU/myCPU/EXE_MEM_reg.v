@@ -36,6 +36,8 @@ module EXE_MEM_reg (
     input  wire [`MEM_OP_NUM-1:0] mem_op_in,
     input  wire        wb_op_in,
     input  wire [31:0] mem_wdata_in,
+    input  wire [31:0] data_raddr_from_EXE,  //added by sssafridi
+    input  wire [31:0] data_waddr_from_EXE,  //added by sssafridi
 
     output reg  [31:0] final_result_out,
     output reg  [31:0] pc_out,
@@ -43,6 +45,8 @@ module EXE_MEM_reg (
     output reg  [`MEM_OP_NUM-1:0] mem_op_out,
     output reg         wb_op_out,
     output reg  [31:0] mem_wdata_out
+    output reg  [31:0] data_raddr_out_from_EXE,  //added by sssafridi
+    output reg  [31:0] data_waddr_out_from_EXE   //added by sssafridi
 );
 
 always @(posedge clk) begin

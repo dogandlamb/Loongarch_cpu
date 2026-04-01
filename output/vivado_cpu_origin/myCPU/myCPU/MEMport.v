@@ -16,6 +16,9 @@ module MEMport (
 
     input wire  [31:0]  data_rdata_2MEM,
 
+    input wire  [31:0]  data_raddr_from_EXE,  //added by sssafridi
+    input wire  [31:0]  data_waddr_from_EXE,  //added by sssafridi
+
     input wire          data_w_complete,
     input wire          data_r_complete,
 
@@ -58,7 +61,39 @@ module MEMport (
 
 wire   bram_re, bram_we;
 assign bram_re = mem_op[`MEM_OP_LD_W | `MEM_OP_LD_H | `MEM_OP_LD_B | `MEM_OP_LD_HU | `MEM_OP_LD_BU];
-assign bram_we = mem_op[`MEM_OP_ST_W];
+assign bram_we = mem_op[`MEM_OP_ST_W | `MEM_OP_ST_H | `MEM_OP_ST_B];
+
+wire r_word_addr = {data_raddr_from_EXE[31:2], 2'b00};
+wire w_word_addr = {data_waddr_from_EXE[31:2], 2'b00};
+
+wire [ 7:0] r_byte_data;
+wire [15:0] r_half_data;
+wire [31:0] r_word_data;
+
+wire [ 7:0] w_byte_data;
+wire [15:0] 
+
+assign r_byte_data = (r_word_addr[1:0] == 2'b00) ? load_wdata[7:0] :
+                     (r_word_addr[1:0] == 2'b01) ? load_wdata[15:8] :
+                     (r_word_addr[1:0] == 2'b10) ? load_wdata[23:16] :
+                                                   load_wdata[31:24];
+
+assign r_half_data = (r_word_addr[1:0] == 2'b00) ? load_wdata[15:0] :
+                     (r_word_addr[1:0] == 2'b10) ? load_wdata[31:16] :
+                                                   16'b0;
+
+assign r_word_data = load_wdata;
+
+wire [31:0] load_result;
+
+assign load_result = (mem_op['MEM_OP_LD_B])  ? {24{load_wdata[7]}, load_wdata[7:0]} :
+                     (mem_op['MEM_OP_LD_H])  ? {16{load_wdata[15]}, load_wdata[15:0]} :
+                     (mem_op['MEM_OP_LD_BU]) ? {24'b0, load_wdata[7:0]} :
+                     (mem_op['MEM_OP_LD_HU]) ? {16'b0, load_wdata[15:0]} :
+                     (mem_op['MEM_OP_LD_W])  ? load_wdata :
+                                               32'b0;
+
+
 // complete 当拍采样 dout；同拍组合 rdata 参与写回，其余拍用 hold
 reg [31:0] load_rdata_hold;
 always @(posedge clk) begin
@@ -97,7 +132,7 @@ end
 assign readyGo = bram_re ? (data_r_complete | load_done_match) : 1'b1;
 assign allowIn = readyGo;
 
-assign wb_wdata        = valid ? (bram_re ? load_wdata : exe_result) : 32'b0;
+assign wb_wdata        = valid ? (bram_re ? load_result : exe_result) : 32'b0;
 assign pc_out          = valid ? pc_in : 32'b0;
 assign wb_reg_addr_out = valid ? wb_reg_addr_in : 5'b0;
 assign wb_op_out       = valid ? wb_op_in : 1'b0;

@@ -96,6 +96,7 @@ module mycpu_top(
     wire [31:0] bram_data_raddr;
     wire [31:0] bram_data_waddr;
     wire [31:0] bram_data_wdata;
+    wire [ 3:0] bram_data_wbyte_en; // added by sssafridi, byte enable for store instructions
     wire [31:0] inst_rdata_2IF;
     wire [31:0] data_rdata_2MEM;
     wire        inst_r_complete;
@@ -306,6 +307,7 @@ module mycpu_top(
     wire [31:0] data_raddr_from_EXE;
     wire [31:0] data_waddr_from_EXE;
     wire [31:0] data_wdata_from_EXE;
+    wire [ 3:0] data_wbyte_en_from_EXE; // added by sssafridi, byte enable for store instructions
 
     EXEport u_EXEport(
         .valid           (EXE_valid),
@@ -332,7 +334,8 @@ module mycpu_top(
         .data_re_from_EXE (data_re_from_EXE),
         .data_raddr_from_EXE (data_raddr_from_EXE),
         .data_waddr_from_EXE (data_waddr_from_EXE),
-        .data_wdata_from_EXE (data_wdata_from_EXE)
+        .data_wdata_from_EXE (data_wdata_from_EXE),
+        .data_wbyte_en_from_EXE (data_wbyte_en_from_EXE) // added by sssafridi, byte enable for store instructions
     );
 
     //------------------------------------------------------------------
@@ -389,6 +392,8 @@ module mycpu_top(
                                & (em_pc == ld_req_pc) & (em_wb_reg == ld_req_reg);
     wire       data_re_issue_ld = ld_in_mem & ~ld_slot_match;
     wire       mem_load_req_sent = ld_slot_match; // 本槽已发过读
+
+    wire       data_we_issue_st = em_mem_op[`MEM_OP_ST_W] & MEM_valid; // store 请求发出时机（当前槽有效且为 store）
 
     MEMport u_MEMport(
         .clk            (clk),
@@ -588,12 +593,13 @@ module mycpu_top(
         .clk                 (clk),                    // 时钟
         .reset               (reset),                  // 同步复位
         .inst_re_in_from_IF  (IF_valid & IF_ID_reg_allowIn), // 仅在 IF/ID 可接收时发取指，避免停顿期错位/跳读
-        .data_we_in_from_EXE (em_mem_op[`MEM_OP_ST_W] & MEM_valid), // MEM 发起数据写请求
+        .data_we_in_from_EXE (data_we_issue_st), // MEM 发起数据写请求
         .data_re_in_from_EXE (data_re_issue_ld),
         .pc_in_from_IF       (pc_2ram_data_controller),// IF 本拍请求 PC（pc1）
         .data_raddr_from_EXE (em_result),              // MEM 读地址
         .data_waddr_from_EXE (em_result),              // MEM 写地址
         .data_wdata_from_EXE (em_mem_wdata),           // MEM 写数据
+        .data_wbyte_en_from_EXE (data_wbyte_en_from_EXE), // MEM 写使能（按字）
         .inst_rdata_from_bram(inst_sram_rdata),        // BRAM 返回指令数据
         .data_rdata_from_bram(data_sram_rdata),        // BRAM 返回数据读数据
         // 下列 *_in_from_bram 端口在当前控制器实现中未使用，先常 1 保持接口兼容
@@ -607,6 +613,7 @@ module mycpu_top(
         .data_raddr_2bram    (bram_data_raddr),        // 发往 BRAM 的数据读地址
         .data_waddr_2bram    (bram_data_waddr),        // 发往 BRAM 的数据写地址
         .data_wdata_2bram    (bram_data_wdata),        // 发往 BRAM 的数据写数据
+        .data_wbyte_en_2bram (bram_data_wbyte_en),     // 发往 BRAM 的数据写使能（按字）
         .inst_rdata_2IF      (inst_rdata_2IF),         // IF 使用的返回指令
         .data_rdata_2MEM     (data_rdata_2MEM),        // MEM 使用的数据读结果
         .data_w_wrong        (data_w_wrong),           // 数据写异常
@@ -625,9 +632,11 @@ module mycpu_top(
     assign inst_sram_wdata = 32'b0;
 
     assign data_sram_en    = bram_data_we | bram_data_re;
-    assign data_sram_we    = bram_data_we ? 4'b1111 : 4'b0000;
+    assign data_sram_we    = bram_data_we ? bram_data_wbyte_en : 4'b0000; // 写使能按字
     assign data_sram_addr  = bram_data_we ? bram_data_waddr : bram_data_raddr;
     assign data_sram_wdata = bram_data_wdata;
+    
+
 
 
 

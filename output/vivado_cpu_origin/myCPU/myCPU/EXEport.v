@@ -32,7 +32,8 @@ module EXEport (
 
     output wire [31:0] data_raddr_from_EXE,
     output wire [31:0] data_waddr_from_EXE,
-    output wire [31:0] data_wdata_from_EXE
+    output wire [31:0] data_wdata_from_EXE,
+    output wire [ 3:0] data_wbyte_en_from_EXE // added by sssafridi, byte enable for store instructions
 );
 // ============================================================
 // 模块功能：
@@ -124,4 +125,7 @@ assign data_raddr_from_EXE = valid ? final_result : 32'b0;
 assign data_waddr_from_EXE = valid ? final_result : 32'b0;
 assign data_wdata_from_EXE = valid ? mem_wdata_in : 32'b0;
 
+assign data_wbyte_en_from_EXE = valid ? ((mem_op[`MEM_OP_ST_W]) ? 4'b1111 :
+                                    (mem_op[`MEM_OP_ST_H]) ? ((final_result[1] ? 4'b1100 : 4'b0011)) :
+                                    (mem_op[`MEM_OP_ST_B]) ? (4'b0001 << final_result[1:0]) : 4'b0000) : 4'b0000;
 endmodule

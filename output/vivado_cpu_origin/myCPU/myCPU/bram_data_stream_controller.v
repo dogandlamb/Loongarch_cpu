@@ -12,6 +12,7 @@ module bram_data_stream_controller(
     input wire [31:0] data_raddr_from_EXE,
     input wire [31:0] data_waddr_from_EXE,
     input wire [31:0] data_wdata_from_EXE,
+    input wire [ 3:0] data_byte_en_from_EXE, // added by sssafridi, byte enable for store instructions
 
     input wire [31:0] inst_rdata_from_bram,
     input wire [31:0] data_rdata_from_bram,
@@ -28,6 +29,7 @@ module bram_data_stream_controller(
     output wire [31:0] data_raddr_2bram,
     output wire [31:0] data_waddr_2bram,
     output wire [31:0] data_wdata_2bram,
+    output wire [ 3:0] data_wbyte_en_2bram,
 
     output wire [31:0] inst_rdata_2IF,
     output wire [31:0] data_rdata_2MEM,
