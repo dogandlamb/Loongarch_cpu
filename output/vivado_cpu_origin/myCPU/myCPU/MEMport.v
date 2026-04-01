@@ -66,27 +66,27 @@ wire [ 7:0] r_byte_data;
 wire [15:0] r_half_data;
 wire [31:0] r_word_data;
 
-wire [ 7:0] w_byte_data;
-wire [15:0] 
 
-assign r_byte_data = (r_word_addr[1:0] == 2'b00) ? load_wdata[7:0] :
-                     (r_word_addr[1:0] == 2'b01) ? load_wdata[15:8] :
-                     (r_word_addr[1:0] == 2'b10) ? load_wdata[23:16] :
-                                                   load_wdata[31:24];
+assign r_byte_data = (r_word_addr[1:0] == 2'b00) ? load_wdata_raw[7:0] :
+                     (r_word_addr[1:0] == 2'b01) ? load_wdata_raw[15:8] :
+                     (r_word_addr[1:0] == 2'b10) ? load_wdata_raw[23:16] :
+                                                   load_wdata_raw[31:24];
 
-assign r_half_data = (r_word_addr[1:0] == 2'b00) ? load_wdata[15:0] :
-                     (r_word_addr[1:0] == 2'b10) ? load_wdata[31:16] :
+assign r_half_data = (r_word_addr[1:0] == 2'b00) ? load_wdata_raw[15:0] :
+                     (r_word_addr[1:0] == 2'b10) ? load_wdata_raw[31:16] :
                                                    16'b0;
 
-assign r_word_data = load_wdata;
+assign r_word_data = load_wdata_raw; 
+
+
 
 wire [31:0] load_result;
 
-assign load_result = (mem_op['MEM_OP_LD_B])  ? {24{load_wdata[7]}, load_wdata[7:0]} :
-                     (mem_op['MEM_OP_LD_H])  ? {16{load_wdata[15]}, load_wdata[15:0]} :
-                     (mem_op['MEM_OP_LD_BU]) ? {24'b0, load_wdata[7:0]} :
-                     (mem_op['MEM_OP_LD_HU]) ? {16'b0, load_wdata[15:0]} :
-                     (mem_op['MEM_OP_LD_W])  ? load_wdata :
+assign load_result = (mem_op['MEM_OP_LD_B])  ? {24{r_byte_data[7]}, r_byte_data[7:0]} :
+                     (mem_op['MEM_OP_LD_H])  ? {16{r_half_data[15]}, r_half_data[15:0]} :
+                     (mem_op['MEM_OP_LD_BU]) ? {24'b0, r_byte_data[7:0]} :
+                     (mem_op['MEM_OP_LD_HU]) ? {16'b0, r_half_data[15:0]} :
+                     (mem_op['MEM_OP_LD_W])  ? r_word_data :
                                                32'b0;
 
 
@@ -98,18 +98,8 @@ always @(posedge clk) begin
     else if (data_r_complete)
         load_rdata_hold <= data_sram_rdata;
 end
+
 wire [31:0] load_wdata_raw = data_r_complete ? data_sram_rdata : load_rdata_hold;
-wire [7:0] load_byte_hold = (exe_result[1:0] == 2'b00) ? load_wdata_raw[7:0] :
-                            (exe_result[1:0] == 2'b01) ? load_wdata_raw[15:8] :
-                            (exe_result[1:0] == 2'b10) ? load_wdata_raw[23:16] :
-                                                         load_wdata_raw[31:24];
-wire [15:0] load_half_hold = exe_result[1] ? load_wdata_raw[31:16] : load_wdata_raw[15:0];
-wire [31:0] load_wdata = mem_op[`MEM_OP_LD_W]  ? load_wdata_raw :
-                            mem_op[`MEM_OP_LD_H]  ? {{16{load_half_hold[15]}}, load_half_hold} :
-                            mem_op[`MEM_OP_LD_HU] ? {16'b0, load_half_hold} :
-                            mem_op[`MEM_OP_LD_B]  ? {{24{load_byte_hold[7]}}, load_byte_hold} :
-                            mem_op[`MEM_OP_LD_BU] ? {24'b0, load_byte_hold} :
-                            load_wdata_raw;
 
 // 对当前 MEM 槽位做“完成后保持就绪”（按 pc+rd 精确匹配槽位）
 reg        load_done_hold;
@@ -118,6 +108,7 @@ reg [ 4:0] load_done_rd;
 wire       load_done_match = load_done_hold
                            && (pc_in == load_done_pc)
                            && (wb_reg_addr_in == load_done_rd);
+                           
 always @(posedge clk) begin
     if (reset)
         load_done_hold <= 1'b0;

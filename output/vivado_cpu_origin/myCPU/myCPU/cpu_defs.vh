@@ -39,6 +39,7 @@
 
 
 
+
 /* mem_op操作码宏定义 */
 `define MEM_OP_NUM      8   // 表征MEM访存有迹几种操作
 `define MEM_OP_LD_W     1   // load，从内存取数据写入寄存器堆（与 {inst_ld_w, inst_st_w} 对齐）

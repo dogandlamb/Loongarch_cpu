@@ -53,6 +53,7 @@ assign op_div_wu  = alu_op[`ALU_OP_DIV_WU];
 assign op_mod_w   = alu_op[`ALU_OP_MOD_W];
 assign op_mod_wu  = alu_op[`ALU_OP_MOD_WU];
 
+
 wire op_mul_any = op_mul_w | op_mulh_w | op_mulh_wu;
 
 //////////////////////////////////////////////////
@@ -68,6 +69,7 @@ wire [31:0] lui_result;
 wire [31:0] sll_result;
 wire [63:0] sr64_result;
 wire [31:0] sr_result;
+
 
 wire [31:0] adder_a;
 wire [31:0] adder_b;
@@ -92,6 +94,7 @@ assign lui_result     = alu_src2;
 assign sll_result     = alu_src1 << alu_src2[4:0];
 assign sr64_result    = {{32{op_sra & alu_src1[31]}}, alu_src1[31:0]} >> alu_src2[4:0];
 assign sr_result      = sr64_result[31:0];
+
 
 //////////////////////////////////////////////////
 // 乘法 IP：mult_gen_0（PipeStages=1，P 比输入晚 1 拍）

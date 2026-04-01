@@ -74,6 +74,21 @@ wire        alu_result_valid_w;
 wire        br_taken_w;
 wire [31:0] link_pc4_w;
 
+wire [ 7:0] w_byte_data;
+wire [15:0] w_half_data;
+wire [31:0] w_word_data;
+wire [31:0] wdata_2bram;
+
+wire  [`MEM_OP_NUM-1:0] mem_op = mem_op_in;
+
+assign w_byte_data = mem_wdata_in[7:0];
+assign w_half_data = mem_wdata_in[15:0];
+assign w_word_data = mem_wdata_in;
+
+assign wdata_2bram = mem_op[MEM_OP_ST_B] ? {4{w_byte_data}} :
+                     mem_op[MEM_OP_ST_H] ? {2{w_half_data}} :
+                     mem_op[MEM_OP_ST_W] ? w_word_data : 32'b0;
+
 
 
 alu u_alu(
@@ -122,9 +137,10 @@ assign  wb_op           = valid ? wb_op_in : 1'b0;
 assign data_we_from_EXE = valid ? (mem_op[`MEM_OP_ST_W] | mem_op[`MEM_OP_ST_B] | mem_op[`MEM_OP_ST_H]) : 1'b0;
 assign data_re_from_EXE = valid ? (mem_op[`MEM_OP_LD_W] | mem_op[`MEM_OP_LD_H] | mem_op[`MEM_OP_LD_B] | mem_op[`MEM_OP_LD_HU] | mem_op[`MEM_OP_LD_BU]) : 1'b0;
      
+
 assign data_raddr_from_EXE = valid ? final_result : 32'b0; 
 assign data_waddr_from_EXE = valid ? final_result : 32'b0;
-assign data_wdata_from_EXE = valid ? mem_wdata_in : 32'b0;
+assign data_wdata_from_EXE = valid ? wdata_2bram : 32'b0;
 
 assign data_wbyte_en_from_EXE = valid ? ((mem_op[`MEM_OP_ST_W]) ? 4'b1111 :
                                     (mem_op[`MEM_OP_ST_H]) ? ((final_result[1] ? 4'b1100 : 4'b0011)) :

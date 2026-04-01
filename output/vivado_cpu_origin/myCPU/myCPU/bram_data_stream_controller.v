@@ -103,6 +103,7 @@ reg  data_r_complete_d; // expr 打一拍再输出 complete，与 pending 同块
 assign inst_re_out_2bram = inst_re_in_from_IF;
 assign data_re_out_2bram = data_re_in_from_EXE;
 assign data_we_out_2bram = data_we_in_from_EXE;
+assign data_wbyte_en_2bram = data_byte_en_from_EXE; // added by sssafridi, byte enable for store instructions
 
 //向bram发送数值数据或读写地址
 assign inst_raddr_2bram = pc_in_from_IF;
