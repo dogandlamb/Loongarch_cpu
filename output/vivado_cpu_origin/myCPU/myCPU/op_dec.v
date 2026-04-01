@@ -106,7 +106,6 @@ module op_dec(
     assign br_op[`BR_OP_BLTU] = inst_bltu;
     assign br_op[`BR_OP_BGEU] = inst_bgeu;
 
-<<<<<<< Updated upstream
 // mem_op操作码生成
 // `define MEM_OP_LD_W     1   // load，从内存取数据写入寄存器堆（与 {inst_ld_w, inst_st_w} 对齐）
 // `define MEM_OP_ST_W     0   // store，从寄存器堆数据存入内存（与 {inst_ld_w, inst_st_w} 对齐）
@@ -124,24 +123,5 @@ module op_dec(
     assign mem_op[`MEM_OP_LD_B] = inst_ld_b;
     assign mem_op[`MEM_OP_LD_HU] = inst_ld_hu;
     assign mem_op[`MEM_OP_LD_BU] = inst_ld_bu;
-=======
-//访存操作码生成
-//mem_op[0]  lw
-//mem_op[1]  lh
-//mem_op[2]  lb
-//mem_op[3]  lhu
-//mem_op[4]  lbu
-//mem_op[5]  sw
-//mem_op[6]  sh
-//mem_op[7]  sb
-    assign mem_op[`MEM_OP_LD_W]  = inst_ld_w;
-    assign mem_op[`MEM_OP_LD_H]  = inst_ld_h;
-    assign mem_op[`MEM_OP_LD_B]  = inst_ld_b;
-    assign mem_op[`MEM_OP_LD_HU] = inst_ld_hu;
-    assign mem_op[`MEM_OP_LD_BU] = inst_ld_bu;
-    assign mem_op[`MEM_OP_ST_W]  = inst_st_w;
-    assign mem_op[`MEM_OP_ST_H]  = inst_st_h;
-    assign mem_op[`MEM_OP_ST_B]  = inst_st_b;
->>>>>>> Stashed changes
 
 endmodule
