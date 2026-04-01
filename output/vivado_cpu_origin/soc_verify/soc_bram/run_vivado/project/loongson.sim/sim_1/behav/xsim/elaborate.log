@@ -5,6 +5,7 @@ Running: E:/Xilinx/Vivado/2023.2/bin/unwrapped/win64.o/xelab.exe --incr --debug 
 Using 2 slave threads.
 Starting static elaboration
 Pass Through NonSizing Optimizer
+WARNING: [VRFC 10-3091] actual bit length 9 differs from formal bit length 5 for port 'br_op' [E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/myCPU/mycpu_top.v:282]
 Completed static elaboration
 Starting simulation data flow analysis
 Completed simulation data flow analysis

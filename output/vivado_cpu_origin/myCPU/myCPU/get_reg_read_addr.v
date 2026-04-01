@@ -20,6 +20,11 @@ module get_reg_read_addr(
     input  wire [31:0] inst,
     input  wire        inst_add_w,
     input  wire        inst_addi_w,
+    input  wire        inst_slti,
+    input  wire        inst_sltui,
+    input  wire        inst_andi,
+    input  wire        inst_ori,
+    input  wire        inst_xori,
     input  wire        inst_sub_w,
     input  wire        inst_ld_w,
     input  wire        inst_ld_h,
@@ -39,6 +44,9 @@ module get_reg_read_addr(
     input  wire        inst_slli_w,
     input  wire        inst_srli_w,
     input  wire        inst_srai_w,
+    input  wire        inst_sll_w,
+    input  wire        inst_srl_w,
+    input  wire        inst_sra_w,
     input  wire        inst_b,
     input  wire        inst_bl,
     input  wire        inst_beq,
@@ -48,11 +56,14 @@ module get_reg_read_addr(
     input  wire        inst_bgeu,
     input  wire        inst_jirl,
     input  wire        inst_lu12i_w,
+    input  wire        inst_pcaddu12i,
     input  wire        inst_mul_w,     //乘法
     input  wire        inst_mulh_w,    //有符号乘法高位结果
     input  wire        inst_mulh_wu,   //有符号/无符号混合乘法高位结果
     input  wire        inst_div_w,     //有符号除法
     input  wire        inst_div_wu,    //无符号除法
+    input  wire        inst_mod_w,     //有符号取余
+    input  wire        inst_mod_wu,    //无符号取余
     output wire [ 4:0] rf_raddr1,
     output wire [ 4:0] rf_raddr2
 );
@@ -63,25 +74,27 @@ wire [ 4:0] rk; // rk 字段
 wire need_rj;
 wire need_rk;
 wire src_reg_is_rd;
-wire inst_ori;
 
 assign rd       = inst[ 4: 0];
 assign rj       = inst[ 9: 5];
 assign rk       = inst[14:10];
-assign inst_ori = (inst[31:26] == 6'h00) && (inst[25:22] == 4'he);
 
-assign need_rj = inst_add_w  | inst_addi_w | inst_sub_w | inst_ld_w | inst_st_w |inst_st_b | inst_st_h
+assign need_rj = inst_add_w  | inst_addi_w | inst_slti | inst_sltui
+               | inst_andi   | inst_ori    | inst_xori | inst_sub_w
+               | inst_ld_w   | inst_st_w   | inst_st_b | inst_st_h
                | inst_slt    | inst_sltu   | inst_and   | inst_or   | inst_nor
                | inst_xor    | inst_slli_w | inst_srli_w| inst_srai_w
-               | inst_beq    | inst_bne    | inst_jirl  | inst_ori
+               | inst_sll_w  | inst_srl_w  | inst_sra_w
+               | inst_beq    | inst_bne    | inst_jirl
                | inst_b      | inst_bl     | inst_blt   | inst_bge
                | inst_mul_w  | inst_mulh_w | inst_mulh_wu
-               | inst_div_w  | inst_div_wu;
+               | inst_div_w  | inst_div_wu | inst_mod_w | inst_mod_wu;
 
 assign need_rk = inst_add_w | inst_sub_w | inst_slt | inst_sltu
                | inst_and   | inst_or    | inst_nor | inst_xor
+               | inst_sll_w | inst_srl_w | inst_sra_w
                | inst_mul_w | inst_mulh_w | inst_mulh_wu
-               | inst_div_w | inst_div_wu;
+               | inst_div_w | inst_div_wu | inst_mod_w | inst_mod_wu;
 
 assign src_reg_is_rd = inst_st_w | inst_beq | inst_bne | inst_st_b | inst_st_h
                     |inst_blt | inst_bge | inst_bltu | inst_bgeu; // 第二源来自 rd 的指令

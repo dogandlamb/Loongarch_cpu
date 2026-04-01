@@ -28,6 +28,8 @@ wire op_mulh_w;
 wire op_mulh_wu;
 wire op_div_w;
 wire op_div_wu;
+wire op_mod_w;
+wire op_mod_wu;
 
 ////////////////////////////////////////////////
 // 操作译码
@@ -48,6 +50,8 @@ assign op_mulh_w  = alu_op[`ALU_OP_MULH_W];
 assign op_mulh_wu = alu_op[`ALU_OP_MULH_WU];
 assign op_div_w   = alu_op[`ALU_OP_DIV_W];
 assign op_div_wu  = alu_op[`ALU_OP_DIV_WU];
+assign op_mod_w   = alu_op[`ALU_OP_MOD_W];
+assign op_mod_wu  = alu_op[`ALU_OP_MOD_WU];
 
 wire op_mul_any = op_mul_w | op_mulh_w | op_mulh_wu;
 
@@ -134,10 +138,12 @@ localparam DIV_ST_IDLE = 1'b0;
 localparam DIV_ST_WAIT = 1'b1;
 reg div_st;
 reg [31:0] div_w_quot_reg;
+reg [31:0] div_w_rem_reg;
 
 initial begin
     div_st = DIV_ST_IDLE;
     div_w_quot_reg = 32'b0;
+    div_w_rem_reg  = 32'b0;
     div_in_valid   = 1'b0;
 end
 
@@ -145,7 +151,7 @@ always @(posedge clk) begin
     div_in_valid <= 1'b0;
     case (div_st)
         DIV_ST_IDLE: begin
-            if (op_div_w) begin
+            if (op_div_w | op_mod_w) begin
                 div_in_valid <= 1'b1;
                 div_st       <= DIV_ST_WAIT;
             end
@@ -153,6 +159,7 @@ always @(posedge clk) begin
         DIV_ST_WAIT: begin
             if (div_out_valid) begin
                 div_w_quot_reg <= div_out_data[31:0];
+                div_w_rem_reg  <= div_out_data[63:32];
                 div_st         <= DIV_ST_IDLE;
             end
         end
@@ -161,13 +168,16 @@ always @(posedge clk) begin
 end
 
 wire [31:0] div_w_quot  = div_w_quot_reg;
+wire [31:0] div_w_rem   = div_w_rem_reg;
 wire [31:0] div_wu_quot = (alu_src2 == 32'b0) ? 32'b0
                          : ($unsigned(alu_src1) / $unsigned(alu_src2));
+wire [31:0] div_wu_rem  = (alu_src2 == 32'b0) ? 32'b0
+                         : ($unsigned(alu_src1) % $unsigned(alu_src2));
 
 //////////////////////////////////////////////////
 // 输出有效控制
 wire op_alu_1cycle = op_add | op_sub | op_slt | op_sltu | op_and | op_nor | op_or | op_xor
-                   | op_sll | op_srl | op_sra | op_lui | op_div_wu;
+                   | op_sll | op_srl | op_sra | op_lui | op_div_wu | op_mod_wu;
 
 wire mul_result_ok = op_mul_any && op_mul_any_d;
 
@@ -175,7 +185,7 @@ wire div_w_result_ok = (div_st == DIV_ST_WAIT) && div_out_valid;
 
 assign alu_result_valid = op_alu_1cycle
                         | mul_result_ok
-                        | div_w_result_ok;
+                        | ((op_div_w | op_mod_w) ? div_w_result_ok : 1'b0);
 
 //////////////////////////////////////////////////
 // 结果选择，总输出
@@ -193,6 +203,8 @@ assign alu_result = ({32{op_add | op_sub}} & add_sub_result)
                   | ({32{op_mulh_w}} & mulh_w_result)
                   | ({32{op_mulh_wu}} & mulh_wu_result)
                   | ({32{op_div_w}} & div_w_quot)
-                  | ({32{op_div_wu}} & div_wu_quot);
+                  | ({32{op_div_wu}} & div_wu_quot)
+                  | ({32{op_mod_w}} & div_w_rem)
+                  | ({32{op_mod_wu}} & div_wu_rem);
 
 endmodule

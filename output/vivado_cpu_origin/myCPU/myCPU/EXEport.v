@@ -1,6 +1,7 @@
 `include "cpu_defs.vh"
 
 module EXEport (
+    input wire                  clk,
     input wire                  valid,
 
     input wire  [ 4:0]          wb_reg_addr,
@@ -98,7 +99,7 @@ assign br_taken_w = (br_op[`BR_OP_BEQ]  && (alu_src1 == alu_src2)) // beq
                   | (br_op[`BR_OP_BNE]  && (alu_src1 != alu_src2)) // bne
                   | (br_op[`BR_OP_BLT]  && ($signed(alu_src1) < $signed(alu_src2))) // blt
                   | (br_op[`BR_OP_BGE]  && ($signed(alu_src1) >= $signed(alu_src2))) // bge
-                  | (br_op[`BR_OP_BLTU] && (alu_src1 < alu _src2)) // bltu
+                  | (br_op[`BR_OP_BLTU] && (alu_src1 < alu_src2)) // bltu
                   | (br_op[`BR_OP_BGEU] && (alu_src1 >= alu_src2)) // bgeu
                   |  br_op[`BR_OP_JIRL]                             // jirl
                   |  br_op[`BR_OP_BL]                               // bl
@@ -113,7 +114,7 @@ assign link_pc4_w      = pc_in + 32'd4;
 assign  final_result    = valid ? ((br_op[`BR_OP_JIRL] | br_op[`BR_OP_BL]) ? link_pc4_w : alu_result_w) : 1'b0;
 assign  pc_out          = valid ? pc_in : 32'b0;
 assign  wb_reg_addr_out = valid ? wb_reg_addr : 5'b0;
-assign  mem_op          = valid ? mem_op_in : 2'b0;
+assign  mem_op          = valid ? mem_op_in : {`MEM_OP_NUM{1'b0}};
 assign  mem_wdata_out   = valid ? mem_wdata_in : 32'b0;
 assign  wb_op           = valid ? wb_op_in : 1'b0;
 

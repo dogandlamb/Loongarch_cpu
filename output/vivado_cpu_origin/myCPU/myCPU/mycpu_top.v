@@ -308,6 +308,7 @@ module mycpu_top(
     wire [31:0] data_wdata_from_EXE;
 
     EXEport u_EXEport(
+        .clk             (clk),
         .valid           (EXE_valid),
         .wb_reg_addr     (wb_reg_addr_2EXE),
         .alu_src1        (alu_src1_2EXE),
@@ -384,7 +385,8 @@ module mycpu_top(
     reg        ld_req_issued;
     reg [31:0] ld_req_pc;
     reg [4:0]  ld_req_reg;
-    wire       ld_in_mem = em_mem_op[`MEM_OP_LD_W | `MEM_OP_LD_H | `MEM_OP_LD_B| `MEM_OP_LD_HU | `MEM_OP_LD_BU] & MEM_valid;
+    wire       ld_in_mem = (em_mem_op[`MEM_OP_LD_W] | em_mem_op[`MEM_OP_LD_H] | em_mem_op[`MEM_OP_LD_B]
+                         |  em_mem_op[`MEM_OP_LD_HU] | em_mem_op[`MEM_OP_LD_BU]) & MEM_valid;
     wire       ld_slot_match = ld_req_issued & ld_in_mem
                                & (em_pc == ld_req_pc) & (em_wb_reg == ld_req_reg);
     wire       data_re_issue_ld = ld_in_mem & ~ld_slot_match;
@@ -513,7 +515,8 @@ module mycpu_top(
     );
 
     wire mem_stage_is_load = MEM_valid
-                              & em_mem_op[`MEM_OP_LD_W | `MEM_OP_LD_H | `MEM_OP_LD_B| `MEM_OP_LD_HU | `MEM_OP_LD_BU];
+                              & (em_mem_op[`MEM_OP_LD_W] | em_mem_op[`MEM_OP_LD_H] | em_mem_op[`MEM_OP_LD_B]
+                              |  em_mem_op[`MEM_OP_LD_HU] | em_mem_op[`MEM_OP_LD_BU])
                               & ~data_r_complete;
 
     conflict_handle u_conflict_handle(
@@ -547,7 +550,7 @@ module mycpu_top(
         .rf_rdata1        (rf_rdata1),
         .rf_rdata2        (rf_rdata2),
         .EXE_data         (exe_final_result),
-        .MEM_data         (em_result),
+        .MEM_data         (mem_wb_wdata),
         .WB_data          (mwb_wdata),
         .ID_src1_rdata    (ID_src1_rdata),
         .ID_src2_rdata    (ID_src2_rdata)
@@ -588,7 +591,7 @@ module mycpu_top(
         .clk                 (clk),                    // 时钟
         .reset               (reset),                  // 同步复位
         .inst_re_in_from_IF  (IF_valid & IF_ID_reg_allowIn), // 仅在 IF/ID 可接收时发取指，避免停顿期错位/跳读
-        .data_we_in_from_EXE (em_mem_op[`MEM_OP_ST_W] & MEM_valid), // MEM 发起数据写请求
+        .data_we_in_from_EXE ((em_mem_op[`MEM_OP_ST_W] | em_mem_op[`MEM_OP_ST_B] | em_mem_op[`MEM_OP_ST_H]) & MEM_valid), // MEM 发起数据写请求
         .data_re_in_from_EXE (data_re_issue_ld),
         .pc_in_from_IF       (pc_2ram_data_controller),// IF 本拍请求 PC（pc1）
         .data_raddr_from_EXE (em_result),              // MEM 读地址
@@ -624,10 +627,20 @@ module mycpu_top(
     assign inst_sram_addr  = bram_inst_addr;
     assign inst_sram_wdata = 32'b0;
 
+    wire [1:0] mem_addr_lo = em_result[1:0];
+    wire [3:0] mem_store_we = em_mem_op[`MEM_OP_ST_W] ? 4'b1111 :
+                              em_mem_op[`MEM_OP_ST_H] ? (mem_addr_lo[1] ? 4'b1100 : 4'b0011) :
+                              em_mem_op[`MEM_OP_ST_B] ? (4'b0001 << mem_addr_lo) :
+                              4'b0000;
+    wire [31:0] mem_store_wdata = em_mem_op[`MEM_OP_ST_W] ? em_mem_wdata :
+                                  em_mem_op[`MEM_OP_ST_H] ? {2{em_mem_wdata[15:0]}} :
+                                  em_mem_op[`MEM_OP_ST_B] ? {4{em_mem_wdata[7:0]}} :
+                                  em_mem_wdata;
+
     assign data_sram_en    = bram_data_we | bram_data_re;
-    assign data_sram_we    = bram_data_we ? 4'b1111 : 4'b0000;
+    assign data_sram_we    = bram_data_we ? mem_store_we : 4'b0000;
     assign data_sram_addr  = bram_data_we ? bram_data_waddr : bram_data_raddr;
-    assign data_sram_wdata = bram_data_wdata;
+    assign data_sram_wdata = bram_data_we ? mem_store_wdata : bram_data_wdata;
 
 
 
