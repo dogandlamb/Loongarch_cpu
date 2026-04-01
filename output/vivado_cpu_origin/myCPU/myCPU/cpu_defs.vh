@@ -16,7 +16,7 @@
 
 
 /* ALU操作码宏定义 */
-`define ALU_OP_NUM      17  // 表征ALU有几种操作
+`define ALU_OP_NUM      19  // 表征ALU有几种操作
 `define ALU_OP_ADD      0   // 加法
 `define ALU_OP_SUB      1   // 减法
 `define ALU_OP_SLT      2   // 有符号小于比较
@@ -34,6 +34,8 @@
 `define ALU_OP_MULH_WU  14  // 有符号/无符号混合乘法高位结果
 `define ALU_OP_DIV_W    15  // 有符号除法
 `define ALU_OP_DIV_WU   16  // 无符号除法
+`define ALU_OP_MOD_W    17  // 有符号取余
+`define ALU_OP_MOD_WU   18  // 无符号取余
 
 
 

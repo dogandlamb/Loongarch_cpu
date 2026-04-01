@@ -21,6 +21,11 @@ module imm_generator (
     input wire [31:0] inst,
     input wire inst_add_w,
     input wire inst_addi_w,
+    input wire inst_slti,
+    input wire inst_sltui,
+    input wire inst_andi,
+    input wire inst_ori,
+    input wire inst_xori,
     input wire inst_sub_w,
     input wire inst_ld_w,
     input wire inst_ld_h,
@@ -49,12 +54,13 @@ module imm_generator (
     input wire inst_bgeu,
     input wire inst_jirl,
     input wire inst_lu12i_w,
+    input wire inst_pcaddu12i,
 
     output wire [31:0] alu_imm,
     output wire [31:0] br_imm
 );
     
-    wire [4:0] ui5;
+    wire [4:0 ] ui5;
     wire [11:0] i12;
     wire [15:0] i16;
     wire [19:0] i20;
@@ -69,11 +75,11 @@ module imm_generator (
     
     
     assign need_ui5  = inst_slli_w | inst_srli_w | inst_srai_w;
-    assign need_si12 = inst_addi_w | inst_ld_w | inst_st_w | inst_st_b 
+    assign need_si12 = inst_addi_w | inst_slti | inst_sltui | inst_ld_w | inst_st_w | inst_st_b 
                      | inst_st_h | inst_ld_h | inst_ld_b | inst_ld_hu | inst_ld_bu;
     assign need_si16 = inst_jirl | inst_beq | inst_bne 
                      | inst_blt | inst_bge | inst_bltu | inst_bgeu;
-    assign need_si20 = inst_lu12i_w;
+    assign need_si20 = inst_lu12i_w | inst_pcaddu12i;
     assign need_si26 = inst_b | inst_bl;
     assign src2_is_4 = inst_jirl | inst_bl;
     
@@ -83,13 +89,14 @@ module imm_generator (
     assign i20 = inst[24: 5];
     assign i26 = {inst[9: 0] , inst[25:10]};
     
-    assign alu_imm = src2_is_4 ? 32'h4               :
-    need_si20 ? {i20[19:0] , 12'b0} :
-    need_si12 ? {{20{i12[11]}} , i12[11:0]} :
-    need_ui5  ? {27'b0 , ui5[4:0]} :
-    need_si26 ? {{ 4{i26[25]}} , i26[25:0] , 2'b00}:
-    need_si16 ? {{14{i16[15]}} , i16[15:0] , 2'b00}:
-    32'b0;
+    assign alu_imm = src2_is_4 ? 32'h4 :
+                     need_si20 ? {i20[19:0] , 12'b0} :
+                     (inst_andi | inst_ori | inst_xori) ? {20'b0, i12[11:0]} :
+                     need_si12 ? {{20{i12[11]}} , i12[11:0]} :
+                     need_ui5  ? {27'b0 , ui5[4:0]} :
+                     need_si26 ? {{ 4{i26[25]}} , i26[25:0] , 2'b00}:
+                     need_si16 ? {{14{i16[15]}} , i16[15:0] , 2'b00}:
+                     32'b0;
 
     assign br_imm = need_si26 ? {{ 4{i26[25]}} , i26[25:0] , 2'b00}:
                     need_si16 ? {{14{i16[15]}} , i16[15:0] , 2'b00}:

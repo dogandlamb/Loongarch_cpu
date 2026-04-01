@@ -53,10 +53,6 @@ module MEMport (
 //   - wb_reg_addr_out : 写回寄存器地址。
 //   - wb_op_out       : 写回使能输出。
 //
-// TODO：
-// 1) 访存：完善 mem_op 解码（load/store/旁路）。
-// 2) 接口：补齐 data_sram 完整握手与字节写使能。
-// 3) 验证：覆盖 load/store 与非访存指令透传（传给下一级）路径。
 // ============================================================
 
 wire   bram_re, bram_we;
@@ -102,7 +98,18 @@ always @(posedge clk) begin
     else if (data_r_complete)
         load_rdata_hold <= data_sram_rdata;
 end
-wire [31:0] load_wdata = data_r_complete ? data_sram_rdata : load_rdata_hold;
+wire [31:0] load_wdata_raw = data_r_complete ? data_sram_rdata : load_rdata_hold;
+wire [7:0] load_byte_hold = (exe_result[1:0] == 2'b00) ? load_wdata_raw[7:0] :
+                            (exe_result[1:0] == 2'b01) ? load_wdata_raw[15:8] :
+                            (exe_result[1:0] == 2'b10) ? load_wdata_raw[23:16] :
+                                                         load_wdata_raw[31:24];
+wire [15:0] load_half_hold = exe_result[1] ? load_wdata_raw[31:16] : load_wdata_raw[15:0];
+wire [31:0] load_wdata = mem_op[`MEM_OP_LD_W]  ? load_wdata_raw :
+                            mem_op[`MEM_OP_LD_H]  ? {{16{load_half_hold[15]}}, load_half_hold} :
+                            mem_op[`MEM_OP_LD_HU] ? {16'b0, load_half_hold} :
+                            mem_op[`MEM_OP_LD_B]  ? {{24{load_byte_hold[7]}}, load_byte_hold} :
+                            mem_op[`MEM_OP_LD_BU] ? {24'b0, load_byte_hold} :
+                            load_wdata_raw;
 
 // 对当前 MEM 槽位做“完成后保持就绪”（按 pc+rd 精确匹配槽位）
 reg        load_done_hold;

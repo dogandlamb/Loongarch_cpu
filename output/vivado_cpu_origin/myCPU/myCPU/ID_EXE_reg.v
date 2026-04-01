@@ -36,7 +36,7 @@ module ID_EXE_reg (
     input  wire                   valid,
     input  wire                   readyGo,
     input  wire                   allowIn,
-           
+
     input wire  [4:0]             wb_reg_addr_in,
     input wire  [31:0]            alu_src1_in,
     input wire  [31:0]            alu_src2_in,
@@ -64,68 +64,68 @@ module ID_EXE_reg (
 always @(posedge clk) begin
     // 复位或冲刷：将本级清空为 NOP
     if(reset || cancel_sig) begin
-        wb_reg_addr_out <= 5'h0;
-        alu_src1_out <= 32'h0;
-        alu_src2_out <= 32'h0;
-        br_imm_out <= 32'h0;
-        pc_out <= 32'h0;
-        alu_op_out <= {`ALU_OP_NUM{1'b0}};
-        mem_wdata_out <= 32'b0;
-        br_op_out <= {`BR_OP_NUM{1'b0}};
-        mem_op_out <= {`MEM_OP_NUM{1'b0}};
-        wb_op_out <= 1'h0;
+        wb_reg_addr_out   <= 5'h0;
+        alu_src1_out      <= 32'h0;
+        alu_src2_out      <= 32'h0;
+        br_imm_out        <= 32'h0;
+        pc_out            <= 32'h0;
+        alu_op_out        <= {`ALU_OP_NUM{1'b0}};
+        mem_wdata_out     <= 32'b0;
+        br_op_out         <= {`BR_OP_NUM{1'b0}};
+        mem_op_out        <= {`MEM_OP_NUM{1'b0}};
+        wb_op_out         <= 1'h0;
     // 握手成功：锁存 ID 输出，推进到 EXE
     end
     else if(valid && readyGo && allowIn) begin
-        wb_reg_addr_out <= wb_reg_addr_in;
-        alu_src1_out <= alu_src1_in;
-        alu_src2_out <= alu_src2_in;
-        br_imm_out <= br_imm_in;
-        pc_out <= pc_in;
-        alu_op_out <= alu_op_in;
-        mem_wdata_out <= mem_wdata_in;
-        br_op_out <= br_op_in;
-        mem_op_out <= mem_op_in;
-        wb_op_out <= wb_op_in;
+        wb_reg_addr_out   <= wb_reg_addr_in;
+        alu_src1_out      <= alu_src1_in;
+        alu_src2_out      <= alu_src2_in;
+        br_imm_out        <= br_imm_in;
+        pc_out            <= pc_in;
+        alu_op_out        <= alu_op_in;
+        mem_wdata_out     <= mem_wdata_in;
+        br_op_out         <= br_op_in;
+        mem_op_out        <= mem_op_in;
+        wb_op_out         <= wb_op_in;
     // 上游无效：清空，防止无效数据传播
     end
     else if(!valid) begin
-        wb_reg_addr_out <= 5'h0;
-        alu_src1_out <= 32'h0;
-        alu_src2_out <= 32'h0;
-        br_imm_out <= 32'h0;
-        pc_out <= 32'h0;
-        alu_op_out <= {`ALU_OP_NUM{1'b0}};
-        mem_wdata_out <= 32'b0;
-        br_op_out <= {`BR_OP_NUM{1'b0}};
-        mem_op_out <= {`MEM_OP_NUM{1'b0}};
-        wb_op_out <= 1'h0;
+        wb_reg_addr_out  <= 5'h0;
+        alu_src1_out     <= 32'h0;
+        alu_src2_out     <= 32'h0;
+        br_imm_out       <= 32'h0;
+        pc_out           <= 32'h0;
+        alu_op_out       <= {`ALU_OP_NUM{1'b0}};
+        mem_wdata_out    <= 32'b0;
+        br_op_out        <= {`BR_OP_NUM{1'b0}};
+        mem_op_out       <= {`MEM_OP_NUM{1'b0}};
+        wb_op_out        <= 1'h0;
     // 下游反压或本级未就绪：保持当前值
     end
     else if(!readyGo | !allowIn) begin
-        wb_reg_addr_out <= wb_reg_addr_out;
-        alu_src1_out <= alu_src1_out;
-        alu_src2_out <= alu_src2_out;
-        br_imm_out <= br_imm_out;
-        pc_out <= pc_out;
-        alu_op_out <= alu_op_out;
-        mem_wdata_out <= mem_wdata_out;
-        br_op_out <= br_op_out;
-        mem_op_out <= mem_op_out;
-        wb_op_out <= wb_op_out;
+        wb_reg_addr_out  <= wb_reg_addr_out;
+        alu_src1_out     <= alu_src1_out;
+        alu_src2_out     <= alu_src2_out;
+        br_imm_out       <= br_imm_out;
+        pc_out           <= pc_out;
+        alu_op_out       <= alu_op_out;
+        mem_wdata_out    <= mem_wdata_out;
+        br_op_out        <= br_op_out;
+        mem_op_out       <= mem_op_out;
+        wb_op_out        <= wb_op_out;
     // 兜底分支：保持安全清空语义
     end
     else begin
-        wb_reg_addr_out <= 5'h0;
-        alu_src1_out <= 32'h0;
-        alu_src2_out <= 32'h0;
-        br_imm_out <= 32'h0;
-        pc_out <= 32'h0;
-        alu_op_out <= {`ALU_OP_NUM{1'b0}};
-        mem_wdata_out <= 32'h0;
-        br_op_out <= {`BR_OP_NUM{1'b0}};
-        mem_op_out <= {`MEM_OP_NUM{1'b0}};
-        wb_op_out <= 1'h0;
+        wb_reg_addr_out  <= 5'h0;
+        alu_src1_out     <= 32'h0;
+        alu_src2_out     <= 32'h0;
+        br_imm_out       <= 32'h0;
+        pc_out           <= 32'h0;
+        alu_op_out       <= {`ALU_OP_NUM{1'b0}};
+        mem_wdata_out    <= 32'h0;
+        br_op_out        <= {`BR_OP_NUM{1'b0}};
+        mem_op_out       <= {`MEM_OP_NUM{1'b0}};
+        wb_op_out        <= 1'h0;
     end
 end
 

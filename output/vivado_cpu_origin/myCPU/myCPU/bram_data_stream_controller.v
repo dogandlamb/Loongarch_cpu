@@ -1,12 +1,12 @@
 //用以延迟一个时钟周期的控制器，主要用于协调指令和数据的读写时序
 
 module bram_data_stream_controller(
-    input  wire        clk,
-    input  wire        reset,
+    input wire         clk,
+    input wire         reset,
 
-    input  wire        inst_re_in_from_IF,
-    input  wire        data_we_in_from_EXE,
-    input  wire        data_re_in_from_EXE,
+    input wire         inst_re_in_from_IF,
+    input wire         data_we_in_from_EXE,
+    input wire         data_re_in_from_EXE,
 
     input wire [31:0] pc_in_from_IF,
     input wire [31:0] data_raddr_from_EXE,
@@ -14,16 +14,16 @@ module bram_data_stream_controller(
     input wire [31:0] data_wdata_from_EXE,
     input wire [ 3:0] data_byte_en_from_EXE, // added by sssafridi, byte enable for store instructions
 
-    input wire [31:0] inst_rdata_from_bram,
-    input wire [31:0] data_rdata_from_bram,
-    
-    input wire inst_re_in_from_bram,
-    input wire data_we_in_from_bram,
-    input wire data_re_in_from_bram,
-    
-    output wire inst_re_out_2bram,
-    output wire data_we_out_2bram,
-    output wire data_re_out_2bram,
+    input wire [31:0]  inst_rdata_from_bram,
+    input wire [31:0]  data_rdata_from_bram,
+
+    input wire         inst_re_in_from_bram,
+    input wire         data_we_in_from_bram,
+    input wire         data_re_in_from_bram,
+
+    output wire        inst_re_out_2bram,
+    output wire        data_we_out_2bram,
+    output wire        data_re_out_2bram,
 
     output wire [31:0] inst_raddr_2bram,
     output wire [31:0] data_raddr_2bram,
@@ -49,17 +49,17 @@ module bram_data_stream_controller(
     data_we_in_from_EXE：从EXE阶段收到的数据读取使能
     data_re_in_from_EXE：从EXE阶段收到的数据写入使能
 
-   pc_in_from_IF      ：从IF阶段收到的指令地址
-   data_raddr_from_EXE：从EXE阶段收到的数据读取地址
-   data_waddr_from_EXE：从EXE阶段收到的数据写入地址
-   data_wdata_from_EXE：从EXE阶段收到的数据写入数据
+    pc_in_from_IF      ：从IF阶段收到的指令地址
+    data_raddr_from_EXE：从EXE阶段收到的数据读取地址
+    data_waddr_from_EXE：从EXE阶段收到的数据写入地址
+    data_wdata_from_EXE：从EXE阶段收到的数据写入数据
 
-   inst_rdata_from_bram：内存返回的指令数据
-   data_rdata_from_bram：内存返回的数值数据
-    
-   inst_re_in_from_bram：从内存返回的指令有效标志
-   data_we_in_from_bram：从内存返回的数据写入有效标志
-   data_re_in_from_bram：从内存返回的数据读取有效标志
+    inst_rdata_from_bram：内存返回的指令数据
+    data_rdata_from_bram：内存返回的数值数据
+
+    inst_re_in_from_bram：从内存返回的指令有效标志
+    data_we_in_from_bram：从内存返回的数据写入有效标志
+    data_re_in_from_bram：从内存返回的数据读取有效标志
     
     inst_re_out_2bram：向内存发送的指令读取使能
     data_we_out_2bram：向内存发送的数据写入使能
@@ -76,36 +76,41 @@ module bram_data_stream_controller(
     data_w_wrong：数据写入异常标志
     data_r_wrong：数据读取异常标志
     inst_r_wrong：指令读取异常标志
-
+    
     data_w_complete：数据读取成功标志
     data_r_complete：数据写入成功标志
     inst_r_complete：指令读取成功标志
 
 */
 
+
+//需要异常处理可以修改这部分逻辑，同时保留对外的接口
 wire data_w_wrong_local;
 wire data_r_wrong_local;
 wire inst_r_wrong_local;
+assign data_w_wrong_local=1'b0;
+assign data_r_wrong_local=1'b0;
+assign inst_r_wrong_local=1'b0;
+
+
 reg  data_we_req_d1;
 reg  data_re_req_d1;
 reg  data_w_pending;
 reg  data_r_pending;
 reg  data_r_complete_d; // expr 打一拍再输出 complete，与 pending 同块且对齐读数据
 
-assign data_w_wrong_local=1'b0;//需要异常处理可以修改这部分逻辑，同时保留对外的接口
-assign data_r_wrong_local=1'b0;
-assign inst_r_wrong_local=1'b0;
-
-
+//向bram发送数据或指令读写使能
 assign inst_re_out_2bram = inst_re_in_from_IF;
 assign data_re_out_2bram = data_re_in_from_EXE;
 assign data_we_out_2bram = data_we_in_from_EXE;
 
+//向bram发送数值数据或读写地址
 assign inst_raddr_2bram = pc_in_from_IF;
 assign data_raddr_2bram = data_raddr_from_EXE;
 assign data_waddr_2bram = data_waddr_from_EXE;
 assign data_wdata_2bram = data_wdata_from_EXE;
 
+//向IF或MEM返回数据或指令读取数据
 assign inst_rdata_2IF  = inst_rdata_from_bram;
 assign data_rdata_2MEM = data_rdata_from_bram;
 

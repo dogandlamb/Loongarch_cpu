@@ -5,6 +5,11 @@ module inst_dec(
     input  wire [31:0] inst,
     output wire        inst_add_w,
     output wire        inst_addi_w,
+    output wire        inst_slti,
+    output wire        inst_sltui,
+    output wire        inst_andi,
+    output wire        inst_ori,
+    output wire        inst_xori,
     output wire        inst_sub_w,
     output wire        inst_ld_w,
     output wire        inst_ld_h,
@@ -24,6 +29,9 @@ module inst_dec(
     output wire        inst_slli_w,
     output wire        inst_srli_w,
     output wire        inst_srai_w,
+    output wire        inst_sll_w,
+    output wire        inst_srl_w,
+    output wire        inst_sra_w,
     output wire        inst_b,
     output wire        inst_bl,
     output wire        inst_beq,
@@ -33,11 +41,14 @@ module inst_dec(
     output wire        inst_bgeu,
     output wire        inst_jirl,
     output wire        inst_lu12i_w,
+    output wire        inst_pcaddu12i,
     output wire        inst_mul_w,
     output wire        inst_mulh_w,
     output wire        inst_mulh_wu,
     output wire        inst_div_w,
-    output wire        inst_div_wu
+    output wire        inst_div_wu,
+    output wire        inst_mod_w,
+    output wire        inst_mod_wu
 );
 //todo:指令译码，输出指令标志位
 
@@ -63,6 +74,11 @@ decoder_5_32 u_dec3(.in(op_19_15 ), .co(op_19_15_d ));
 
 assign inst_add_w   = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h00];
 assign inst_addi_w  = op_31_26_d[6'h00] & op_25_22_d[4'ha];
+assign inst_slti    = op_31_26_d[6'h00] & op_25_22_d[4'h8];
+assign inst_sltui   = op_31_26_d[6'h00] & op_25_22_d[4'h9];
+assign inst_andi    = op_31_26_d[6'h00] & op_25_22_d[4'hd];
+assign inst_ori     = op_31_26_d[6'h00] & op_25_22_d[4'he];
+assign inst_xori    = op_31_26_d[6'h00] & op_25_22_d[4'hf];
 assign inst_sub_w   = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h02];
 
 assign inst_slt     = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h04];
@@ -76,6 +92,9 @@ assign inst_xor     = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & 
 assign inst_slli_w  = op_31_26_d[6'h00] & op_25_22_d[4'h1] & op_21_20_d[2'h0] & op_19_15_d[5'h01];
 assign inst_srli_w  = op_31_26_d[6'h00] & op_25_22_d[4'h1] & op_21_20_d[2'h0] & op_19_15_d[5'h09];
 assign inst_srai_w  = op_31_26_d[6'h00] & op_25_22_d[4'h1] & op_21_20_d[2'h0] & op_19_15_d[5'h11];
+assign inst_sll_w   = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h0] & op_19_15_d[5'h01];
+assign inst_srl_w   = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h0] & op_19_15_d[5'h09];
+assign inst_sra_w   = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h0] & op_19_15_d[5'h11];
 
 assign inst_ld_w    = op_31_26_d[6'h0a] & op_25_22_d[4'h2];
 assign inst_ld_b    = op_31_26_d[6'h0a] & op_25_22_d[4'h0];
@@ -97,11 +116,14 @@ assign inst_bltu    = op_31_26_d[6'h1a];
 assign inst_bgeu    = op_31_26_d[6'h1b];
 
 assign inst_lu12i_w = op_31_26_d[6'h05] & ~inst[25];
+assign inst_pcaddu12i = op_31_26_d[6'h07] & ~inst[25];
 
 assign inst_mul_w   = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h1c];
 assign inst_mulh_w  = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h1d];
 assign inst_mulh_wu = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h1e];
 assign inst_div_w   = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h2] & op_19_15_d[5'h00];
 assign inst_div_wu  = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h2] & op_19_15_d[5'h02];
+assign inst_mod_w   = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h2] & op_19_15_d[5'h01];
+assign inst_mod_wu  = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h2] & op_19_15_d[5'h03];
 
 endmodule

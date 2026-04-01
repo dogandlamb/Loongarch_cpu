@@ -74,6 +74,10 @@ module IDport (
 //以下为指令标志
 wire inst_add_w;     //rj+rk写入rd
 wire inst_addi_w;    //rj+12位立即数扩展为32位，写入rd
+wire inst_slti;      //有符号立即数比较
+wire inst_sltui;     //无符号立即数比较
+wire inst_andi;      //按位与立即数
+wire inst_xori;      //按位异或立即数
 wire inst_sub_w;     //rj-rk写入rd
 wire inst_ld_w;      //从内存中取出32位，存入rd
 wire inst_ld_h;      //从内存中取出16位，存入rd
@@ -95,6 +99,9 @@ wire inst_xor;       //异或，rj^rk写入rd
 wire inst_slli_w;    //rj数据逻辑左移ui5，存入rd
 wire inst_srli_w;    //rj数据逻辑右移ui5，存入rd
 wire inst_srai_w;    //rj数据算术右移ui5，存入rd
+wire inst_sll_w;     //rj数据逻辑左移rk[4:0]
+wire inst_srl_w;     //rj数据逻辑右移rk[4:0]
+wire inst_sra_w;     //rj数据算术右移rk[4:0]
     
 wire inst_b;         //无条件跳转到目标地址，地址偏移值为i26offs26逻辑左移两位再符号拓展
 wire inst_bl;        //无条件跳转到目标地址，偏移值同上，同时将该指令的pc＋4存到rl
@@ -105,12 +112,15 @@ wire inst_bltu;      //无符号数比较，src1<src2跳
 wire inst_bgeu;      //无符号数比较，src1>=src2跳转目标地址
 wire inst_jirl;      //无条件跳转到目标地址，将pc值加＋存到rd，目标地址为i16offs16逻辑左移两位后再符号拓展加rj的值
 wire inst_lu12i_w;   //用于将20位bit立即数链接上12bit0后写入rd
+wire inst_pcaddu12i; //rd <- pc + (si20<<12)
 wire inst_ori;       //ori: rj | ui12 -> rd
 wire inst_mul_w;     //乘法
 wire inst_mulh_w;    //有符号乘法高位结果
 wire inst_mulh_wu;   //有符号/无符号混合乘法高位结果
 wire inst_div_w;     //有符号除法
 wire inst_div_wu;    //无符号除法
+wire inst_mod_w;     //有符号取余
+wire inst_mod_wu;    //无符号取余
 
 wire [`ALU_OP_NUM-1:0] alu_op_inner; //内部ALU操作码，后续看条件赋值给output alu_op
 wire [`BR_OP_NUM-1:0]  br_op_inner;  //内部分支跳转操作码，后续看条件赋值给output br_op
@@ -127,9 +137,12 @@ wire wb_op_w;
 assign wb_op_w = inst_add_w | inst_addi_w | inst_sub_w | inst_ld_w
                | inst_slt   | inst_sltu   | inst_and   | inst_or
                | inst_nor   | inst_xor    | inst_slli_w| inst_srli_w
-               | inst_srai_w| inst_lu12i_w| inst_bl    | inst_jirl
+               | inst_srai_w| inst_sll_w  | inst_srl_w | inst_sra_w
+               | inst_lu12i_w| inst_pcaddu12i | inst_bl | inst_jirl
+               | inst_slti  | inst_sltui  | inst_andi  | inst_xori
                | inst_ori    | inst_mul_w  | inst_mulh_w
                | inst_mulh_wu| inst_div_w  | inst_div_wu
+               | inst_mod_w | inst_mod_wu
                | inst_ld_h   | inst_ld_b   | inst_ld_hu  | inst_ld_bu; 
 
 inst_dec u_inst_dec(
@@ -137,6 +150,11 @@ inst_dec u_inst_dec(
     .inst         (inst),
     .inst_add_w   (inst_add_w),
     .inst_addi_w  (inst_addi_w),
+    .inst_slti    (inst_slti),
+    .inst_sltui   (inst_sltui),
+    .inst_andi    (inst_andi),
+    .inst_ori     (inst_ori),
+    .inst_xori    (inst_xori),
     .inst_sub_w   (inst_sub_w),
     .inst_ld_w    (inst_ld_w),
     .inst_ld_h    (inst_ld_h),
@@ -159,11 +177,14 @@ inst_dec u_inst_dec(
     .inst_beq     (inst_beq),
     .inst_jirl    (inst_jirl),
     .inst_lu12i_w (inst_lu12i_w),
+    .inst_pcaddu12i(inst_pcaddu12i),
     .inst_mul_w   (inst_mul_w),
     .inst_mulh_w  (inst_mulh_w),
     .inst_mulh_wu (inst_mulh_wu),
     .inst_div_w   (inst_div_w),
     .inst_div_wu  (inst_div_wu),
+    .inst_mod_w   (inst_mod_w),
+    .inst_mod_wu  (inst_mod_wu),
     .inst_blt     (inst_blt),
     .inst_bge     (inst_bge),
     .inst_bltu    (inst_bltu),
@@ -176,6 +197,11 @@ op_dec u_op_dec(
     .reset        (reset),
     .inst_add_w   (inst_add_w),
     .inst_addi_w  (inst_addi_w),
+    .inst_slti    (inst_slti),
+    .inst_sltui   (inst_sltui),
+    .inst_andi    (inst_andi),
+    .inst_ori     (inst_ori),
+    .inst_xori    (inst_xori),
     .inst_sub_w   (inst_sub_w),
     .inst_ld_w    (inst_ld_w),
     .inst_ld_h    (inst_ld_h),
@@ -204,11 +230,14 @@ op_dec u_op_dec(
     .inst_bgeu    (inst_bgeu),
     .inst_jirl    (inst_jirl),
     .inst_lu12i_w (inst_lu12i_w),
+    .inst_pcaddu12i(inst_pcaddu12i),
     .inst_mul_w   (inst_mul_w),
     .inst_mulh_w  (inst_mulh_w),
     .inst_mulh_wu (inst_mulh_wu),
     .inst_div_w   (inst_div_w),
     .inst_div_wu  (inst_div_wu),
+    .inst_mod_w   (inst_mod_w),
+    .inst_mod_wu  (inst_mod_wu),
     .alu_op       (alu_op_inner),
     .br_op        (br_op_inner),
     .mem_op       (mem_op_inner)
@@ -219,6 +248,11 @@ imm_generator u_imm_generator(
     .inst         (inst),
     .inst_add_w   (inst_add_w),
     .inst_addi_w  (inst_addi_w),
+    .inst_slti    (inst_slti),
+    .inst_sltui   (inst_sltui),
+    .inst_andi    (inst_andi),
+    .inst_ori     (inst_ori),
+    .inst_xori    (inst_xori),
     .inst_sub_w   (inst_sub_w),
     .inst_ld_w    (inst_ld_w),
     .inst_ld_h    (inst_ld_h),
@@ -247,6 +281,7 @@ imm_generator u_imm_generator(
     .inst_bgeu    (inst_bgeu),
     .inst_jirl    (inst_jirl),
     .inst_lu12i_w (inst_lu12i_w),
+    .inst_pcaddu12i(inst_pcaddu12i),
     .alu_imm      (alu_imm_w),
     .br_imm       (br_imm_w)
 );
@@ -255,6 +290,11 @@ ALU_srcGenerator u_ALU_srcGenerator(
     .reset        (reset),
     .inst_add_w   (inst_add_w),
     .inst_addi_w  (inst_addi_w),
+    .inst_slti    (inst_slti),
+    .inst_sltui   (inst_sltui),
+    .inst_andi    (inst_andi),
+    .inst_ori     (inst_ori),
+    .inst_xori    (inst_xori),
     .inst_sub_w   (inst_sub_w),
     .inst_ld_w    (inst_ld_w),
     .inst_ld_h    (inst_ld_h),
@@ -274,6 +314,9 @@ ALU_srcGenerator u_ALU_srcGenerator(
     .inst_slli_w  (inst_slli_w),
     .inst_srli_w  (inst_srli_w),
     .inst_srai_w  (inst_srai_w),
+    .inst_sll_w   (inst_sll_w),
+    .inst_srl_w   (inst_srl_w),
+    .inst_sra_w   (inst_sra_w),
     .inst_b       (inst_b),
     .inst_bl      (inst_bl),
     .inst_beq     (inst_beq),
@@ -283,6 +326,7 @@ ALU_srcGenerator u_ALU_srcGenerator(
     .inst_bgeu    (inst_bgeu),
     .inst_jirl    (inst_jirl),
     .inst_lu12i_w (inst_lu12i_w),
+    .inst_pcaddu12i(inst_pcaddu12i),
     .rj_value     (src1_rdata),
     .rkd_value    (src2_rdata),
     .imm          (alu_imm_w),
@@ -297,6 +341,11 @@ get_reg_read_addr u_get_reg_read_addr(
     .inst         (inst),
     .inst_add_w   (inst_add_w),
     .inst_addi_w  (inst_addi_w),
+    .inst_slti    (inst_slti),
+    .inst_sltui   (inst_sltui),
+    .inst_andi    (inst_andi),
+    .inst_ori     (inst_ori),
+    .inst_xori    (inst_xori),
     .inst_sub_w   (inst_sub_w),
     .inst_ld_w    (inst_ld_w),
     .inst_ld_h    (inst_ld_h),
@@ -316,6 +365,9 @@ get_reg_read_addr u_get_reg_read_addr(
     .inst_slli_w  (inst_slli_w),
     .inst_srli_w  (inst_srli_w),
     .inst_srai_w  (inst_srai_w),
+    .inst_sll_w   (inst_sll_w),
+    .inst_srl_w   (inst_srl_w),
+    .inst_sra_w   (inst_sra_w),
     .inst_b       (inst_b),
     .inst_bl      (inst_bl),
     .inst_beq     (inst_beq),
@@ -325,11 +377,14 @@ get_reg_read_addr u_get_reg_read_addr(
     .inst_bgeu    (inst_bgeu),
     .inst_jirl    (inst_jirl),
     .inst_lu12i_w (inst_lu12i_w),
+    .inst_pcaddu12i(inst_pcaddu12i),
     .inst_mul_w   (inst_mul_w),
     .inst_mulh_w  (inst_mulh_w),
     .inst_mulh_wu (inst_mulh_wu),
     .inst_div_w   (inst_div_w),
     .inst_div_wu  (inst_div_wu),
+    .inst_mod_w   (inst_mod_w),
+    .inst_mod_wu  (inst_mod_wu),
     .rf_raddr1    (rf_raddr1_w),
     .rf_raddr2    (rf_raddr2_w)
 );
