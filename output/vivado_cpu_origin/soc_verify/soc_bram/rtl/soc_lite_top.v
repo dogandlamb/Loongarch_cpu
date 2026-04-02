@@ -143,13 +143,13 @@ mycpu_top cpu(
     .resetn           (cpu_resetn),  //low active
 
     .inst_sram_en     (cpu_inst_en   ),
-    .inst_sram_we     (cpu_inst_we   ),
+    .inst_sram_we     (cpu_inst_we   ), //4位
     .inst_sram_addr   (cpu_inst_addr ),
     .inst_sram_wdata  (cpu_inst_wdata),
     .inst_sram_rdata  (cpu_inst_rdata),
     
-    .data_sram_en     (cpu_data_en   ),
-    .data_sram_we     (cpu_data_we   ),
+    .data_sram_en     (cpu_data_en   ), 
+    .data_sram_we     (cpu_data_we   ), //4位
     .data_sram_addr   (cpu_data_addr ),
     .data_sram_wdata  (cpu_data_wdata),
     .data_sram_rdata  (cpu_data_rdata),

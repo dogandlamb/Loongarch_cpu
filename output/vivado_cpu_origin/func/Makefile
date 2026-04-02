@@ -7,6 +7,17 @@ default:
 	make tidy
 	@echo "=====\nNote: do \"make EXP=N\"(N={0,6-16,18-19,21-23}) for corresponding EXP\n====="
 
+exp8_11:
+	make clean
+	make EXP=8 all && cp -f obj/test.s obj/test_exp8.s
+	make clean
+	make EXP=9 all && cp -f obj/test.s obj/test_exp9.s
+	make clean
+	make EXP=10 all && cp -f obj/test.s obj/test_exp10.s
+	make clean
+	make EXP=11 all && cp -f obj/test.s obj/test_exp11.s
+	@echo "Generated obj/test_exp8.s ~ obj/test_exp11.s"
+
 all:
 	mkdir -p ${obj_path}
 	make ${obj_path}/inst_ram.coe ${obj_path}/test.s

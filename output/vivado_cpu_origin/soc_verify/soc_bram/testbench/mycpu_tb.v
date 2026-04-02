@@ -43,6 +43,9 @@ THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 module tb_top( );
 reg resetn;
 reg clk;
+reg [31:0] cycle_cnt;
+reg [31:0] commit_cnt;
+localparam [31:0] TB_TIMEOUT_CYCLES = 32'd2000000;
 
 //goio
 wire [15:0] led;
@@ -100,6 +103,23 @@ assign debug_wb_pc       = soc_lite.debug_wb_pc;
 assign debug_wb_rf_we    = soc_lite.debug_wb_rf_we;
 assign debug_wb_rf_wnum  = soc_lite.debug_wb_rf_wnum;
 assign debug_wb_rf_wdata = soc_lite.debug_wb_rf_wdata;
+
+always @(posedge soc_clk)
+begin
+    if (!resetn)
+    begin
+        cycle_cnt  <= 32'd0;
+        commit_cnt <= 32'd0;
+    end
+    else
+    begin
+        cycle_cnt <= cycle_cnt + 1'b1;
+        if(|debug_wb_rf_we && debug_wb_rf_wnum!=5'd0)
+        begin
+            commit_cnt <= commit_cnt + 1'b1;
+        end
+    end
+end
 
 // open the trace file;
 integer trace_ref;
@@ -219,6 +239,8 @@ begin
     begin
         #10000;
         $display ("        [%t] Test is running, debug_wb_pc = 0x%8h",$time, debug_wb_pc);
+        $display ("        cycle=%0d commit=%0d open_trace=%0d num_data=0x%8h",
+                  cycle_cnt, commit_cnt, `CONFREG_OPEN_TRACE, confreg_num_reg);
     end
 end
 
@@ -234,7 +256,7 @@ begin
     begin
         if(uart_data==8'hff)
         begin
-            ;//$finish;
+            // keep running until unified test_end logic handles finish
         end
         else
         begin
@@ -248,6 +270,19 @@ wire global_err = debug_wb_err || (err_count!=8'd0);
 wire test_end = (debug_wb_pc==`END_PC) || (uart_display && uart_data==8'hff);
 always @(posedge soc_clk)
 begin
+    if(resetn && (cycle_cnt > TB_TIMEOUT_CYCLES) && !debug_end)
+    begin
+        $display("==============================================================");
+        $display("[%t] TIMEOUT!!! cycle=%0d commit=%0d pc=0x%8h",
+                 $time, cycle_cnt, commit_cnt, debug_wb_pc);
+        $display("last wb: we=0x%1h wnum=0x%2h wdata=0x%8h",
+                 debug_wb_rf_we, debug_wb_rf_wnum, debug_wb_rf_wdata_v);
+        $display("==============================================================");
+        debug_end <= 1'b1;
+        #40;
+        $fclose(trace_ref);
+        $finish;
+    end
     if (!resetn)
     begin
         debug_end <= 1'b0;
@@ -257,6 +292,7 @@ begin
         debug_end <= 1'b1;
         $display("==============================================================");
         $display("Test end!");
+        $display("final cycle=%0d commit=%0d", cycle_cnt, commit_cnt);
         #40;
         $fclose(trace_ref);
         if (global_err)
@@ -270,35 +306,4 @@ begin
 	    $finish;
 	end
 end
-
-// 关键窗口日志：定位 0x1c0e41e4/0x1c0e41e8 附近握手与提交是否对齐
-always @(posedge soc_clk)
-begin
-    #1;
-    if (resetn && (
-        (soc_lite.cpu.mem_pc_2WB == 32'h1c0e41dc) ||
-        (soc_lite.cpu.mem_pc_2WB == 32'h1c0e41e0) ||
-        (soc_lite.cpu.mem_pc_2WB == 32'h1c0e41e4) ||
-        (soc_lite.cpu.mem_pc_2WB == 32'h1c0e41e8) ||
-        (soc_lite.cpu.pc_2ID == 32'h1c0e41e4) ||
-        (soc_lite.cpu.pc_2ID == 32'h1c0e41e8) ||
-        soc_lite.cpu.data_r_complete
-    )) begin
-        $display("[DBG %t] d_r_cmp=%0d MEM_rdy=%0d MEM_alw=%0d MEM_v=%0d mem_op=%0d | mem_pc_2WB=%h em_pc=%h | IFID_alw=%0d pc_2ID=%h | wb_we=%0d wb_pc=%h wb_waddr=%0d",
-                 $time,
-                 soc_lite.cpu.data_r_complete,
-                 soc_lite.cpu.MEM_readyGo,
-                 soc_lite.cpu.MEM_allowIn,
-                 soc_lite.cpu.MEM_valid,
-                 soc_lite.cpu.em_mem_op,
-                 soc_lite.cpu.mem_pc_2WB,
-                 soc_lite.cpu.em_pc,
-                 soc_lite.cpu.IF_ID_reg_allowIn,
-                 soc_lite.cpu.pc_2ID,
-                 soc_lite.cpu.wb_we,
-                 soc_lite.cpu.wb_pc,
-                 soc_lite.cpu.wb_waddr);
-    end
-end
-
 endmodule
