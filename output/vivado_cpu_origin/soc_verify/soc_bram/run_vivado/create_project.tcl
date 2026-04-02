@@ -13,6 +13,11 @@ add_files -fileset sim_1 ../testbench/mycpu_tb.v
 # Add myCPU
 add_files -quiet -scan_for_includes ../../../myCPU
 
+# Verilog include "cpu_defs.vh" 的搜索目录（与源码中短 include 名一致）
+set _mycpu_common [file normalize "[file dirname [info script]]/../../../myCPU/common"]
+set_property include_dirs [list $_mycpu_common] [get_filesets sources_1]
+set_property include_dirs [list $_mycpu_common] [get_filesets sim_1]
+
 # Add constraints
 add_files -fileset constrs_1 -quiet ./constraints
 

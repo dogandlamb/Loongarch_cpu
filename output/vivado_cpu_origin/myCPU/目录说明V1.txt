@@ -39,7 +39,7 @@ myCPU/ 					#myCPU总文件
       conflict_handle.v 			#冲突处理，detect->handle，分出前递、阻塞
     control/ 					#流水线控制，解决冒险
 		forward_deliver.v 			#前递至ID，纯组合
-      pipeline_controller.v 		#控制valid、readyGo、allowIn，实现阻塞、流水线流动，时序
+		pipeline_controller.v 		#控制valid、readyGo、allowIn，实现阻塞、流水线流动，时序
   common/ 					#通用模块
     cpu_defs.vh 					#宏定义
     tools.v 						#工具模块，指独热码生成，组合
