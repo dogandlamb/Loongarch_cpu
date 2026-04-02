@@ -1,3 +1,5 @@
+'include "defines.vh"
+
 // ============================================================
 // 模块功能：
 // 下一 PC 组合逻辑。根据分支命中与阻塞信号选择 nextpc：
@@ -21,7 +23,7 @@
 module npc(
     input  wire        valid,
     input  wire        br_taken,
-    input  wire [ 4:0] br_op,
+    input  wire [`BR_OP_NUM-1:0] br_op,
     input  wire [31:0] br_offs,
     input  wire [31:0] rj_value,
     input  wire [31:0] pc,

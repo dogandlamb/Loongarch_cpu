@@ -56,11 +56,22 @@ module MEMport (
 // ============================================================
 
 wire   bram_re, bram_we;
-assign bram_re = mem_op[`MEM_OP_LD_W | `MEM_OP_LD_H | `MEM_OP_LD_B | `MEM_OP_LD_HU | `MEM_OP_LD_BU];
-assign bram_we = mem_op[`MEM_OP_ST_W | `MEM_OP_ST_H | `MEM_OP_ST_B];
+assign bram_re = mem_op[`MEM_OP_LD_W] | mem_op[`MEM_OP_LD_H] | mem_op[`MEM_OP_LD_B]
+               | mem_op[`MEM_OP_LD_HU] | mem_op[`MEM_OP_LD_BU];
+assign bram_we = mem_op[`MEM_OP_ST_W] | mem_op[`MEM_OP_ST_H] | mem_op[`MEM_OP_ST_B];
 
-wire r_word_addr = {data_raddr_from_EXE[31:2], 2'b00};
-wire w_word_addr = {data_waddr_from_EXE[31:2], 2'b00};
+wire [31:0] r_word_addr = {data_raddr_from_EXE[31:2], 2'b00};
+wire [31:0] w_word_addr = {data_waddr_from_EXE[31:2], 2'b00};
+
+// load 原始字：须在使用 r_byte_data/r_half_data 的 assign 之前声明
+reg [31:0] load_rdata_hold;
+always @(posedge clk) begin
+    if (reset || !bram_re)
+        load_rdata_hold <= 32'b0;
+    else if (data_r_complete)
+        load_rdata_hold <= data_sram_rdata;
+end
+wire [31:0] load_wdata_raw = data_r_complete ? data_sram_rdata : load_rdata_hold;
 
 wire [ 7:0] r_byte_data;
 wire [15:0] r_half_data;
@@ -82,24 +93,12 @@ assign r_word_data = load_wdata_raw;
 
 wire [31:0] load_result;
 
-assign load_result = (mem_op['MEM_OP_LD_B])  ? {24{r_byte_data[7]}, r_byte_data[7:0]} :
-                     (mem_op['MEM_OP_LD_H])  ? {16{r_half_data[15]}, r_half_data[15:0]} :
-                     (mem_op['MEM_OP_LD_BU]) ? {24'b0, r_byte_data[7:0]} :
-                     (mem_op['MEM_OP_LD_HU]) ? {16'b0, r_half_data[15:0]} :
-                     (mem_op['MEM_OP_LD_W])  ? r_word_data :
+assign load_result = (mem_op[`MEM_OP_LD_B])  ? {{24{r_byte_data[7]}}, r_byte_data[7:0]} :
+                     (mem_op[`MEM_OP_LD_H])  ? {{16{r_half_data[15]}}, r_half_data[15:0]} :
+                     (mem_op[`MEM_OP_LD_BU]) ? {24'b0, r_byte_data[7:0]} :
+                     (mem_op[`MEM_OP_LD_HU]) ? {16'b0, r_half_data[15:0]} :
+                     (mem_op[`MEM_OP_LD_W])  ? r_word_data :
                                                32'b0;
-
-
-// complete 当拍采样 dout；同拍组合 rdata 参与写回，其余拍用 hold
-reg [31:0] load_rdata_hold;
-always @(posedge clk) begin
-    if (reset || !bram_re)
-        load_rdata_hold <= 32'b0;
-    else if (data_r_complete)
-        load_rdata_hold <= data_sram_rdata;
-end
-
-wire [31:0] load_wdata_raw = data_r_complete ? data_sram_rdata : load_rdata_hold;
 
 // 对当前 MEM 槽位做“完成后保持就绪”（按 pc+rd 精确匹配槽位）
 reg        load_done_hold;

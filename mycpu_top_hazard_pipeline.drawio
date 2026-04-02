@@ -1,78 +1,180 @@
-<mxfile host="app.diagrams.net" modified="2026-04-01T00:00:00.000Z" agent="Mozilla/5.0" version="24.7.17">
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0">
   <diagram id="cpu-top" name="mycpu_top_hazard_pipeline">
-    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
+    <mxGraphModel dx="2913" dy="743" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
       <root>
-        <mxCell id="0"/>
-        <mxCell id="1" parent="0"/>
-
-        <mxCell id="top" value="mycpu_top" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=2;" vertex="1" parent="1">
-          <mxGeometry x="620" y="380" width="180" height="70" as="geometry"/>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="n30a2ZlmKKW9V-HzOwEU-9" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="480" width="1630" x="-400" y="40" as="geometry" />
         </mxCell>
-
-        <mxCell id="if" value="IF/ID/EXE/MEM/WB Datapath&#10;(pc,npc,IFport,IDport,EXEport,MEMport,WBport + *_reg)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
-          <mxGeometry x="260" y="220" width="420" height="120" as="geometry"/>
+        <mxCell id="if" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;dashed=1;" value="" vertex="1">
+          <mxGeometry height="130" width="1500" x="-307.5" y="70" as="geometry" />
         </mxCell>
-
-        <mxCell id="det" value="conflict_detector.v&#10;(RAW hit detect)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
-          <mxGeometry x="860" y="180" width="220" height="80" as="geometry"/>
+        <mxCell id="st_if" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eaf3ff;strokeColor=#6c8ebf;" value="IF&#xa;pc / npc / IFport" vertex="1">
+          <mxGeometry height="55" width="120" x="-280" y="110" as="geometry" />
         </mxCell>
-
-        <mxCell id="handle" value="conflict_handle.v&#10;(block/stall/cancel + FD selects)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
-          <mxGeometry x="1120" y="180" width="260" height="90" as="geometry"/>
+        <mxCell id="st_id" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eaf3ff;strokeColor=#6c8ebf;" value="ID&#xa;IDport" vertex="1">
+          <mxGeometry height="55" width="100" x="30" y="110" as="geometry" />
         </mxCell>
-
-        <mxCell id="fwd" value="forward_deliver.v&#10;(EXE/MEM/WB bypass mux to ID src)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
-          <mxGeometry x="1120" y="300" width="260" height="90" as="geometry"/>
+        <mxCell id="reg_idexe" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" value="ID_EXE_reg" vertex="1">
+          <mxGeometry height="55" width="100" x="190" y="110" as="geometry" />
         </mxCell>
-
-        <mxCell id="ctrl" value="pipeline_controller.v&#10;(valid/allowIn sequencing)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
-          <mxGeometry x="1120" y="430" width="260" height="90" as="geometry"/>
+        <mxCell id="st_exe" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eaf3ff;strokeColor=#6c8ebf;" value="EXE&#xa;EXEport + alu" vertex="1">
+          <mxGeometry height="55" width="120" x="360" y="110" as="geometry" />
         </mxCell>
-
-        <mxCell id="bram" value="bram_data_stream_controller.v&#10;(inst/data request-response timing)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
-          <mxGeometry x="860" y="560" width="300" height="90" as="geometry"/>
+        <mxCell id="n30a2ZlmKKW9V-HzOwEU-6" edge="1" parent="1" source="reg_exemem" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="st_mem" value="">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <mxCell id="memif" value="inst_sram_* / data_sram_*" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
-          <mxGeometry x="1220" y="580" width="220" height="60" as="geometry"/>
+        <mxCell id="n30a2ZlmKKW9V-HzOwEU-7" connectable="0" parent="n30a2ZlmKKW9V-HzOwEU-6" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="mem req" vertex="1">
+          <mxGeometry relative="1" x="-0.0419" y="2" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
         </mxCell>
-
-        <mxCell id="e1" value="RAW source regs / rd-we info" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="if" target="det">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="reg_exemem" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" value="EXE_MEM_reg" vertex="1">
+          <mxGeometry height="55" width="110" x="570" y="110" as="geometry" />
         </mxCell>
-
-        <mxCell id="e2" value="hit_exe/mem/wb" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="det" target="handle">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="st_mem" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eaf3ff;strokeColor=#6c8ebf;" value="MEM&#xa;MEMport" vertex="1">
+          <mxGeometry height="55" width="100" x="740" y="110" as="geometry" />
         </mxCell>
-
-        <mxCell id="e3" value="FD_EXE/MEM/WB_*" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="handle" target="fwd">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="reg_memwb" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" value="MEM_WB_reg" vertex="1">
+          <mxGeometry height="55" width="110" x="900" y="110" as="geometry" />
         </mxCell>
-
-        <mxCell id="e4" value="ID_src1/ID_src2 (forwarded)" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="fwd" target="if">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="dp1" edge="1" parent="1" source="st_if" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="reg_ifid" value="inst/pc">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <mxCell id="e5" value="block_sig / cancel_sig" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#d79b00;" edge="1" parent="1" source="handle" target="ctrl">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="dp2" edge="1" parent="1" source="reg_ifid" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="st_id" value="inst/pc">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <mxCell id="e6" value="IF/ID/EXE/MEM/WB valid/allowIn" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#82b366;" edge="1" parent="1" source="ctrl" target="if">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="dp3" edge="1" parent="1" source="st_id" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="reg_idexe" value="ctrl/data">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <mxCell id="e7" value="inst/data req" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="if" target="bram">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="dp4" edge="1" parent="1" source="reg_idexe" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="st_exe" value="alu src/op">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <mxCell id="e8" value="inst/data resp + complete" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="bram" target="if">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="dp5" edge="1" parent="1" source="st_exe" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="reg_exemem" value="result/mem_op">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <mxCell id="e9" value="physical SRAM bus" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="bram" target="memif">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="dp7" edge="1" parent="1" source="st_mem" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="reg_memwb" value="wb data">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="890" y="140" />
+              <mxPoint x="890" y="140" />
+            </Array>
+          </mxGeometry>
         </mxCell>
-
+        <mxCell id="dp8" edge="1" parent="1" source="reg_memwb" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="st_wb" value="commit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="det" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="conflict_detector.v&#xa;(RAW hit detect)" vertex="1">
+          <mxGeometry height="80" width="135" x="1037.5" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="handle" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="conflict_handle.v&#xa;(block/stall/cancel + FD selects)" vertex="1">
+          <mxGeometry height="105" width="175" x="1017.5" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="fwd" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" value="forward_deliver.v&#xa;(EXE/MEM/WB bypass mux to ID src)" vertex="1">
+          <mxGeometry height="60" width="160" x="728" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="pipeline_controller.v&#xa;(valid/allowIn sequencing)" vertex="1">
+          <mxGeometry height="65" width="162" x="726" y="360" as="geometry" />
+        </mxCell>
+        <mxCell id="bram" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="bram_data_stream_controller.v&#xa;(inst/data request-response timing)" vertex="1">
+          <mxGeometry height="90" width="300" x="-360" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="memif" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" value="inst_sram_* / data_sram_*" vertex="1">
+          <mxGeometry height="60" width="220" x="-320" y="630" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="st_wb" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="det" value="RAW source regs / rd-we info">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1105" y="130" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="det" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="handle" value="hit_exe/mem/wb">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1105" y="350" />
+              <mxPoint x="1105" y="350" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="handle" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="fwd" value="FD_EXE/MEM/WB_*">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="950" y="470" />
+              <mxPoint x="950" y="470" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="fwd" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="st_id" value="ID_src1/ID_src2 (forwarded)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="80" y="470" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="handle" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#d79b00;" target="ctrl" value="block_sig / cancel_sig">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="970" y="392" />
+              <mxPoint x="970" y="392" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="ctrl" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#82b366;" target="if" value="IF/ID/EXE/MEM/WB valid/allowIn">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="390" y="378" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="st_if" style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.898;exitY=0.972;exitDx=0;exitDy=0;exitPerimeter=0;" target="bram" value="inst/data req">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-172" y="280" />
+              <mxPoint x="-172" y="280" />
+            </Array>
+            <mxPoint x="-170" y="169" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="bram" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="st_if" value="inst/data resp + complete">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-260" y="230" />
+              <mxPoint x="-260" y="230" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e9" edge="1" parent="1" source="bram" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="memif" value="physical SRAM bus">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-210" y="670" />
+              <mxPoint x="-210" y="670" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n30a2ZlmKKW9V-HzOwEU-3" edge="1" parent="1" source="st_if" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="reg_ifid" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+            <mxPoint x="-150" y="137" as="sourcePoint" />
+            <mxPoint x="900" y="580" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="reg_ifid" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" value="IF_ID_reg" vertex="1">
+          <mxGeometry height="55" width="90" x="-110" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="st_wb" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eaf3ff;strokeColor=#6c8ebf;" value="WB&#xa;WBport" vertex="1">
+          <mxGeometry height="55" width="90" x="1060" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="n30a2ZlmKKW9V-HzOwEU-10" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;font style=&quot;font-size: 17px;&quot;&gt;myCPU&lt;/font&gt;" vertex="1">
+          <mxGeometry height="30" width="60" x="-390" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="n30a2ZlmKKW9V-HzOwEU-11" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;font style=&quot;font-size: 15px;&quot;&gt;流水线&lt;/font&gt;" vertex="1">
+          <mxGeometry height="30" width="60" x="-300" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="n30a2ZlmKKW9V-HzOwEU-14" parent="1" style="shape=waypoint;sketch=0;size=6;pointerEvents=1;points=[];fillColor=#eaf3ff;resizable=0;rotatable=0;perimeter=centerPerimeter;snapToPoint=1;strokeColor=#6c8ebf;rounded=1;" value="" vertex="1">
+          <mxGeometry height="20" width="20" x="-170" y="380" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
