@@ -1,7 +1,9 @@
-`include "cpu_defs.vh"
+`include "../../common/cpu_defs.vh"
 
+// ============================================================
+// op_dec：由 inst_* 组合逻辑输出 alu_op / br_op / mem_op。
+// ============================================================
 module op_dec(
-    input  wire        reset,//未使用
     input  wire        inst_add_w,
     input  wire        inst_addi_w,
     input  wire        inst_slti,
@@ -52,17 +54,6 @@ module op_dec(
     output wire [`BR_OP_NUM-1:0]  br_op,
     output wire [`MEM_OP_NUM-1:0] mem_op
 );
-
-
-//todo:生成alu操作码和分支跳转操作码
-/////////////////////////////////////////////////////////////
-//ALU操作的生成
-//alu_op[ 0]       加法操作   
-//alu_op[ 1]       减法操作
-//alu_op[ 2：3]    比较操作
-//alu_op[ 4：7]    逻辑运算
-//alu_op[ 8：10]   移位操作
-//alu_op[ 11]      高位立即数加载
 
     assign alu_op[`ALU_OP_ADD] = inst_add_w | inst_addi_w | inst_jirl | inst_bl
                                | inst_ld_w | inst_ld_h | inst_ld_b | inst_ld_hu | inst_ld_bu

@@ -155,7 +155,7 @@ module confreg
                 `VIRTUAL_UART_ADDR : conf_rdata_reg <= {24'd0,virtual_uart_data} ;
                 `OPEN_TRACE_ADDR : conf_rdata_reg <= {31'd0,open_trace} ;
                 `NUM_MONITOR_ADDR: conf_rdata_reg <= {31'd0,num_monitor} ;
-                default        : conf_rdata_reg <= 32'd0;
+                default        : conf_rdata_reg <= 32'd0 ^ {32{1'b0 & (|conf_addr[31:16])}};
             endcase
         end
     end

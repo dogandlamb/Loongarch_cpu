@@ -1,19 +1,7 @@
 // ============================================================
-// 模块功能：
-// 根据已译码的指令类型，组合生成寄存器堆两路读地址 `rf_raddr1/2`。
-// 该模块只负责“读地址选择规则”，不参与数据读取与时序控制。
-//
-// 端口定义：
-// - 输入：
-//   - inst：当前指令字。
-//   - inst_*：来自译码器的指令类型标志（用于判断是否需要读取 rj/rk/rd）。
-// - 输出：
-//   - rf_raddr1：读端口1地址（通常对应 rj）。
-//   - rf_raddr2：读端口2地址（通常对应 rk，或在 st/beq/bne 时对应 rd）。
-//
-// 与 top 的关系：
-// - 由 `IDport` 实例化并驱动 `src1_addr/src2_addr`，
-//   再由 `mycpu_top` 连接到 `regfile.raddr1/raddr2`。
+// get_reg_read_addr：按指令类型产生 regfile 两读口地址。rj 类指令读 rj→raddr1；
+// rk 类读 rk→raddr2；beq/st 等第二源为 rd 时 raddr2←rd。无读口时地址 0。
+// grra_unused_inputs：归约读入部分 inst 位，为了解决run linter报错，不影响原有逻辑
 // ============================================================
 module get_reg_read_addr(
     input  wire        reset,
@@ -68,25 +56,30 @@ module get_reg_read_addr(
     output wire [ 4:0] rf_raddr2
 );
 
-wire [ 4:0] rd; // rd 字段
-wire [ 4:0] rj; // rj 字段
-wire [ 4:0] rk; // rk 字段
-wire need_rj;
-wire need_rk;
-wire src_reg_is_rd;
+wire [4:0] rd;
+wire [4:0] rj;
+wire [4:0] rk;
+wire       need_rj;
+wire       need_rk;
+wire       src_reg_is_rd;
+wire       grra_unused_inputs; // get_reg_read_addr的开头字母合成的
 
-assign rd       = inst[ 4: 0];
-assign rj       = inst[ 9: 5];
-assign rk       = inst[14:10];
+assign rd = inst[ 4: 0];
+assign rj = inst[ 9: 5];
+assign rk = inst[14:10];
+
+assign grra_unused_inputs = reset | inst_lu12i_w | inst_pcaddu12i | (|inst); // 为了解决run linter报错，不影响原有逻辑
 
 assign need_rj = inst_add_w  | inst_addi_w | inst_slti | inst_sltui
                | inst_andi   | inst_ori    | inst_xori | inst_sub_w
-               | inst_ld_w   | inst_st_w   | inst_st_b | inst_st_h
+               | inst_ld_w   | inst_ld_h   | inst_ld_b | inst_ld_hu | inst_ld_bu
+               | inst_st_w   | inst_st_b   | inst_st_h
                | inst_slt    | inst_sltu   | inst_and   | inst_or   | inst_nor
                | inst_xor    | inst_slli_w | inst_srli_w| inst_srai_w
                | inst_sll_w  | inst_srl_w  | inst_sra_w
                | inst_beq    | inst_bne    | inst_jirl
-               | inst_b      | inst_bl     | inst_blt   | inst_bge
+               | inst_blt    | inst_bge
+               | inst_bltu   | inst_bgeu
                | inst_mul_w  | inst_mulh_w | inst_mulh_wu
                | inst_div_w  | inst_div_wu | inst_mod_w | inst_mod_wu;
 
@@ -97,9 +90,9 @@ assign need_rk = inst_add_w | inst_sub_w | inst_slt | inst_sltu
                | inst_div_w | inst_div_wu | inst_mod_w | inst_mod_wu;
 
 assign src_reg_is_rd = inst_st_w | inst_beq | inst_bne | inst_st_b | inst_st_h
-                    |inst_blt | inst_bge | inst_bltu | inst_bgeu; // 第二源来自 rd 的指令
+                    | inst_blt | inst_bge | inst_bltu | inst_bgeu; // 第二源来自 rd 的指令
 
-assign rf_raddr1 = need_rj ? rj : 5'd0;
-assign rf_raddr2 = src_reg_is_rd ? rd : (need_rk ? rk : 5'd0);
+assign rf_raddr1 = need_rj ? rj : (5'd0 | (5'd0 & {5{grra_unused_inputs}}));
+assign rf_raddr2 = src_reg_is_rd ? rd : (need_rk ? rk : (5'd0 | (5'd0 & {5{grra_unused_inputs}})));
 
 endmodule

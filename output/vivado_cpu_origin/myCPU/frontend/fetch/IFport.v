@@ -1,87 +1,79 @@
+// ============================================================
+// IFport：取指级。处理 BRAM 返回与 IF/ID 反压。
+// - 下游不能收（IF_ID_reg_allowIn=0）时：若本拍仍有有效返回，先打入 hold_*，避免丢返回。
+// - cancel_in（分支冲刷）后：流水线改走新 PC（redirect_pc_in）。已在途、但 pc_inst_in 仍等于
+//   「冲刷前旧目标」的返回会被视为陈旧：stale_redirect_resp=1，本拍 resp_ok=0，从而丢弃该指令，
+//   直到 BRAM 返回的 pc_inst_in 与 redirect_pc_pending（锁存的 nextpc）一致后再接受新流。
+// ============================================================
 module IFport (
     input  wire        clk,
     input  wire        reset,
-    input  wire        valid,
+    input  wire        valid,              // IF 槽有效
 
-    input  wire [31:0] pc_1in,
-    input  wire [31:0] inst_in,
-    input  wire [31:0] pc_2in,
-    input  wire        inst_valid_in,//本拍 BRAM 返回是否有效
-    input  wire        cancel_in,//本拍返回是否需要丢弃
-    input  wire        downstream_allowIn,// IF/ID 是否可接收
+    input  wire [31:0] pc_req_in,          // 本拍发往 BRAM 的请求 PC
+    input  wire [31:0] inst_in,            // BRAM 返回指令
+    input  wire [31:0] pc_inst_in,         // 与 inst_in 对齐的返回 PC
+    input  wire [31:0] redirect_pc_in,     // 分支重定向目标（用于丢弃陈旧返回）
+    input  wire        inst_valid_in,      // 本拍返回是否有效
+    input  wire        cancel_in,          // 本拍是否因分支丢弃返回
+    input  wire        downstream_allowIn, // IF/ID 是否可接收
 
-    output wire        readyGo,
-    output wire        allowIn,
+    output wire        readyGo,            // 本级可向下游提交
+    output wire        allowIn,            // 对上游允许（当前常 1）
 
-    output wire [31:0] pc_1out,
-    output wire [31:0] inst_out,
-    output wire [31:0] pc_2out
+    output wire [31:0] pc_req_out,         // 透传 pc_req_in
+    output wire [31:0] inst_out,           // 送 IF/ID 的指令
+    output wire [31:0] pc_inst_out         // 送 IF/ID 的 PC（与 inst_out 对齐）
 );
-// ============================================================
-// 模块功能：
-// IF 取指阶段。根据 PC 从指令存储器中取出指令，处理分支跳转，
-// 完成 PC 更新，并输出指令给 ID 译码阶段。
-//
-// 端口定义：
-// - 时序与握手：
-//   - clk     : 时钟信号。
-//   - reset   : 复位信号(同步)。
-//   - valid   : 当前 IF 级输入有效标志。
-// - 地址、指令输入
-//   - pc_1in   : 要发指令读请求对应的PC
-//   - inst_in : bram_data_stream_controller返回的指令。
-//   - pc_2in   : bram_data_stream_controller返回指令对应的PC
-//
-//   - inst_valid_in : 本拍指令存储器返回的指令是否有效（用于阻塞控制）。
-//   - cancel_in     : 本拍指令是否需要丢弃（用于分支重定向控制）。
-// - 控制信号输出（送往 IF_ID_reg）：
-//   - readyGo : 本级是否已就绪，可向下一级传递数据。
-//   - allowIn : 本级是否允许上一级写入新数据。
-// - 指令输出（送往 IF_ID_reg）：
-//   - pc_1out   : 送给bram_data_stream_controller的当前指令对应的 PC 值（供后续级使用）。
-//   - inst_out  : 最终输出给 IF_ID_reg 的处理后 32 位指令。
-//   - pc_2out   : 最终输出给 IF_ID_reg 的处理后当前指令对应的 PC 值。
-// ============================================================
-// IFport：旁路优先，阻塞时单槽缓存返回，避免 IF/ID 反压期间丢指令返回。
 
-wire   resp_ok;  // 本拍指令是否有效且不需要丢弃
-reg    hold_valid;
-reg [31:0] hold_inst;
-reg [31:0] hold_pc;
-wire   out_valid;
+wire        resp_ok;                       // 返回可用且非 cancel、非陈旧
+reg         hold_valid;                    // 已缓存一拍返回待下游接收
+reg  [31:0] hold_inst;
+reg  [31:0] hold_pc;
+reg         drop_next_resp;                // 重定向后丢弃直到 pc_inst_in 对齐
+reg  [31:0] redirect_pc_pending;           // 分支重定向目标（用于丢弃陈旧返回）
+wire        out_valid; 
 wire [31:0] out_inst;
 wire [31:0] out_pc;
+wire        stale_redirect_resp;
 
-assign resp_ok   = valid && inst_valid_in && !cancel_in;
+assign stale_redirect_resp = drop_next_resp && (pc_inst_in != redirect_pc_pending);
+assign resp_ok   = valid && inst_valid_in && !cancel_in && !stale_redirect_resp;
 assign out_valid = hold_valid | resp_ok;
 assign out_inst  = hold_valid ? hold_inst : inst_in;
-assign out_pc    = hold_valid ? hold_pc   : pc_2in;
+assign out_pc    = hold_valid ? hold_pc   : pc_inst_in;
 
 always @(posedge clk) begin
-    if (reset || cancel_in) begin
+    if (reset) begin
         hold_valid <= 1'b0;
         hold_inst  <= 32'b0;
         hold_pc    <= 32'b0;
+        drop_next_resp <= 1'b0;
+        redirect_pc_pending <= 32'b0;
+    end else if (cancel_in) begin
+        hold_valid <= 1'b0;
+        hold_inst  <= 32'b0;
+        hold_pc    <= 32'b0;
+        drop_next_resp <= 1'b1;
+        redirect_pc_pending <= redirect_pc_in;
     end else begin
-        // 下游恢复后消费已缓存返回
-        if (hold_valid && downstream_allowIn) begin
+        if (drop_next_resp && inst_valid_in && (pc_inst_in == redirect_pc_pending))
+            drop_next_resp <= 1'b0;
+        if (hold_valid && downstream_allowIn)
             hold_valid <= 1'b0;
-        end
-        // 仅在下游阻塞且当前有新返回时入缓存（旁路不加额外延迟）
         else if (!hold_valid && !downstream_allowIn && resp_ok) begin
             hold_valid <= 1'b1;
             hold_inst  <= inst_in;
-            hold_pc    <= pc_2in;
+            hold_pc    <= pc_inst_in;
         end
     end
 end
 
-assign readyGo   = out_valid;
-assign allowIn   = 1'b1;
+assign readyGo = out_valid;
+assign allowIn = 1'b1;
 
-assign pc_1out   = pc_1in;
-
-assign inst_out = out_valid ? out_inst : 32'b0;
-assign pc_2out  = out_valid ? out_pc   : 32'b0;
+assign pc_req_out   = pc_req_in;
+assign inst_out     = out_valid ? out_inst : 32'b0;
+assign pc_inst_out  = out_valid ? out_pc   : 32'b0;
 
 endmodule

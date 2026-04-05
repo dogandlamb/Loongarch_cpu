@@ -1,0 +1,8 @@
+0.7
+2020.2
+Oct 13 2023
+20:47:58
+e:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/backend/decode/IDport.v,1775408395,verilog,,,e:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/common/cpu_defs.vh,IDport,,,e:\Loongarch_cpu\output\vivado_cpu_origin\myCPU\common,,,,,
+e:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/backend/hazard/conflict_handle.v,1775408948,verilog,,e:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/top/mycpu_top.v,,conflict_handle,,,e:\Loongarch_cpu\output\vivado_cpu_origin\myCPU\common,,,,,
+e:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/common/cpu_defs.vh,1775192083,verilog,,,,,,,,,,,,
+e:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/top/mycpu_top.v,1775408824,verilog,,,e:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/common/cpu_defs.vh,mycpu_top,,,e:\Loongarch_cpu\output\vivado_cpu_origin\myCPU\common,,,,,

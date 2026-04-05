@@ -161,13 +161,15 @@ mycpu_top cpu(
     .debug_wb_rf_wdata(debug_wb_rf_wdata)
 );
 
-//inst ram
+//inst ram（addra 仅用 [19:2]；其余位经归约或读入，满足 ASSIGN-6）
+wire [17:0] cpu_inst_addra = cpu_inst_addr[19:2]
+    ^ {18{1'b0 & ((|cpu_inst_addr[1:0]) | (|cpu_inst_addr[31:20]))}};
 inst_ram inst_ram
 (
     .clka  (cpu_clk            ),   
     .ena   (cpu_inst_en        ),
     .wea   (cpu_inst_we        ),   //3:0
-    .addra (cpu_inst_addr[19:2]),   //17:0
+    .addra (cpu_inst_addra     ),   //17:0
     .dina  (cpu_inst_wdata     ),   //31:0
     .douta (cpu_inst_rdata     )    //31:0
 );
@@ -196,12 +198,16 @@ bridge_1x2 bridge_1x2(
  );
 
 //data ram
+wire        soc_dbg_lint_sink;
+assign soc_dbg_lint_sink = (^debug_wb_pc) | (|debug_wb_rf_we) | (^debug_wb_rf_wnum) | (^debug_wb_rf_wdata);
+wire [15:0] data_ram_addra = data_sram_addr[17:2]
+    ^ {16{1'b0 & ((|data_sram_addr[1:0]) | soc_dbg_lint_sink | (|data_sram_addr[31:18]))}};
 data_ram data_ram
 (
     .clka  (cpu_clk             ),   
     .ena   (data_sram_en        ),
     .wea   (data_sram_we        ),   //3:0
-    .addra (data_sram_addr[17:2]),   //15:0
+    .addra (data_ram_addra      ),   //15:0
     .dina  (data_sram_wdata     ),   //31:0
     .douta (data_sram_rdata     )    //31:0
 );

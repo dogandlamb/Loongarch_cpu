@@ -1,83 +1,56 @@
-`include "cpu_defs.vh"
+`include "../../common/cpu_defs.vh"
 
+// ============================================================
+// EXEport：执行级。例化 alu；组合产生 br_taken、访存字节使能及 BRAM 请求信号。
+// 唯一的时序在于alu的乘除法部分
+// mul/div 时 readyGo 随 alu_result_valid。
+// ============================================================
 module EXEport (
-    input wire                  clk,
-    input wire                  valid,
+    input wire                    clk,    //用于乘除法
+    input wire                    reset,  //用于乘除法
+    input wire                    valid,
 
-    input wire  [ 4:0]          wb_reg_addr,
-    input wire  [31:0]          alu_src1,
-    input wire  [31:0]          alu_src2,
-    input wire  [31:0]          pc_in,
-    input wire  [31:0]          br_imm,
+    input wire  [ 4:0]            wb_reg_addr,
+    input wire  [31:0]            alu_src1,
+    input wire  [31:0]            alu_src2,
+    input wire  [31:0]            pc_in,
+    input wire  [31:0]            br_imm,
     input wire  [`ALU_OP_NUM-1:0] alu_op,
     input wire  [`BR_OP_NUM-1:0]  br_op,
-    input wire  [31:0]          mem_wdata_in,   //store 写数据
+    input wire  [31:0]            mem_wdata_in, //store 写数据
     input wire  [`MEM_OP_NUM-1:0] mem_op_in,
-    input wire                  wb_op_in,
+    input wire                    wb_op_in,
 
+    output wire                   readyGo,
+    output wire                   allowIn,
 
-    output wire        readyGo,
-    output wire        allowIn,
+    output wire                   br_taken,
 
-    output wire        br_taken,
+    output wire [31:0]            exe_alu_or_addr,
+    output wire [31:0]            pc_out,
+    output wire [ 4:0]            wb_reg_addr_out,
+    output wire [`MEM_OP_NUM-1:0] mem_op,
+    output wire [31:0]            mem_wdata_out,
+    output wire                   wb_op,
 
-    output wire [31:0]  final_result,
-    output wire [31:0]  pc_out,
-    output wire [ 4:0]  wb_reg_addr_out,
-    output wire [`MEM_OP_NUM-1:0]  mem_op,
-    output wire [31:0]  mem_wdata_out,
-    output wire         wb_op,
+    output wire                   data_we_from_EXE,
+    output wire                   data_re_from_EXE,
 
-    output wire data_we_from_EXE,
-    output wire data_re_from_EXE,
-
-    output wire [31:0] data_raddr_from_EXE,
-    output wire [31:0] data_waddr_from_EXE,
-    output wire [31:0] data_wdata_from_EXE,
-    output wire [ 3:0] data_wbyte_en_from_EXE // added by sssafridi, byte enable for store instructions
+    output wire [31:0]            data_raddr_from_EXE,
+    output wire [31:0]            data_waddr_from_EXE,
+    output wire [31:0]            data_wdata_from_EXE,
+    output wire [ 3:0]            data_wbyte_en_from_EXE
 );
-// ============================================================
-// 模块功能：
-// EXE 执行阶段。根据译码阶段给出的 ALU/分支控制信息完成运算，
-// 生成执行结果、分支是否跳转信号，以及后续 MEM/WB 所需控制信息。
-//
-// 端口定义：
-// - 时序与握手：
-//   - valid   : 当前 EXE 级输入有效。
-//   - readyGo : 本级是否已就绪，可向下一级传递数据。
-//   - allowIn : 本级是否允许上一级写入新数据（通常受下一级反压影响）。
-// - 分支输出：
-//   - br_taken : 分支是否成立（供前端重定向 PC 参考）。
-// - 输入（来自 ID/ID_EXE_reg）：
-//   - wb_reg_addr : 目的寄存器地址。
-//   - alu_src1    : ALU 源操作数 1。
-//   - alu_src2    : ALU 源操作数 2。
-//   - br_imm      : 分支立即数/偏移量。
-//   - alu_op      : ALU 操作控制码。
-//   - br_op       : 分支类型控制码。
-// - 输出（送往 EXE_MEM_reg）：
-//   - final_result   : 执行阶段输出结果。
-//   - wb_reg_addr_out: 目的寄存器地址透传/修正值。
-//   - mem_op         : 访存操作类型（供 MEM 阶段使用）。
-//   - wb_op          : 写回使能标志。
-//
-// TODO：
-// 1) ALU ：按 alu_op 实现运算组合逻辑并输出 final_result。
-// 2) 分支：按 br_op 实现分支判定并驱动 br_taken。
-// 3) 控制：完善 mem_op/wb_op 透传或重编码策略。
-// 4) 流水：确定 readyGo/allowIn 策略（本阶段可先固定常开）。
-// 5) 验证：补齐 EXE 基本算术/逻辑/分支用例。
-// ============================================================
-// output declaration of module alu
-wire [31:0] alu_result_w;
-wire        alu_result_valid_w;
-wire        br_taken_w;
-wire [31:0] link_pc4_w;
 
-wire [ 7:0] w_byte_data;
+wire [31:0] alu_result_w;           // ALU 组合结果
+wire        alu_result_valid_w;     // 多周期指令完成
+wire        br_taken_w;             // 组合分支条件满足
+wire [31:0] link_pc4_w;             // jirl/bl 链路：pc+4
+
+wire [ 7:0] w_byte_data;            // 写一个字节的数据
 wire [15:0] w_half_data;
 wire [31:0] w_word_data;
-wire [31:0] wdata_2bram;
+wire [31:0] wdata_2bram;            // 对齐到字宽后的写数据
 
 assign w_byte_data = mem_wdata_in[7:0];
 assign w_half_data = mem_wdata_in[15:0];
@@ -90,42 +63,40 @@ assign wdata_2bram = mem_op_in[`MEM_OP_ST_B] ? {4{w_byte_data}} :
 
 
 alu u_alu(
-    .clk            (clk         ),
-    .alu_op     	(alu_op      ),
-    .alu_src1   	(alu_src1    ),
-    .alu_src2   	(alu_src2    ),
-    .alu_result 	(alu_result_w),
+    .clk             (clk         ),
+    .reset           (reset       ),
+    .alu_op     	 (alu_op      ),
+    .alu_src1   	 (alu_src1    ),
+    .alu_src2   	 (alu_src2    ),
+    .alu_result 	 (alu_result_w),
     .alu_result_valid(alu_result_valid_w)
 );
 
-//inst_b 无条件跳转到目标地址，地址偏移值为i26offs26逻辑左移两位再符号拓展
-//inst_bl 无条件跳转到目标地址，偏移值同上，同时将该指令的pc＋4存到rl
-//inst_beq rjrd相等跳转目标地址
-//inst_jirl 无条件跳转到目标地址，将pc值加＋存到rd，目标地址为i16offs16逻辑左移两位后再符号拓展加rj的值
-//inst_bne 将通用寄存器 rj 和通用寄存器 rd 的值进行比较，如果两者不等则跳转到目标地址，否则不跳转。
-//inst_blt 将通用寄存器 rj 和通用寄存器 rd 的值进行比较，如果 rj 小于 rd 则跳转到目标地址，否则不跳转。
-//inst_bge 将通用寄存器 rj 和通用寄存器 rd 的值进行比较，如果 rj 大于或等于 rd 则跳转到目标地址，否则不跳转。
-//inst_bltu 将通用寄存器 rj 和通用寄存器 rd 的值进行比较（无符号比较），如果 rj 小于 rd 则跳转到目标地址，否则不跳转。
-//inst_bgeu 将通用寄存器 rj 和通用寄存器 rd 的值进行比较（无符号比较），如果 rj 大于或等于 rd 则跳转到目标地址，否则不跳转。
-// br_op 位定义见 cpu_defs.vh：
-// BEQ=0, BNE=1, JIRL=2, BL=3, B=4
-assign br_taken_w = (br_op[`BR_OP_BEQ]  && (alu_src1 == alu_src2)) // beq
-                  | (br_op[`BR_OP_BNE]  && (alu_src1 != alu_src2)) // bne
-                  | (br_op[`BR_OP_BLT]  && ($signed(alu_src1) < $signed(alu_src2))) // blt
-                  | (br_op[`BR_OP_BGE]  && ($signed(alu_src1) >= $signed(alu_src2))) // bge
-                  | (br_op[`BR_OP_BLTU] && (alu_src1 < alu_src2)) // bltu
-                  | (br_op[`BR_OP_BGEU] && (alu_src1 >= alu_src2)) // bgeu
-                  |  br_op[`BR_OP_JIRL]                             // jirl
-                  |  br_op[`BR_OP_BL]                               // bl
-                  |  br_op[`BR_OP_B];                               // b
 
-assign readyGo       = 1'b1;
+assign br_taken_w = (br_op[`BR_OP_BEQ]  && (alu_src1 == alu_src2))
+                  | (1'b0 & (|br_imm))
+                  | (br_op[`BR_OP_BNE]  && (alu_src1 != alu_src2))
+                  | (br_op[`BR_OP_BLT]  && ($signed(alu_src1) < $signed(alu_src2)))
+                  | (br_op[`BR_OP_BGE]  && ($signed(alu_src1) >= $signed(alu_src2)))
+                  | (br_op[`BR_OP_BLTU] && (alu_src1 < alu_src2))
+                  | (br_op[`BR_OP_BGEU] && (alu_src1 >= alu_src2))
+                  |  br_op[`BR_OP_JIRL]
+                  |  br_op[`BR_OP_BL]
+                  |  br_op[`BR_OP_B];
+
+assign readyGo       = !valid || alu_result_valid_w || ~(|alu_op);
+/** 
+* readyGo 赋值解释：
+*(1) !valid：本级无有效槽 → 不必等 ALU，当作「可推进」。
+*(2) alu_result_valid_w：多周期 ALU（乘除）完成。
+*(3) ~(|alu_op)：alu_op 全 0 → 无 ALU 操作（例如纯分支/泡）→ 不需要等 ALU。
+*/
 assign allowIn       = 1'b1;
 
 assign br_taken        = valid && br_taken_w;
 assign link_pc4_w      = pc_in + 32'd4;
 
-assign  final_result    = valid ? ((br_op[`BR_OP_JIRL] | br_op[`BR_OP_BL]) ? link_pc4_w : alu_result_w) : 1'b0;
+assign  exe_alu_or_addr = valid ? ((br_op[`BR_OP_JIRL] | br_op[`BR_OP_BL]) ? link_pc4_w : alu_result_w) : 32'b0;
 assign  pc_out          = valid ? pc_in : 32'b0;
 assign  wb_reg_addr_out = valid ? wb_reg_addr : 5'b0;
 assign  mem_op          = valid ? mem_op_in : {`MEM_OP_NUM{1'b0}};
@@ -136,11 +107,11 @@ assign data_we_from_EXE = valid ? (mem_op[`MEM_OP_ST_W] | mem_op[`MEM_OP_ST_B] |
 assign data_re_from_EXE = valid ? (mem_op[`MEM_OP_LD_W] | mem_op[`MEM_OP_LD_H] | mem_op[`MEM_OP_LD_B] | mem_op[`MEM_OP_LD_HU] | mem_op[`MEM_OP_LD_BU]) : 1'b0;
      
 
-assign data_raddr_from_EXE = valid ? final_result : 32'b0; 
-assign data_waddr_from_EXE = valid ? final_result : 32'b0;
+assign data_raddr_from_EXE = valid ? exe_alu_or_addr : 32'b0;
+assign data_waddr_from_EXE = valid ? exe_alu_or_addr : 32'b0;
 assign data_wdata_from_EXE = valid ? wdata_2bram : 32'b0;
 
 assign data_wbyte_en_from_EXE = valid ? ((mem_op[`MEM_OP_ST_W]) ? 4'b1111 :
-                                    (mem_op[`MEM_OP_ST_H]) ? ((final_result[1] ? 4'b1100 : 4'b0011)) :
-                                    (mem_op[`MEM_OP_ST_B]) ? (4'b0001 << final_result[1:0]) : 4'b0000) : 4'b0000;
+                                    (mem_op[`MEM_OP_ST_H]) ? ((exe_alu_or_addr[1] ? 4'b1100 : 4'b0011)) :
+                                    (mem_op[`MEM_OP_ST_B]) ? (4'b0001 << exe_alu_or_addr[1:0]) : 4'b0000) : 4'b0000;
 endmodule

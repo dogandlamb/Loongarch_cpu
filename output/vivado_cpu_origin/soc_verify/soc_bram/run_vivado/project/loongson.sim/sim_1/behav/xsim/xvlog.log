@@ -48,22 +48,5 @@ INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_
 INFO: [VRFC 10-311] analyzing module inst_dec
 INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/top/mycpu_top.v" into library xil_defaultlib
 INFO: [VRFC 10-311] analyzing module mycpu_top
-INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/frontend/fetch/npc.v" into library xil_defaultlib
-INFO: [VRFC 10-311] analyzing module npc
-INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/backend/decode/op_dec.v" into library xil_defaultlib
-INFO: [VRFC 10-311] analyzing module op_dec
-INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/frontend/fetch/pc.v" into library xil_defaultlib
-INFO: [VRFC 10-311] analyzing module pc
-INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/backend/control/pipeline_controller.v" into library xil_defaultlib
-INFO: [VRFC 10-311] analyzing module pipeline_controller
-INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/common/regfile.v" into library xil_defaultlib
-INFO: [VRFC 10-311] analyzing module regfile
-INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_bram/rtl/soc_lite_top.v" into library xil_defaultlib
-INFO: [VRFC 10-311] analyzing module soc_lite_top
-INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/common/tools.v" into library xil_defaultlib
-INFO: [VRFC 10-311] analyzing module decoder_2_4
-INFO: [VRFC 10-311] analyzing module decoder_4_16
-INFO: [VRFC 10-311] analyzing module decoder_5_32
-INFO: [VRFC 10-311] analyzing module decoder_6_64
-INFO: [VRFC 10-2263] Analyzing Verilog file "E:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_bram/testbench/mycpu_tb.v" into library xil_defaultlib
-INFO: [VRFC 10-311] analyzing module tb_top
+ERROR: [VRFC 10-2989] 'mem_store_we_obs' is not declared [E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:733]
+ERROR: [VRFC 10-8530] module 'mycpu_top' is ignored due to previous errors [E:/Loongarch_cpu/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:29]

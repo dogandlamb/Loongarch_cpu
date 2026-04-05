@@ -1,14 +1,14 @@
-<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 Edg/128.0.0.0" pages="4">
-  <diagram id="tensorcore-arch" name="TensorCore Architecture">
-    <mxGraphModel dx="215778" dy="135464" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
+<mxfile host="app.diagrams.net" pages="4">
+  <diagram name="TensorCore Architecture" id="13GbBwnyVUAymKMA7RWN">
+    <mxGraphModel dx="47048" dy="26515" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="hier_container" parent="1" style="rounded=1;dashed=1;strokeColor=#4d4d4d;fillColor=#ffffff;fontSize=14;fontStyle=1" value="TensorCore层次结构" vertex="1">
-          <mxGeometry height="410" width="1880" x="-500" y="-250" as="geometry" />
+        <mxCell id="hier_container" parent="1" style="rounded=1;dashed=1;strokeColor=#4d4d4d;fillColor=#ffffff;fontSize=14;fontStyle=1" value="TensorCore层次结构&#xa;猜猜你发现了什么(^ -^)" vertex="1">
+          <mxGeometry height="200" width="530" x="155" y="-280" as="geometry" />
         </mxCell>
         <mxCell id="hier_list" parent="1" style="shape=rectangle;rounded=0;strokeColor=#333333;fillColor=#f9f9f9;fontSize=12;align=left;verticalAlign=top;overflow=hidden" value="层次说明&#xa;1 编程抽象&#xa;2 控制配置&#xa;3 调度数据流&#xa;4 计算阵列&#xa;5 子算术&#xa;6 精度与格式&#xa;7 基础算术单元" vertex="1">
-          <mxGeometry height="180" width="140" x="-380" y="-20" as="geometry" />
+          <mxGeometry height="180" width="140" x="520" y="-270" as="geometry" />
         </mxCell>
         <mxCell id="layer_prog" parent="1" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12" value="编程抽象层&#xa;WMMA指令" vertex="1">
           <mxGeometry height="60" width="180" x="40" y="40" as="geometry" />
@@ -29,7 +29,7 @@
           <mxGeometry height="60" width="260" x="-60" y="130" as="geometry" />
         </mxCell>
         <mxCell id="layer_fpu" parent="1" style="rounded=1;fillColor=#cce5ff;strokeColor=#4d7ea8;fontSize=12" value="基础算术单元层&#xa;fmul_s1/s2/s3 fadd_s1/s2 near_path far_path rounding lza shift_right_jam" vertex="1">
-          <mxGeometry height="60" width="300" x="1570" y="40" as="geometry" />
+          <mxGeometry height="60" width="300" x="260" y="-370" as="geometry" />
         </mxCell>
         <mxCell id="mem_sram" parent="1" style="rounded=1;fillColor=#f4f4f4;strokeColor=#666666;fontSize=12" value="片上SRAM层次&#xa;Tile Buffer / Accumulator" vertex="1">
           <mxGeometry height="50" width="220" x="350" y="340" as="geometry" />
@@ -605,16 +605,16 @@
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="URXTb3tc431Fkre5qDqy" name="第 2 页">
-    <mxGraphModel dx="738" dy="464" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+  <diagram name="第 2 页" id="ZJFU73wQgFOyoaIJlrq8">
+    <mxGraphModel grid="0" page="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram name="TensorCore Architecture" id="WXmbaotVfOH-38j-H5wp">
-    <mxGraphModel dx="51150" dy="29933" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
+  <diagram name="TensorCore Architecture" id="fzp0NlNWQ9mbeSZKss6a">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -1208,7 +1208,7 @@
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram name="第 2 页" id="NdbUS1H9d7TKHP_uQxaP">
+  <diagram name="第 2 页" id="zTIr4-dpo-tqB39k0WlK">
     <mxGraphModel grid="0" page="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
