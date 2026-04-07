@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net" pages="4">
-  <diagram name="TensorCore Architecture" id="13GbBwnyVUAymKMA7RWN">
-    <mxGraphModel dx="47048" dy="26515" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
+  <diagram name="TensorCore Architecture" id="JJzva-Sbx6ekTnhd97Zh">
+    <mxGraphModel dx="136474" dy="84434" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -431,7 +431,7 @@
         <mxCell id="1VDR5MmloBFUYI5eoNik-78" parent="1" style="shape=waypoint;sketch=0;size=6;pointerEvents=1;points=[];fillColor=#eaf3ff;resizable=0;rotatable=0;perimeter=centerPerimeter;snapToPoint=1;strokeColor=#6c8ebf;rounded=1;" value="" vertex="1">
           <mxGeometry height="20" width="20" x="-170" y="380" as="geometry" />
         </mxCell>
-        <mxCell id="1VDR5MmloBFUYI5eoNik-79" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
+        <mxCell id="1VDR5MmloBFUYI5eoNik-79" parent="1" style="rounded=0;whiteSpace=wrap;html=1;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;locked=1;connectable=0;" value="" vertex="1">
           <mxGeometry height="480" width="1630" x="-400" y="40" as="geometry" />
         </mxCell>
         <mxCell id="1VDR5MmloBFUYI5eoNik-80" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;dashed=1;" value="" vertex="1">
@@ -459,6 +459,15 @@
         </mxCell>
         <mxCell id="1VDR5MmloBFUYI5eoNik-87" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" value="EXE_MEM_reg" vertex="1">
           <mxGeometry height="55" width="110" x="570" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="oFSzAmwrcmZh6mEvpM2N-2" edge="1" parent="1" source="1VDR5MmloBFUYI5eoNik-88" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;curved=0;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="790" y="218" />
+              <mxPoint x="-135" y="218" />
+            </Array>
+            <mxPoint x="-135" y="390" as="targetPoint" />
+          </mxGeometry>
         </mxCell>
         <mxCell id="1VDR5MmloBFUYI5eoNik-88" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eaf3ff;strokeColor=#6c8ebf;" value="MEM&#xa;MEMport" vertex="1">
           <mxGeometry height="55" width="100" x="740" y="110" as="geometry" />
@@ -599,13 +608,13 @@
         <mxCell id="1VDR5MmloBFUYI5eoNik-116" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;font style=&quot;font-size: 15px;&quot;&gt;流水线&lt;/font&gt;" vertex="1">
           <mxGeometry height="30" width="60" x="-300" y="80" as="geometry" />
         </mxCell>
-        <mxCell id="1VDR5MmloBFUYI5eoNik-117" parent="1" style="shape=waypoint;sketch=0;size=6;pointerEvents=1;points=[];fillColor=#eaf3ff;resizable=0;rotatable=0;perimeter=centerPerimeter;snapToPoint=1;strokeColor=#6c8ebf;rounded=1;" value="" vertex="1">
-          <mxGeometry height="20" width="20" x="-170" y="380" as="geometry" />
+        <mxCell id="NZhBmLgp8bgB_KCal-cy-1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;rotation=0;" value="注：当前代码实现中，仅load指令会真正发生阻塞，其余情况均以前递解决" vertex="1">
+          <mxGeometry height="30" width="210" x="700" y="320" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram name="第 2 页" id="ZJFU73wQgFOyoaIJlrq8">
+  <diagram name="第 2 页" id="FWzzv8pQU86Dbf0DtUBK">
     <mxGraphModel grid="0" page="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
@@ -613,7 +622,7 @@
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram name="TensorCore Architecture" id="fzp0NlNWQ9mbeSZKss6a">
+  <diagram name="TensorCore Architecture" id="L1abAESvZd-rufgvnFys">
     <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
       <root>
         <mxCell id="0" />
@@ -1208,7 +1217,7 @@
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram name="第 2 页" id="zTIr4-dpo-tqB39k0WlK">
+  <diagram name="第 2 页" id="JlgpJ-5krVE74L1OCvrm">
     <mxGraphModel grid="0" page="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
