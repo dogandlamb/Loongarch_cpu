@@ -4,53 +4,143 @@
 // 功能：
 // - 组织 IF/ID/EXE/MEM/WB 五级流水，连接各级端口模块与级间流水寄存器。
 // - 统一管理阻塞与冲刷：RAW 冲突阻塞 + 分支重定向冲刷。
-// - 对接指令 SRAM / 数据 SRAM 接口，并输出 WB 提交调试总线。
+// - 内部仍使用类 SRAM 信号（inst_sram_* / data_sram_*）连 bram_data_stream_controller；
+//   SoC 侧为 AXI4 主端口，与 soc_lite_top 实例化对齐；AXI 与内部 SRAM 的桥接待实现。
 //
-// 端口定义：
-// - 时钟复位：
-//   - clk/resetn：系统时钟与低有效复位。
-// - 指令存储接口：
-//   - inst_sram_*：IF 阶段取指地址与读数据接口。
-// - 数据存储接口：
-//   - data_sram_*：MEM 阶段读写数据与地址接口。
-// - 调试提交接口：
-//   - debug_wb_*：与参考核对齐的 WB 提交通道（PC/写使能/写寄存器/写数据）。
+// 端口（与 output/vivado_cpu_origin/soc_verify/soc_axi/rtl/soc_lite_top.v 中 u_cpu 一致）：
+// - aclk / aresetn：CPU 时钟与低有效异步复位（内部同步为高有效 reset）。
+// - AXI4 Master：AR/R 读通道、AW/W/B 写通道；未实现时输出为总线空闲态，输入仅作占位。
+// - debug_wb_*：WB 提交调试（与 func 测试参考 trace 对齐）。
 //
-// 与其他模块关系：
-// - 前端：pc + npc + IFport + IF_ID_reg。
-// - 译码：IDport（内部含 inst_dec/get_reg_read_addr/imm_generator/op_dec）+ regfile。
-// - 执行：ID_EXE_reg + EXEport + alu。
-// - 访存：EXE_MEM_reg + MEMport。
-// - 写回：MEM_WB_reg + WBport。
-// - 控制：conflict_detector + pipeline_controller（配合 top 的 stall/bubble mux）。
+// 【后续如何把 AXI 接上流水线】
+// 1) 在片内例化「AXI4 ↔ 类 SRAM」桥（或分开的取指/访存两个主端口再经互联），用内部
+//    wire inst_sram_* / data_sram_* 驱动桥的 SRAM 侧，由桥的 AXI 侧驱动本模块的
+//    ar*/r* / aw*/w*/b* 端口，与 SoC 的 cpu_* 总线对接。
+// 2) 取指：将 IF 对 inst_sram 的读请求翻译为 AR（建议固定 arsize=字、突发长度按需求），
+//    返回的 rdata 在 rvalid&&rready 且 rid/事务匹配时送入 inst_sram_rdata 的 MUX。
+// 3) 访存 load/store：MEM 对 data_sram 的读写翻译为读事务（AR/R）或写事务（AW/W/B），
+//    注意与取指仲裁、写后读 hazard；rlast 与突发计数需与 arlen/awlen 一致。
+// 4) rready/bready：可按 outstanding 与 FIFO 深度拉低流控；空闲占位时常接 1 以免从机挂死。
 // ============================================================
 `include "../common/cpu_defs.vh"
 
 module mycpu_top(
-    input  wire        clk,             // CPU 时钟
-    input  wire        resetn,          // 异步低有效复位（内部同步为高有效 reset）
+    input  wire        aclk,
+    input  wire        aresetn,
 
-    output wire        inst_sram_en,    // 指令 BRAM 读使能
-    output wire [3:0]  inst_sram_we,    // 指令写使能（当前不写指令）
-    output wire [31:0] inst_sram_addr,
-    output wire [31:0] inst_sram_wdata,
-    input  wire [31:0] inst_sram_rdata,
+    // AR —— 读地址（Master → Slave）；未实现时保持 valid=0
+    output wire [3:0]  arid,
+    output wire [31:0] araddr,
+    output wire [7:0]  arlen,
+    output wire [2:0]  arsize,
+    output wire [1:0]  arburst,
+    output wire [1:0]  arlock,
+    output wire [3:0]  arcache,
+    output wire [2:0]  arprot,
+    output wire        arvalid,
+    input  wire        arready,
 
-    output wire        data_sram_en,    // 数据 BRAM 端口使能
-    output wire [3:0]  data_sram_we,    // 数据按字节写使能
-    output wire [31:0] data_sram_addr,
-    output wire [31:0] data_sram_wdata,
-    input  wire [31:0] data_sram_rdata,
+    // R —— 读数据（Slave → Master）
+    input  wire [3:0]  rid,
+    input  wire [31:0] rdata,
+    input  wire [1:0]  rresp,
+    input  wire        rlast,
+    input  wire        rvalid,
+    output wire        rready,
 
-    output wire [31:0] debug_wb_pc,      // 调试：提交 PC
-    output wire [ 3:0] debug_wb_rf_we,   // 调试：写使能掩码
-    output wire [ 4:0] debug_wb_rf_wnum,
+    // AW —— 写地址（Master → Slave）
+    output wire [3:0]  awid,
+    output wire [31:0] awaddr,
+    output wire [7:0]  awlen,
+    output wire [2:0]  awsize,
+    output wire [1:0]  awburst,
+    output wire [1:0]  awlock,
+    output wire [3:0]  awcache,
+    output wire [2:0]  awprot,
+    output wire        awvalid,
+    input  wire        awready,
+
+    // W —— 写数据（Master → Slave）
+    output wire [3:0]  wid,
+    output wire [31:0] wdata,
+    output wire [3:0]  wstrb,
+    output wire        wlast,
+    output wire        wvalid,
+    input  wire        wready,
+
+    // B —— 写响应（Slave → Master）
+    input  wire [3:0]  bid,
+    input  wire [1:0]  bresp,
+    input  wire        bvalid,
+    output wire        bready,
+
+    output wire [31:0] debug_wb_pc,
+    output wire [3:0]  debug_wb_rf_we,
+    output wire [4:0]  debug_wb_rf_wnum,
     output wire [31:0] debug_wb_rf_wdata
 );
+
+    // 与原有内部逻辑一致：时钟与复位的别名
+    wire clk    = aclk;
+    wire resetn = aresetn;
 
     // 同步高有效复位（ resetn 翻转得到）
     reg reset;
     always @(posedge clk) reset <= ~resetn;
+
+    // ------------------------------------------------------------------
+    // 原顶层「类 SRAM」端口改为内部线网：由后续 AXI 桥接驱动 rdata/wdata 路径时再接入。
+    // 当前占位：读数据恒 0，仅保证可综合、仿真不悬空；接上 AXI 后请改为 MUX/寄存返回数据。
+    // ------------------------------------------------------------------
+    wire        inst_sram_en;
+    wire [3:0]  inst_sram_we;
+    wire [31:0] inst_sram_addr;
+    wire [31:0] inst_sram_wdata;
+    wire [31:0] inst_sram_rdata;
+
+    wire        data_sram_en;
+    wire [3:0]  data_sram_we;
+    wire [31:0] data_sram_addr;
+    wire [31:0] data_sram_wdata;
+    wire [31:0] data_sram_rdata;
+
+    assign inst_sram_rdata  = 32'd0;   // TODO: 接 AXI R 通道译码后的取指返回字
+    assign data_sram_rdata  = 32'd0;   // TODO: 接 AXI R 通道译码后的 load 返回字
+
+    // ------------------------------------------------------------------
+    // AXI Master 占位：总线空闲（不发起任何事务）。实现桥接后改为由 FSM/axi_master 驱动。
+    // arready/awready/wready：由 SoC slave（如 axi_wrap→bridge）驱动，此处接入即可参与握手。
+    // rid/rdata/rvalid/rlast、bid/bresp/bvalid：从机返回；桥接完成后将 rdata 分流到上方 SRAM 读。
+    // ------------------------------------------------------------------
+    assign arid     = 4'd0;
+    assign araddr   = 32'd0;
+    assign arlen    = 8'd0;
+    assign arsize   = 3'b010;    // 4B，占位；真实取指/访存按需求设
+    assign arburst  = 2'b01;    // INCR
+    assign arlock   = 2'd0;
+    assign arcache  = 4'd0;
+    assign arprot   = 3'd0;
+    assign arvalid  = 1'b0;
+
+    assign rready   = 1'b1;     // 占位：可接收读数据；实现 OoO/outstanding 时再细调
+
+    assign awid     = 4'd0;
+    assign awaddr   = 32'd0;
+    assign awlen    = 8'd0;
+    assign awsize   = 3'b010;
+    assign awburst  = 2'b01;
+    assign awlock   = 2'd0;
+    assign awcache  = 4'd0;
+    assign awprot   = 3'd0;
+    assign awvalid  = 1'b0;
+
+    assign wid      = 4'd0;
+    assign wdata    = 32'd0;
+    assign wstrb    = 4'd0;
+    assign wlast    = 1'b0;
+    assign wvalid   = 1'b0;
+
+    assign bready   = 1'b1;     // 占位：可接收写响应
 
     // 顶层保留全局 valid（当前不直接参与流水控制，也就是现在还没用到）
     reg valid;

@@ -1,5 +1,0 @@
-Duplicated file found; will not be sent for synthesis: d:/Loongarchcpu/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_bram/run_vivado/project/loongson.gen/sources_1/ip/mult_gen_0/hdl/xbip_utils_v3_0_vh_rfs.vhd
-Duplicated file found; will not be sent for synthesis: d:/Loongarchcpu/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_bram/run_vivado/project/loongson.gen/sources_1/ip/mult_gen_0/hdl/xbip_pipe_v3_0_vh_rfs.vhd
-Duplicated file found; will not be sent for synthesis: d:/Loongarchcpu/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_bram/run_vivado/project/loongson.gen/sources_1/ip/mult_gen_0/hdl/xbip_bram18k_v3_0_vh_rfs.vhd
-Duplicated file found; will not be sent for synthesis: d:/Loongarchcpu/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_bram/run_vivado/project/loongson.gen/sources_1/ip/mult_gen_0/hdl/mult_gen_v12_0_vh_rfs.vhd
-CRC performance measure: elapsed=00:00:00.024s;;memory_peak=957.230MB;;memory_gain=0.000MB
