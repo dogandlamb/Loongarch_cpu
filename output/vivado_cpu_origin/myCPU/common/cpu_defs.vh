@@ -38,8 +38,6 @@
 `define ALU_OP_MOD_WU   18  // 无符号取余
 
 
-
-
 /* mem_op操作码宏定义 */
 `define MEM_OP_NUM      8   // 表征MEM访存有迹几种操作
 `define MEM_OP_LD_W     1   // load，从内存取数据写入寄存器堆（与 {inst_ld_w, inst_st_w} 对齐）
@@ -50,6 +48,83 @@
 `define MEM_OP_LD_H     5   // load half，从内存取数据写入寄存器堆（与 {inst_ld_h, inst_st_h} 对齐）    
 `define MEM_OP_LD_BU    6   // load byte unsigned，从内存取数据写入寄存器堆（与 {inst_ld_b, inst_st_b} 对齐）
 `define MEM_OP_LD_HU    7   // load half unsigned，从内存取数据写入寄存器堆（与 {inst_ld_h, inst_st_h} 对齐）
+
+
+/* 异常Ecode、Esubcode宏定义 */
+// 有些异常我还没加上
+`define INT_ECODE  8'h00 //中断
+`define ADEF_ECODE 8'h08 //取指地址错异常
+`define ADEM_ECODE 8'h04 //访存指令地址错异常
+`define INE_ECODE  8'h0d //指令不存在异常
+`define ALE_ECODE  8'h09 //地址非对齐异常
+`define SYS_ECODE  8'h0b //系统调用异常
+`define BRK_ECODE  8'h0c //断点异常
+
+`define INT_ESUBCODE   1'b0
+`define ADEF_ESUBCODE  1'b0
+`define INE_ESUBCODE   1'b0
+`define ALE_ESUBCODE   1'b0
+`define SYS_ESUBCODE   1'b0
+`define BRK_ESUBCODE   1'b0
+
+`define Ecode_other_exception 8'hFF
+`define Esubcode_other_exception 1'b0
+
+
+/* 控制状态寄存器号宏定义 */
+// 用于 csr_num
+`define CSR_CRMD        12'h000
+`define CSR_PRMD        12'h001
+`define CSR_EUEN        12'h002
+`define CSR_ECFG        12'h004
+`define CSR_ESTAT       12'h005
+`define CSR_ERA         12'h006
+`define CSR_BADV        12'h007
+`define CSR_EENTRY      12'h00c
+`define CSR_TLBIDX      12'h010
+`define CSR_TLBEHI      12'h011
+`define CSR_TLBELO0     12'h012
+`define CSR_TLBELO1     12'h013
+`define CSR_ASID        12'h018
+`define CSR_PGDL        12'h019
+`define CSR_PGDH        12'h01a
+`define CSR_PGD         12'h01b
+`define CSR_CPUID       12'h020
+`define CSR_SAVE0       12'h030
+`define CSR_SAVE1       12'h031
+`define CSR_SAVE2       12'h032
+`define CSR_SAVE3       12'h033
+`define CSR_TID         12'h040
+`define CSR_TCFG        12'h041
+`define CSR_TVAL        12'h042
+`define CSR_TICLR       12'h044
+`define CSR_LLBCTL      12'h060
+`define CSR_TLBRENTRY   12'h088
+`define CSR_CTAG        12'h098
+`define CSR_DMW0        12'h180
+`define CSR_DMW1        12'h181
+
+
+/* 控制状态寄存器域宏定义 */
+// 用于 csr_wmask
+`define CSR_CRMD_PLV       1:0
+`define CSR_CRMD_IE        2
+`define CSR_CRMD_DA        3
+`define CSR_CRMD_PG        4
+`define CSR_CRMD_DATF      6:5
+`define CSR_CRMD_DATM      8:7
+`define CSR_PRMD_PPLV      1:0
+`define CSR_PRMD_PIE       2
+`define CSR_ECFG_LIE       12:0
+`define CSR_ESTAT_IS10     1:0
+`define CSR_TICLR_CLR      0
+`define CSR_ERA_PC         31:0
+`define CSR_EENTRY_VA      31:6
+`define CSR_SAVE_DATA      31:0
+`define CSR_TID_TID        31:0
+`define CSR_TCFG_EN        0
+`define CSR_TCFG_PERIODIC  1
+`define CSR_TCFG_INITVAL   31:2
 
 
 `endif
