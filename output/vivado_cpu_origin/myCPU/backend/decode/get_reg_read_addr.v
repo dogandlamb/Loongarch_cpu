@@ -45,13 +45,13 @@ module get_reg_read_addr(
     input  wire        inst_jirl,
     input  wire        inst_lu12i_w,
     input  wire        inst_pcaddu12i,
-    input  wire        inst_mul_w,     //乘法
-    input  wire        inst_mulh_w,    //有符号乘法高位结果
-    input  wire        inst_mulh_wu,   //有符号/无符号混合乘法高位结果
-    input  wire        inst_div_w,     //有符号除法
-    input  wire        inst_div_wu,    //无符号除法
-    input  wire        inst_mod_w,     //有符号取余
-    input  wire        inst_mod_wu,    //无符号取余
+    input  wire        inst_mul_w,     // 乘法
+    input  wire        inst_mulh_w,    // 有符号乘法高位结果
+    input  wire        inst_mulh_wu,   // 有符号/无符号混合乘法高位结果
+    input  wire        inst_div_w,     // 有符号除法
+    input  wire        inst_div_wu,    // 无符号除法
+    input  wire        inst_mod_w,     // 有符号取余
+    input  wire        inst_mod_wu,    // 无符号取余
     input  wire        inst_ertn,      // 例外返回
     input  wire        inst_syscall,   // 系统调用
     input  wire        inst_break,     // 断点

@@ -19,8 +19,10 @@ module sram_AXI_bridge (
     input  wire [31:0] data_waddr_from_EXE,
     input  wire [31:0] data_wdata_from_EXE,
     input  wire [ 3:0] data_byte_en_from_EXE,
+    input  wire        adef_valid_in_from_IF, //地址未对齐异常信号，与pc如夫妻一般跟随，鱼水之情不用考虑代码的模块化
 
     output wire [31:0] inst_rdata_2IF,
+    output wire        adef_valid_2IF, // 指令地址未对齐异常信号，送 IF 用于判断指令地址错误
     output wire [31:0] data_rdata_2MEM,
 
     output reg         data_w_wrong,
@@ -144,8 +146,10 @@ module sram_AXI_bridge (
     reg  data_r_complete_d;
     reg [31:0] inst_pc_pending;
     reg  inst_wait_data;
+    reg  inst_adef_pending;
 
     assign inst_rdata_2IF  = inst_rdata_reg;
+    assign adef_valid_2IF  = inst_adef_pending;
     assign data_rdata_2MEM = data_rdata_reg;
     assign pc_out_2ID      = inst_pc_pending;
 
@@ -297,10 +301,14 @@ module sram_AXI_bridge (
             data_r_complete   <= 1'b0;
             inst_pc_pending   <= 32'b0;
             inst_wait_data    <= 1'b0;
+            inst_adef_pending <= 1'b0;
             inst_r_complete   <= 1'b0;
         end else begin
             if (inst_re_in_from_IF && sram_inst_addr_ok)
                 inst_pc_pending <= pc_in_from_IF;
+
+            if (inst_re_in_from_IF)
+                inst_adef_pending <= adef_valid_in_from_IF;
 
             if (sram_inst_data_ok)
                 inst_wait_data <= 1'b0;

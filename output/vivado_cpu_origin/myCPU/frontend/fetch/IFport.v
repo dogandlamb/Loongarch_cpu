@@ -24,27 +24,27 @@ module IFport (
 
     output wire [31:0] pc_req_out,         // 透传 pc_req_in
     output wire [31:0] inst_out,           // 送 IF/ID 的指令
-    output wire [31:0] pc_inst_out         // 送 IF/ID 的 PC（与 inst_out 对齐）
+    output wire [31:0] pc_inst_out,        // 送 IF/ID 的 PC（与 inst_out 对齐）
     output wire        adef_valid_req_out, // 送 BRAM 的地址未对齐异常请求信号
-    output wire        adef_valid_out,       // 送 IF/ID 的指令地址未对齐异常信号
+    output wire        adef_valid_out,     // 送 IF/ID 的指令地址未对齐异常信号
     output wire        exception_valid     // 向下传的异常有效信号（目前仅 adef_valid_out）
 );
 wire        adef_valid_req;
 assign      adef_valid_req = (pc_req_in[1:0] != 2'b00);
 assign      adef_valid_req_out = adef_valid_req;
 
-reg         hold_adef;
-reg         req_adef_pending;
 
 wire        resp_ok;                       // 返回可用且非 cancel、非陈旧
 reg         hold_valid;                    // 已缓存一拍返回待下游接收
 reg  [31:0] hold_inst;
 reg  [31:0] hold_pc;
+reg         hold_adef;
 reg         drop_next_resp;                // 重定向后丢弃直到 pc_inst_in 对齐
 reg  [31:0] redirect_pc_pending;           // 分支重定向目标（用于丢弃陈旧返回）
 wire        out_valid; 
 wire [31:0] out_inst;
 wire [31:0] out_pc;
+wire        out_adef_valid;
 wire        stale_redirect_resp;
 
 assign stale_redirect_resp = drop_next_resp && (pc_inst_in != redirect_pc_pending);

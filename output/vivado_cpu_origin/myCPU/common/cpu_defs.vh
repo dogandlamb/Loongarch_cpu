@@ -68,12 +68,12 @@
 // `define OT_OP_BREAK
 /*这条指令最后写回寄存器的数据，应该从哪一路来（wb_op：要不要写回 wb_src：如果写回，从哪来*/
 `define WB_SRC_NUM        6
-`define WB_SRC_ALU        0// ALU运算结果
-`define WB_SRC_MEM        1//load 返回值
-`define WB_SRC_CSR        2//CSR 旧值
-`define WB_SRC_CNTVL      3//计数器低 32 位
-`define WB_SRC_CNTVH      4//计数器高 32 位
-`define WB_SRC_TID        5//rdcntid 返回值
+`define WB_SRC_ALU        0 // ALU运算结果
+`define WB_SRC_MEM        1 // load 返回值
+`define WB_SRC_CSR        2 // CSR 旧值
+`define WB_SRC_CNTVL      3 // 计数器低 32 位
+`define WB_SRC_CNTVH      4 // 计数器高 32 位
+`define WB_SRC_TID        5 // rdcntid 返回值
 
 
 /* 异常Ecode、Esubcode宏定义 */

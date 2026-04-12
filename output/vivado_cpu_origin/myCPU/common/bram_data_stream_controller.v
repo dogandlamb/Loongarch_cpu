@@ -11,7 +11,7 @@ module bram_data_stream_controller(
     input wire         data_re_in_from_EXE,  // MEM 发起读
 
     input wire [31:0]  pc_in_from_IF,
-    input wire         adef_valid_in_from_IF, //地址未对齐异常信号，IF 用于判断指令地址错误
+    input wire         adef_valid_in_from_IF, //地址未对齐异常信号，与pc如夫妻一般跟随，鱼水之情不用考虑代码的模块化
     input wire [31:0]  data_raddr_from_EXE,
     input wire [31:0]  data_waddr_from_EXE,
     input wire [31:0]  data_wdata_from_EXE,
