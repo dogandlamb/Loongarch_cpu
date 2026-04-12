@@ -11,6 +11,8 @@ module conflict_handle(
     input  wire exe_stage_is_load,       // EXE 槽为 load（需阻塞至结果可用）
     input  wire mem_stage_is_load,       // MEM 槽为 load 且读未完成
     input  wire br_taken_comb,           // EXE 组合分支成立
+    input  wire ex_flush,                // WB提交异常时触发流水线flush，前端需要重定向到异常入口，触发流水线冲刷
+    input  wire ertn_flush,              //WB提交ertn时触发流水线flush，前端需要重定向到ERA，触发流水线冲刷
     output wire RAW_hazard,
     output wire block_sig,
     output wire stall,
@@ -45,6 +47,6 @@ assign FD_EXE_2rs2_sig = FD_MODE_ENABLE ? hit_exe_rs2 : 1'b0;
 assign FD_MEM_2rs2_sig = FD_MODE_ENABLE ? hit_mem_rs2 : 1'b0;
 assign FD_WB_2rs2_sig  = FD_MODE_ENABLE ? hit_wb_rs2  : 1'b0;
 
-assign cancel_sig = (br_taken_comb == 1'b1);
+assign cancel_sig = (br_taken_comb == 1'b1) | ex_flush | ertn_flush;
 
 endmodule

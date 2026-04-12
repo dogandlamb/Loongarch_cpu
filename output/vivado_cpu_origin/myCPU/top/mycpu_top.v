@@ -204,6 +204,7 @@ module mycpu_top(
     wire [31:0] pc_2ram_data_controller;  // IF 当前请求 PC
     wire [31:0] inst_fromIF;              // IF 输出指令（对齐PC）
     wire [31:0] pc_fromIF;                // IF 输出 PC（对齐inst）
+    wire        adef_valid_req_fromIF;
 
     wire        IF_valid;                 // IF 阶段有效位（controller 输出）
     wire        IF_ID_reg_valid;          // IF_ID_reg 输入 valid
@@ -224,7 +225,9 @@ module mycpu_top(
         .allowIn            (IF_allowIn),
         .pc_req_out         (pc_2ram_data_controller),    // 发往bram_data_stream_controller的请求 PC
         .inst_out           (inst_fromIF),                // 送 IF_ID_reg 的指令
-        .pc_inst_out        (pc_fromIF)                   // 送 IF_ID_reg 的 PC
+        .pc_inst_out        (pc_fromIF),                   // 送 IF_ID_reg 的 PC
+        .adef_valid_req_out (adef_valid_req_fromIF),         // 送 BRAM 的地址未对齐异常请求信号
+        .adef_valid_in      (adef_valid_2IF)
     );          
 
     wire [31:0] inst_2ID;        // IF_ID_reg 输出到 ID 的指令
@@ -647,7 +650,7 @@ module mycpu_top(
     wire exe_stage_is_load = EXE_valid
                               & (exe_mem_op[`MEM_OP_LD_W] | exe_mem_op[`MEM_OP_LD_H] | exe_mem_op[`MEM_OP_LD_B]
                               |  exe_mem_op[`MEM_OP_LD_HU] | exe_mem_op[`MEM_OP_LD_BU]);
-
+                              
     conflict_handle u_conflict_handle(
         .hit_exe_rs1   (hit_exe_rs1),
         .hit_mem_rs1   (hit_mem_rs1),
@@ -753,7 +756,9 @@ module mycpu_top(
         .data_w_complete     (data_w_complete),        // 数据写完成
         .data_r_complete     (data_r_complete),        // 数据读完成
         .inst_r_complete     (inst_r_complete),        // 取指完成（对应上一拍请求）
-        .pc_out_2ID          (pc_2ID_from_bram)        // 返回 PC（pc2，对齐返回指令）
+        .pc_out_2ID          (pc_2ID_from_bram),
+        .adef_valid_in_from_IF (adef_valid_req_fromIF),
+        .adef_valid_2IF      (adef_valid_in)
     );
 
 

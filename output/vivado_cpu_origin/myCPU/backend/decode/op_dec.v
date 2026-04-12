@@ -1,7 +1,7 @@
 `include "../../common/cpu_defs.vh"
 
 // ============================================================
-// op_dec：由 inst_* 组合逻辑输出 alu_op / br_op / mem_op。
+// op_dec：由 inst_* 组合逻辑输出 alu_op / br_op / mem_op / csr_op / rdcnt_op。
 // ============================================================
 module op_dec(
     input  wire        inst_add_w,
@@ -50,9 +50,21 @@ module op_dec(
     input  wire        inst_div_wu,
     input  wire        inst_mod_w,
     input  wire        inst_mod_wu,
+    input  wire        inst_csrrd,
+    input  wire        inst_csrwr,
+    input  wire        inst_csrxchg,
+    input  wire        inst_rdcntvl_w,
+    input  wire        inst_rdcntvh_w,
+    input  wire        inst_rdcntid,
+    input  wire        inst_ertn,
+    input  wire        inst_syscall,
+    input  wire        inst_break,
     output wire [`ALU_OP_NUM-1:0] alu_op,
     output wire [`BR_OP_NUM-1:0]  br_op,
-    output wire [`MEM_OP_NUM-1:0] mem_op
+    output wire [`MEM_OP_NUM-1:0] mem_op,
+    output wire [`CSR_OP_NUM-1:0] csr_op,
+    output wire [`WB_SRC_NUM-1:0] wb_src_op,
+    output wire        inst_know
 );
 
     assign alu_op[`ALU_OP_ADD] = inst_add_w | inst_addi_w | inst_jirl | inst_bl
@@ -114,5 +126,27 @@ module op_dec(
     assign mem_op[`MEM_OP_LD_B] = inst_ld_b;
     assign mem_op[`MEM_OP_LD_HU] = inst_ld_hu;
     assign mem_op[`MEM_OP_LD_BU] = inst_ld_bu;
+// csr_op操作码生成
+    assign csr_op[`CSR_OP_CSRRD] = inst_csrrd;
+    assign csr_op[`CSR_OP_CSRWR] = inst_csrwr;
+    assign csr_op[`CSR_OP_CSRXCHG] = inst_csrxchg;
+// rdcnt_op操作码生成
+    // assign rdcnt_op[`RDCNT_OP_RDCNTVL] = inst_rdcntvl_w;
+    // assign rdcnt_op[`RDCNT_OP_RDCNTVH] = inst_rdcntvh_w;
+    // assign rdcnt_op[`RDCNT_OP_RDCNTID] = inst_rdcntid;
+// wb_src_op操作码生成
+    assign wb_src_op[`WB_SRC_ALU] = inst_add_w | inst_addi_w | inst_slti | inst_sltui | inst_andi | inst_ori | inst_xori 
+                                | inst_sub_w | inst_slli_w | inst_srli_w | inst_srai_w | inst_sll_w | inst_srl_w | inst_sra_w
+                                | inst_lu12i_w | inst_pcaddu12i
+                                | inst_mul_w | inst_mulh_w | inst_mulh_wu | inst_div_w | inst_div_wu | inst_mod_w | inst_mod_wu;
+    assign wb_src_op[`WB_SRC_MEM] = inst_ld_w | inst_ld_h | inst_ld_b | inst_ld_hu | inst_ld_bu;
+    assign wb_src_op[`WB_SRC_CSR] = inst_csrrd | inst_csrwr | inst_csrxchg;
+    assign wb_src_op[`WB_SRC_CNTVL] = inst_rdcntvl_w;
+    assign wb_src_op[`WB_SRC_CNTVH] = inst_rdcntvh_w;
+    assign wb_src_op[`WB_SRC_TID] = inst_rdcntid;
+//inst_know：指令识别信号，输入的指令在指令集内为 1，否则为 0。用于异常处理模块识别非法指令
+    assign inst_know = |alu_op |br_op | mem_op | csr_op 
+                     | inst_rdcntvl_w |inst_rdcntvh_w | inst_rdcntid 
+                     | inst_ertn | inst_syscall | inst_break;
 
 endmodule

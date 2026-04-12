@@ -52,6 +52,15 @@ module get_reg_read_addr(
     input  wire        inst_div_wu,    //无符号除法
     input  wire        inst_mod_w,     //有符号取余
     input  wire        inst_mod_wu,    //无符号取余
+    input  wire        inst_ertn,      // 例外返回
+    input  wire        inst_syscall,   // 系统调用
+    input  wire        inst_break,     // 断点
+    input  wire        inst_rdcntvl_w, // 读时间戳计
+    input  wire        inst_rdcntvh_w, // 读时间戳计高位
+    input  wire        inst_rdcntid,   // 读时间戳计器 ID
+    input  wire        inst_csrrd,     // CSR 读
+    input  wire        inst_csrwr,     // CSR 写
+    input  wire        inst_csrxchg,   // CSR 读写交换
     output wire [ 4:0] rf_raddr1,
     output wire [ 4:0] rf_raddr2
 );
@@ -81,13 +90,14 @@ assign need_rj = inst_add_w  | inst_addi_w | inst_slti | inst_sltui
                | inst_blt    | inst_bge
                | inst_bltu   | inst_bgeu
                | inst_mul_w  | inst_mulh_w | inst_mulh_wu
-               | inst_div_w  | inst_div_wu | inst_mod_w | inst_mod_wu;
+               | inst_div_w  | inst_div_wu | inst_mod_w | inst_mod_wu
+               | inst_csrwr  | inst_csrxchg | inst_rdcntid;
 
 assign need_rk = inst_add_w | inst_sub_w | inst_slt | inst_sltu
                | inst_and   | inst_or    | inst_nor | inst_xor
                | inst_sll_w | inst_srl_w | inst_sra_w
                | inst_mul_w | inst_mulh_w | inst_mulh_wu
-               | inst_div_w | inst_div_wu | inst_mod_w | inst_mod_wu;
+               | inst_div_w | inst_div_wu | inst_mod_w | inst_mod_wu | inst_csrxchg;
 
 assign src_reg_is_rd = inst_st_w | inst_beq | inst_bne | inst_st_b | inst_st_h
                     | inst_blt | inst_bge | inst_bltu | inst_bgeu; // 第二源来自 rd 的指令

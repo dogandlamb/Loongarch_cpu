@@ -50,28 +50,50 @@ module inst_dec(
     output wire        inst_div_w,
     output wire        inst_div_wu,
     output wire        inst_mod_w,
-    output wire        inst_mod_wu
+    output wire        inst_mod_wu,
+    output wire        inst_ertn,
+    output wire        inst_syscall,
+    output wire        inst_break,
+    output wire        inst_rdcntvl_w,
+    output wire        inst_rdcntvh_w,
+    output wire        inst_rdcntid,
+    output wire        inst_csrrd,
+    output wire        inst_csrwr,
+    output wire        inst_csrxchg
 );
 
 wire [ 5:0] op_31_26;//若干位操作码，来自inst
 wire [ 3:0] op_25_22;
 wire [ 1:0] op_21_20;
 wire [ 4:0] op_19_15;
+wire [ 4:0] rj;
+wire [ 4:0] rd;
+wire [ 4:0] rk;
+
 
 assign op_31_26 = inst[31:26];
 assign op_25_22 = inst[25:22];
 assign op_21_20 = inst[21:20];
 assign op_19_15 = inst[19:15];
+assign rd       = inst[ 4: 0];
+assign rk       = inst[14:10];
+assign rj       = inst[ 9: 5];
 
 wire [63:0] op_31_26_d;//译码后的操作码
 wire [15:0] op_25_22_d;
 wire [ 3:0] op_21_20_d;
 wire [31:0] op_19_15_d;
+wire [31:0] rj_d;
+wire [31:0] rd_d;
+wire [31:0] rk_d;
 
 decoder_6_64 u_dec0(.in(op_31_26 ), .co(op_31_26_d ));
 decoder_4_16 u_dec1(.in(op_25_22 ), .co(op_25_22_d ));
 decoder_2_4  u_dec2(.in(op_21_20 ), .co(op_21_20_d ));
 decoder_5_32 u_dec3(.in(op_19_15 ), .co(op_19_15_d ));
+decoder_5_32 u_dec_rj(.in(rj), .co(rj_d));
+decoder_5_32 u_dec_rd(.in(rd), .co(rd_d));
+decoder_5_32 u_dec_rk(.in(rk), .co(rk_d));
 
 // 这是为了解决run linter 的问题
 wire [4:0] inst_dec_touch_bus;
@@ -132,5 +154,17 @@ assign inst_div_w   = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h2] & 
 assign inst_div_wu  = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h2] & op_19_15_d[5'h02];
 assign inst_mod_w   = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h2] & op_19_15_d[5'h01];
 assign inst_mod_wu  = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h2] & op_19_15_d[5'h03];
+
+assign inst_ertn     = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h10]  & rk_d[5'h0d] & rj_d[5'h00] & rd_d[5'h00];
+assign inst_syscall  = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h2] & op_19_15_d[5'h16];
+assign inst_break    = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h2] & op_19_15_d[5'h14];
+
+assign inst_rdcntid   = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h0] & op_19_15_d[5'h00] & rk_d[5'h18] & rd_d[5'h00];
+assign inst_rdcntvl_w = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h0] & op_19_15_d[5'h00] & rk_d[5'h18] & rj_d[5'h00] & ~rd_d[5'h00];
+assign inst_rdcntvh_w = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h0] & op_19_15_d[5'h00] & rk_d[5'h19] & rj_d[5'h00];
+
+assign inst_csrrd    = op_31_26_d[6'h01] & ~inst[25] & ~inst[24] & rj_d[5'h00];
+assign inst_csrwr    = op_31_26_d[6'h01] & ~inst[25] & ~inst[24] & rj_d[5'h01];
+assign inst_csrxchg  = op_31_26_d[6'h01] & ~inst[25] & ~inst[24] & ~rj_d[5'h00] & ~rj_d[5'h01];
 
 endmodule

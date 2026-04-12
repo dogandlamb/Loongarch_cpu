@@ -15,6 +15,10 @@ module npc(
     input  wire [31:0]            pc_branch_base,    // 分支指令 PC（来自 EXE，用于 rel 分支与 seq 上下文）
     input  wire                   block_sig,         // 流水阻塞，保持 PC 
     input  wire                   IF_ID_reg_allowIn, // IF/ID 寄存器允许接收
+    input wire        ex_redirect,     // 异常重定向有效
+    input wire        ertn_redirect,   // ertn 重定向有效
+    input wire [31:0] ex_entry,        // 异常入口地址（EENTRY）
+    input wire [31:0] ertn_entry,      // ertn 返回地址（ERA）
     output reg  [31:0]            nextpc,            // 下一拍 PC 输出（送 PC 寄存器）
     output wire                   pc_stall           // 送 pc 寄存器：阻塞且本拍不跳转时保持
 );
@@ -27,18 +31,26 @@ wire [31:0] seq_pc;
 assign br_taken_safe = (br_taken == 1'b1);
 assign pc_cur        = br_taken_safe ? pc_branch_base : pc_fetch;
 
-assign pc_stall = (block_sig && !br_taken_safe)
-                || ((!IF_ID_reg_allowIn) && (!br_taken_safe));
+wire redirect_valid;
+assign redirect_valid = ex_redirect | ertn_redirect | br_taken_safe;
+assign pc_stall = (block_sig && !redirect_valid)
+                || ((!IF_ID_reg_allowIn) && !redirect_valid);
+
 
 assign seq_pc = pc_cur + 32'h4 + {{31{1'b0}}, ((|br_op) | IF_valid) & 1'b0};
 assign br_target = br_op[`BR_OP_JIRL] ? (rj_value + br_offs) : (pc_cur + br_offs);
 
 always @(*) begin
     nextpc = seq_pc;
-    if (br_taken == 1'b1)
+    if (ex_redirect)
+        nextpc = ex_entry;
+    else if (ertn_redirect)
+        nextpc = ertn_entry;
+    else if (br_taken_safe)
         nextpc = br_target;
-    else if (block_sig == 1'b1)
+    else if (block_sig)
         nextpc = pc_cur;
 end
+
 
 endmodule

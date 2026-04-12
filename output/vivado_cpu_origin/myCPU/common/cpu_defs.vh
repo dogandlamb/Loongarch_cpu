@@ -49,6 +49,32 @@
 `define MEM_OP_LD_BU    6   // load byte unsigned，从内存取数据写入寄存器堆（与 {inst_ld_b, inst_st_b} 对齐）
 `define MEM_OP_LD_HU    7   // load half unsigned，从内存取数据写入寄存器堆（与 {inst_ld_h, inst_st_h} 对齐）
 
+//csrrd、csrwr.csrxchg,ertn、syscall、break.rdcntvl.w.rdcntvh.w、rdcntid
+/*csr_op操作码宏定义*/
+`define CSR_OP_NUM      3   // 表征CSR指令有几种操作
+`define CSR_OP_CSRRD    0   // CSRRD 指令将指定 CSR 的值写入到通用寄存器 rd 中
+`define CSR_OP_CSRWR    1   // CSRWR 指令将通用寄存器 rd 中的旧值写入到指定 CSR 中，同时将指定 CSR 的旧值更新到通用寄存器 rd 中
+`define CSR_OP_CSRXCHG  2   // CSRXCHG 指令根据通用寄存器 rj 中存放的写掩码信息，将通用寄存器 rd 中的旧值写入到指定 CSR 中对应写掩码为 1 的那些比特，该 CSR 中的其余比特保持不变，同时将该 CSR 的旧值更新到通用寄存器 rd 中
+
+// /*计数器指令操作码宏定义*/
+// `define RDCNT_OP_NUM      3  // 表征计数器指令有几种操作
+// `define RDCNT_OP_RDCNTVL  0  // 读虚拟计数器值低32位指令，rdcntvl.w
+// `define RDCNT_OP_RDCNTVH  1  // 读虚拟计数器高32位值指令，rdcntvh.w
+// `define RDCNT_OP_RDCNTID  2  // 读计数器ID指令，rdcntid
+
+/* 其他宏定义 */
+// `define OT_OP_ERTN
+// `define OT_OP_SYSCALL
+// `define OT_OP_BREAK
+/*这条指令最后写回寄存器的数据，应该从哪一路来（wb_op：要不要写回 wb_src：如果写回，从哪来*/
+`define WB_SRC_NUM        6
+`define WB_SRC_ALU        0// ALU运算结果
+`define WB_SRC_MEM        1//load 返回值
+`define WB_SRC_CSR        2//CSR 旧值
+`define WB_SRC_CNTVL      3//计数器低 32 位
+`define WB_SRC_CNTVH      4//计数器高 32 位
+`define WB_SRC_TID        5//rdcntid 返回值
+
 
 /* 异常Ecode、Esubcode宏定义 */
 // 有些异常我还没加上

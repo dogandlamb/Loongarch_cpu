@@ -43,6 +43,15 @@ module ALU_srcGenerator(
     input  wire        inst_jirl,
     input  wire        inst_lu12i_w,
     input  wire        inst_pcaddu12i,
+    input  wire        inst_csrrd,
+    input  wire        inst_csrwr,
+    input  wire        inst_csrxchg,
+    input  wire        inst_ertn,
+    input  wire        inst_syscall,
+    input  wire        inst_break,
+    input  wire        inst_rdcntvl_w,
+    input  wire        inst_rdcntvh_w,
+    input  wire        inst_rdcntid,
     input  wire [31:0] rj_value,
     input  wire [31:0] rkd_value,
     input  wire [31:0] imm,
@@ -60,7 +69,8 @@ assign alu_src_unused_pack = {
     reset,
     inst_add_w, inst_sub_w, inst_bne, inst_slt, inst_sltu, inst_and, inst_or, inst_nor, inst_xor,
     inst_sll_w, inst_srl_w, inst_sra_w,
-    inst_b, inst_beq, inst_blt, inst_bge, inst_bltu, inst_bgeu
+    inst_b, inst_beq, inst_blt, inst_bge, inst_bltu, inst_bgeu,inst_csrrd, inst_csrwr, inst_csrxchg, 
+    inst_ertn, inst_syscall, inst_break, inst_rdcntvl_w, inst_rdcntvh_w, inst_rdcntid
 };
 
 

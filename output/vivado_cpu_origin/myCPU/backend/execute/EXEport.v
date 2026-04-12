@@ -20,6 +20,19 @@ module EXEport (
     input wire  [31:0]            mem_wdata_in, //store 写数据
     input wire  [`MEM_OP_NUM-1:0] mem_op_in,
     input wire                    wb_op_in,
+    input wire [`CSR_OP_NUM-1:0] csr_op_in,
+    input wire [11:0]            csr_num_in,
+    input wire [31:0]            csr_wmask_in,
+    input wire [31:0]            csr_wvalue_in,
+    input wire [`WB_SRC_NUM-1:0] wb_src_op_in,
+    input wire                   ertn_op_in,
+    input wire                   sys_valid_in,
+    input wire                   brk_valid_in,
+    input wire                   ine_valid_in,
+    input wire                   adef_valid_in, // 送 ID_EXE_reg 的指令地址未对齐异常信号
+    input wire                   int_valid_in,  // 送 ID_EXE_reg 的中断有效信号
+    input wire                   exception_valid_in, // 送 ID_EXE_reg 的指令异常
+    input wire [31:0]            wb_vaddr_in,   // 送 ID_EXE_reg 的访存虚地址（目前仅 adef_valid 时有效，用于数据异常处理模块）
 
     output wire                   readyGo,
     output wire                   allowIn,
@@ -39,7 +52,20 @@ module EXEport (
     output wire [31:0]            data_raddr_from_EXE,
     output wire [31:0]            data_waddr_from_EXE,
     output wire [31:0]            data_wdata_from_EXE,
-    output wire [ 3:0]            data_wbyte_en_from_EXE
+    output wire [ 3:0]            data_wbyte_en_from_EXE,
+    output wire [`CSR_OP_NUM-1:0] csr_op_out,
+    output wire [11:0]            csr_num_out,
+    output wire [31:0]            csr_wmask_out,
+    output wire [31:0]            csr_wvalue_out,
+    output wire [`WB_SRC_NUM-1:0] wb_src_op_out,
+    output wire                   ertn_op_out,
+    output wire                   sys_valid_out,
+    output wire                   brk_valid_out,
+    output wire                   ine_valid_out,
+    output wire                   adef_valid_out,    // 送 MEM 的指令地址未对齐异常信号
+    output wire                   int_valid_out,     // 送 MEM 的中断有效信号
+    output wire                   exception_valid_out, // 送 MEM 的指令异常有效信号（非法指令、系统调用、断点等）
+    output wire [31:0]            wb_vaddr_out // 从 CSR 读出的数据，送回 EXE 用于计算（例如 CSRRD）或转发到 MEM（例如 CSRRD、异常处理等）
 );
 
 wire [31:0] alu_result_w;           // ALU 组合结果

@@ -11,6 +11,7 @@ module bram_data_stream_controller(
     input wire         data_re_in_from_EXE,  // MEM 发起读
 
     input wire [31:0]  pc_in_from_IF,
+    input wire         adef_valid_in_from_IF, //地址未对齐异常信号，IF 用于判断指令地址错误
     input wire [31:0]  data_raddr_from_EXE,
     input wire [31:0]  data_waddr_from_EXE,
     input wire [31:0]  data_wdata_from_EXE,
@@ -34,6 +35,7 @@ module bram_data_stream_controller(
     output wire [ 3:0] data_wbyte_en_2bram,
 
     output wire [31:0] inst_rdata_2IF,
+    output wire        adef_valid_2IF, // 指令地址未对齐异常信号，送 IF 用于判断指令地址错误
     output wire [31:0] data_rdata_2MEM,
 
     output reg         data_w_wrong,
@@ -61,6 +63,7 @@ reg  data_w_pending;
 reg  data_r_pending;
 reg  data_r_complete_d;              // 读完成脉冲打一拍，就是读完成信号
 reg  [31:0] inst_pc_pending;         // 与 inst_rdata 对齐的 PC，pending就是“待定的、等待的”意思
+reg  inst_adef_pending;             // 指令地址未对齐待定，与 inst_pc_pending 配合用于判断指令地址错误
 
 assign inst_re_out_2bram = inst_re_in_from_IF;
 assign data_re_out_2bram = data_re_in_from_EXE | (data_re_req_d1 ^ data_re_req_d1);
@@ -75,6 +78,7 @@ assign data_wdata_2bram = data_wdata_from_EXE;
 assign inst_rdata_2IF  = inst_rdata_from_bram;
 assign data_rdata_2MEM = data_rdata_from_bram;
 assign pc_out_2ID      = inst_pc_pending;
+assign adef_valid_2IF  = inst_adef_pending;
 
 always @ (posedge clk) begin
     if (reset) begin
@@ -85,6 +89,7 @@ always @ (posedge clk) begin
         data_r_complete_d <= 1'b0;
         data_r_complete   <= 1'b0;
         inst_pc_pending   <= 32'b0;
+        inst_adef_pending <= 1'b0;
     end
     else begin
         data_we_req_d1 <= data_we_in_from_EXE;
@@ -92,6 +97,7 @@ always @ (posedge clk) begin
         if (inst_re_in_from_IF) begin
             // 对齐当前发起的取指请求，供下一拍返回的指令使用
             inst_pc_pending <= pc_in_from_IF;
+            inst_adef_pending <= adef_valid_in_from_IF;
         end
 
         // 每个请求仅登记一次 pending（等待中），等待对应返回后清除
