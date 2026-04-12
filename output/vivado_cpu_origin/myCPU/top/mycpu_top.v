@@ -91,6 +91,10 @@ module mycpu_top(
     wire [31:0] data_rdata_2MEM;
     wire        inst_r_complete;
     wire [31:0] pc_2ID_from_bram;
+    wire        adef_valid_2IF;
+    wire        data_w_wrong;
+    wire        data_r_wrong;
+    wire        inst_r_wrong;
 
     // 前递选择信号（来自 conflict_handle -> forward_deliver）
     wire FD_EXE_2rs1_sig;
@@ -143,6 +147,10 @@ module mycpu_top(
     wire [31:0] inst_fromIF;              // IF 输出指令（对齐PC）
     wire [31:0] pc_fromIF;                // IF 输出 PC（对齐inst）
     wire        adef_valid_req_fromIF;
+    wire        if_adef_to_ifid;          // IF输出到IF_ID_reg的地址未对齐异常信号ADEF
+    wire        if_exception_to_ifid;     // IF输出到IF_ID_reg的异常有效信号EXCEPTION
+    wire        adef_ifid_to_id;          // IF_ID_reg输出到ID的地址未对齐异常信号ADEF
+    wire        exception_ifid_to_id;     // IF_ID_reg输出到ID的异常有效信号EXCEPTION
 
     wire        IF_valid;                 // IF 阶段有效位（controller 输出）
     wire        IF_ID_reg_valid;          // IF_ID_reg 输入 valid
@@ -163,25 +171,31 @@ module mycpu_top(
         .allowIn            (IF_allowIn),
         .pc_req_out         (pc_2ram_data_controller),    // 发往bram_data_stream_controller的请求 PC
         .inst_out           (inst_fromIF),                // 送 IF_ID_reg 的指令
-        .pc_inst_out        (pc_fromIF),                   // 送 IF_ID_reg 的 PC
-        .adef_valid_req_out (adef_valid_req_fromIF),         // 送 BRAM 的地址未对齐异常请求信号
-        .adef_valid_in      (adef_valid_2IF)
-    );          
+        .pc_inst_out        (pc_fromIF),
+        .adef_valid_req_out (adef_valid_req_fromIF),
+        .adef_valid_in      (adef_valid_2IF),
+        .adef_valid_out     (if_adef_to_ifid),
+        .exception_valid    (if_exception_to_ifid)
+    );
 
     wire [31:0] inst_2ID;        // IF_ID_reg 输出到 ID 的指令
     wire [31:0] pc_2ID;          // IF_ID_reg 输出到 ID 的 PC
 
     IF_ID_reg u_IF_ID_reg(
-        .clk     (clk),
-        .reset   (reset),
-        .cancel_sig(cancel_sig),
-        .valid   (IF_ID_reg_valid),
-        .readyGo (IF_readyGo),
-        .allowIn (IF_ID_reg_allowIn),
-        .pc_in   (pc_fromIF),
-        .inst_in (inst_fromIF),
-        .inst_out(inst_2ID),
-        .pc_out  (pc_2ID)
+        .clk                   (clk),
+        .reset                 (reset),
+        .cancel_sig            (cancel_sig),
+        .valid                 (IF_ID_reg_valid),
+        .readyGo               (IF_readyGo),
+        .allowIn               (IF_ID_reg_allowIn),
+        .pc_in                 (pc_fromIF),
+        .inst_in               (inst_fromIF),
+        .adef_valid_in         (if_adef_to_ifid),
+        .exception_valid_in    (if_exception_to_ifid),
+        .inst_out              (inst_2ID),
+        .pc_out                (pc_2ID),
+        .adef_valid_out        (adef_ifid_to_id),
+        .exception_valid_out   (exception_ifid_to_id)
     );
 
     //------------------------------------------------------------------
@@ -219,6 +233,9 @@ module mycpu_top(
         .stall      (stall),
         .inst       (inst_2ID),
         .pc_in      (pc_2ID),
+        .adef_valid_in      (adef_ifid_to_id),
+        .has_int            (csr_has_int),
+        .exception_valid_in (exception_ifid_to_id),
         .src1_rdata (ID_src1_rdata),
         .src2_rdata (ID_src2_rdata),
         .allowIn    (ID_allowIn),
@@ -655,57 +672,7 @@ module mycpu_top(
         .WB_valid           (WB_valid)
     );
 
-    // BRAM 数据交互：
-    // - IF 连续发起读请求（pc1）；
-    // - 下一拍返回上一拍请求对应的指令与 PC（pc2）。
-    wire data_w_wrong;      // 数据写异常（当前未参与流水控制，仅保留观测）
-    wire data_r_wrong;      // 数据读异常（当前未参与流水控制，仅保留观测）
-    wire inst_r_wrong;      // 取指异常  （当前未参与流水控制，仅保留观测）
-    bram_data_stream_controller u_bram_data_stream_controller(
-        .clk                 (clk),                    // 时钟
-        .reset               (reset),                  // 同步复位
-        .inst_re_in_from_IF  (IF_valid & IF_ID_reg_allowIn), // 仅在 IF/ID 可接收时发取指，避免停顿期错位/跳读
-        .data_we_in_from_EXE (data_we_issue_st),       // MEM 发起数据写请求
-        .data_re_in_from_EXE (data_re_issue_ld),
-        .pc_in_from_IF       (pc_2ram_data_controller),// IF 本拍请求 PC
-        .data_raddr_from_EXE (em_data_raddr),          // MEM 读地址
-        .data_waddr_from_EXE (em_data_waddr),          // MEM 写地址
-        .data_wdata_from_EXE (em_data_wdata),          // MEM 写数据
-        .data_byte_en_from_EXE (em_data_wbyte_en),     // 使用 EXE/MEM 锁存后的字节使能
-        .inst_rdata_from_bram(inst_sram_rdata),        // BRAM 返回指令数据
-        .data_rdata_from_bram(data_sram_rdata),        // BRAM 返回数据读数据
-        // 下列 *_in_from_bram 端口在当前实现中未使用，先常 1 保持接口兼容
-        .inst_re_in_from_bram(1'b1),
-        .data_we_in_from_bram(1'b1),
-        .data_re_in_from_bram(1'b1),
-        .inst_re_out_2bram   (bram_inst_re),           // 发往 BRAM 的指令读使能
-        .data_we_out_2bram   (bram_data_we),           // 发往 BRAM 的数据写使能
-        .data_re_out_2bram   (bram_data_re),           // 发往 BRAM 的数据读使能
-        .inst_raddr_2bram    (bram_inst_addr),         // 发往 BRAM 的指令地址
-        .data_raddr_2bram    (bram_data_raddr),        // 发往 BRAM 的数据读地址
-        .data_waddr_2bram    (bram_data_waddr),        // 发往 BRAM 的数据写地址
-        .data_wdata_2bram    (bram_data_wdata),        // 发往 BRAM 的数据写数据
-        .data_wbyte_en_2bram (bram_data_wbyte_en),     // 发往 BRAM 的数据写使能（按字）
-        .inst_rdata_2IF      (inst_rdata_2IF),         // IF 使用的返回指令
-        .data_rdata_2MEM     (data_rdata_2MEM),        // MEM 使用的数据读结果
-        .data_w_wrong        (data_w_wrong),           // 数据写异常
-        .data_r_wrong        (data_r_wrong),           // 数据读异常
-        .inst_r_wrong        (inst_r_wrong),           // 取指异常
-        .data_w_complete     (data_w_complete),        // 数据写完成
-        .data_r_complete     (data_r_complete),        // 数据读完成
-        .inst_r_complete     (inst_r_complete),        // 取指完成（对应上一拍请求）
-        .pc_out_2ID          (pc_2ID_from_bram),
-        .adef_valid_in_from_IF (adef_valid_req_fromIF),
-        .adef_valid_2IF      (adef_valid_in)
-
-    // SRAM_AXI_bridge数据交互：
-    // IF 在允许时发起取指请求；
-    // 指令与PC 由桥在 AR/R 完成后 通过 inst_r_complete / inst_rdata_2IF / pc_out_2ID 交回
-    // 会有多拍延迟
-    wire data_w_wrong;
-    wire data_r_wrong;
-    wire inst_r_wrong;
-
+    // sram_AXI_bridge：IF 发起取指 / MEM 访存 → AXI；指令与 PC 在 AR/R 完成后交回（多拍延迟）
     sram_AXI_bridge u_sram_AXI_bridge (
         .clk                  (clk),
         .reset                (reset),
@@ -717,7 +684,9 @@ module mycpu_top(
         .data_waddr_from_EXE  (em_data_waddr),
         .data_wdata_from_EXE  (em_data_wdata),
         .data_byte_en_from_EXE(em_data_wbyte_en),
+        .adef_valid_in_from_IF(adef_valid_req_fromIF),
         .inst_rdata_2IF       (inst_rdata_2IF),
+        .adef_valid_2IF       (adef_valid_2IF),
         .data_rdata_2MEM      (data_rdata_2MEM),
         .data_w_wrong         (data_w_wrong),
         .data_r_wrong         (data_r_wrong),
@@ -763,6 +732,7 @@ module mycpu_top(
         .bvalid               (bvalid),
         .bready               (bready)
     );
+
 
     // CSR / 异常提交：WB 异常与 ERTN 等信号后续从译码/提交逻辑接入；现默认无异常无 ERTN
     csr_exception_commit_handler u_csr_exception_commit_handler (
