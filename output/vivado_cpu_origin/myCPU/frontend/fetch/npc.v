@@ -1,7 +1,8 @@
 `include "../../common/cpu_defs.vh"
 
 // ============================================================
-// npc：下一 PC 组合逻辑。br_taken 时取 br_target；block_sig 时保持 pc；否则 pc+4。
+// npc：下一 PC 组合逻辑。csr_redirect 非 NONE 时最高优先级取 csr_next_pc；否则 br_taken 取 br_target；
+// block_sig 时保持 pc；否则 pc+4。
 // seq_pc 中加项恒 0，用于读全 br_op/valid 位宽（Lint）。解决 run linter 报错
 // 内部完成「分支用 EXE PC、顺序用取指 PC」的多路选择、pc_stall 与 br_target/seq 计算。
 // ============================================================
@@ -15,27 +16,34 @@ module npc(
     input  wire [31:0]            pc_branch_base,    // 分支指令 PC（来自 EXE，用于 rel 分支与 seq 上下文）
     input  wire                   block_sig,         // 流水阻塞，保持 PC 
     input  wire                   IF_ID_reg_allowIn, // IF/ID 寄存器允许接收
+    input  wire [31:0]            csr_next_pc,       // 异常的EENTRY 或 ERTN的返回地址，判断是这两个的哪个，看csr_redirect
+    input  wire [1:0]             csr_redirect,      // 区分csr_next_pc类型的标志位信号，给npc仲裁，类型有`CSR_REDIRECT_EX、`CSR_REDIRECT_ERTN、`CSR_REDIRECT_NONE，具体看宏定义
     output reg  [31:0]            nextpc,            // 下一拍 PC 输出（送 PC 寄存器）
     output wire                   pc_stall           // 送 pc 寄存器：阻塞且本拍不跳转时保持
 );
 
 wire        br_taken_safe; // 分支成立且不是X
+wire        csr_taken_safe; // CSR 异常/ERTN 重定向
 wire [31:0] pc_cur; // 当前 PC，分支用 EXE PC，顺序用取指 PC。cur就是current
 wire [31:0] br_target;
 wire [31:0] seq_pc;
 
+assign csr_taken_safe = (csr_redirect != `CSR_REDIRECT_NONE);
 assign br_taken_safe = (br_taken == 1'b1);
 assign pc_cur        = br_taken_safe ? pc_branch_base : pc_fetch;
 
-assign pc_stall = (block_sig && !br_taken_safe)
-                || ((!IF_ID_reg_allowIn) && (!br_taken_safe));
+assign pc_stall = (block_sig && !br_taken_safe && !csr_taken_safe)
+                || ((!IF_ID_reg_allowIn) && (!br_taken_safe) && (!csr_taken_safe));
 
 assign seq_pc = pc_cur + 32'h4 + {{31{1'b0}}, ((|br_op) | IF_valid) & 1'b0};
 assign br_target = br_op[`BR_OP_JIRL] ? (rj_value + br_offs) : (pc_cur + br_offs);
 
+// 注意这是组合逻辑喔!
 always @(*) begin
     nextpc = seq_pc;
-    if (br_taken == 1'b1)
+    if (csr_taken_safe)
+        nextpc = csr_next_pc; 
+    else if (br_taken == 1'b1)
         nextpc = br_target;
     else if (block_sig == 1'b1)
         nextpc = pc_cur;

@@ -4,23 +4,14 @@
 // 功能：
 // - 组织 IF/ID/EXE/MEM/WB 五级流水，连接各级端口模块与级间流水寄存器。
 // - 统一管理阻塞与冲刷：RAW 冲突阻塞 + 分支重定向冲刷。
-// - 内部仍使用类 SRAM 信号（inst_sram_* / data_sram_*）连 bram_data_stream_controller；
-//   SoC 侧为 AXI4 主端口，与 soc_lite_top 实例化对齐；AXI 与内部 SRAM 的桥接待实现。
+// - 流水与 sram_AXI_bridge 相连（类 SRAM 握手时序），桥接为单 AXI4 主端口接 SoC。
 //
 // 端口（与 output/vivado_cpu_origin/soc_verify/soc_axi/rtl/soc_lite_top.v 中 u_cpu 一致）：
 // - aclk / aresetn：CPU 时钟与低有效异步复位（内部同步为高有效 reset）。
-// - AXI4 Master：AR/R 读通道、AW/W/B 写通道；未实现时输出为总线空闲态，输入仅作占位。
+// - AXI4 Master：AR/R、AW/W/B 由 sram_AXI_bridge 驱动。
 // - debug_wb_*：WB 提交调试（与 func 测试参考 trace 对齐）。
 //
-// 【后续如何把 AXI 接上流水线】
-// 1) 在片内例化「AXI4 ↔ 类 SRAM」桥（或分开的取指/访存两个主端口再经互联），用内部
-//    wire inst_sram_* / data_sram_* 驱动桥的 SRAM 侧，由桥的 AXI 侧驱动本模块的
-//    ar*/r* / aw*/w*/b* 端口，与 SoC 的 cpu_* 总线对接。
-// 2) 取指：将 IF 对 inst_sram 的读请求翻译为 AR（建议固定 arsize=字、突发长度按需求），
-//    返回的 rdata 在 rvalid&&rready 且 rid/事务匹配时送入 inst_sram_rdata 的 MUX。
-// 3) 访存 load/store：MEM 对 data_sram 的读写翻译为读事务（AR/R）或写事务（AW/W/B），
-//    注意与取指仲裁、写后读 hazard；rlast 与突发计数需与 arlen/awlen 一致。
-// 4) rready/bready：可按 outstanding 与 FIFO 深度拉低流控；空闲占位时常接 1 以免从机挂死。
+// AXI 由 sram_AXI_bridge 驱动（单次突发、arid/awid 区分取指与数据）。
 // ============================================================
 `include "../common/cpu_defs.vh"
 
@@ -28,7 +19,7 @@ module mycpu_top(
     input  wire        aclk,
     input  wire        aresetn,
 
-    // AR —— 读地址（Master → Slave）；未实现时保持 valid=0
+    // AR —— 读地址（Master → Slave）
     output wire [3:0]  arid,
     output wire [31:0] araddr,
     output wire [7:0]  arlen,
@@ -84,63 +75,9 @@ module mycpu_top(
     wire clk    = aclk;
     wire resetn = aresetn;
 
-    // 同步高有效复位（ resetn 翻转得到）
+    // 同步高有效复位（resetn 翻转得到）
     reg reset;
     always @(posedge clk) reset <= ~resetn;
-
-    // ------------------------------------------------------------------
-    // 原顶层「类 SRAM」端口改为内部线网：由后续 AXI 桥接驱动 rdata/wdata 路径时再接入。
-    // 当前占位：读数据恒 0，仅保证可综合、仿真不悬空；接上 AXI 后请改为 MUX/寄存返回数据。
-    // ------------------------------------------------------------------
-    wire        inst_sram_en;
-    wire [3:0]  inst_sram_we;
-    wire [31:0] inst_sram_addr;
-    wire [31:0] inst_sram_wdata;
-    wire [31:0] inst_sram_rdata;
-
-    wire        data_sram_en;
-    wire [3:0]  data_sram_we;
-    wire [31:0] data_sram_addr;
-    wire [31:0] data_sram_wdata;
-    wire [31:0] data_sram_rdata;
-
-    assign inst_sram_rdata  = 32'd0;   // TODO: 接 AXI R 通道译码后的取指返回字
-    assign data_sram_rdata  = 32'd0;   // TODO: 接 AXI R 通道译码后的 load 返回字
-
-    // ------------------------------------------------------------------
-    // AXI Master 占位：总线空闲（不发起任何事务）。实现桥接后改为由 FSM/axi_master 驱动。
-    // arready/awready/wready：由 SoC slave（如 axi_wrap→bridge）驱动，此处接入即可参与握手。
-    // rid/rdata/rvalid/rlast、bid/bresp/bvalid：从机返回；桥接完成后将 rdata 分流到上方 SRAM 读。
-    // ------------------------------------------------------------------
-    assign arid     = 4'd0;
-    assign araddr   = 32'd0;
-    assign arlen    = 8'd0;
-    assign arsize   = 3'b010;    // 4B，占位；真实取指/访存按需求设
-    assign arburst  = 2'b01;    // INCR
-    assign arlock   = 2'd0;
-    assign arcache  = 4'd0;
-    assign arprot   = 3'd0;
-    assign arvalid  = 1'b0;
-
-    assign rready   = 1'b1;     // 占位：可接收读数据；实现 OoO/outstanding 时再细调
-
-    assign awid     = 4'd0;
-    assign awaddr   = 32'd0;
-    assign awlen    = 8'd0;
-    assign awsize   = 3'b010;
-    assign awburst  = 2'b01;
-    assign awlock   = 2'd0;
-    assign awcache  = 4'd0;
-    assign awprot   = 3'd0;
-    assign awvalid  = 1'b0;
-
-    assign wid      = 4'd0;
-    assign wdata    = 32'd0;
-    assign wstrb    = 4'd0;
-    assign wlast    = 1'b0;
-    assign wvalid   = 1'b0;
-
-    assign bready   = 1'b1;     // 占位：可接收写响应
 
     // 顶层保留全局 valid（当前不直接参与流水控制，也就是现在还没用到）
     reg valid;
@@ -149,24 +86,11 @@ module mycpu_top(
         else       valid <= 1'b1;
     end
 
-    //------------------------------------------------------------------
-    // IF
-    //------------------------------------------------------------------
-    wire [31:0] pc;              // 当前取指 PC（pc 模块输出）
-    wire [31:0] nextpc;          // npc 计算得到的下一拍 PC
-    wire [31:0] pc_exe;          // EXE 级当前指令 PC（用于分支重定向）
-
-    wire        stall;           // 顶层统一阻塞信号（当前等价于 block_sig）
-    wire        pc_stall;        // 由 npc 输出：阻塞且本拍不跳转、或 IF/ID 不可收且非跳转时保持 PC
-    wire        hit_exe_rs1;     // 执行阶段冲突1
-    wire        hit_mem_rs1;     // 访存阶段冲突1
-    wire        hit_wb_rs1;      // 写回阶段冲突1
-    wire        hit_exe_rs2;     // 执行阶段冲突2
-    wire        hit_mem_rs2;     // 访存阶段冲突2
-    wire        hit_wb_rs2;      // 写回阶段冲突2
-    wire        RAW_hazard;      // conflict_handle 给出的 RAW 冲突检测结果
-    wire        block_sig;       // 送入 controller/npc 的阻塞主信号
-    wire        cancel_sig;      // 分支冲刷信号（清 IF/ID、ID/EXE）
+    // sram_AXI_bridge：IF/MEM ↔ sram-AXI
+    wire [31:0] inst_rdata_2IF;
+    wire [31:0] data_rdata_2MEM;
+    wire        inst_r_complete;
+    wire [31:0] pc_2ID_from_bram;
 
     // 前递选择信号（来自 conflict_handle -> forward_deliver）
     wire FD_EXE_2rs1_sig;
@@ -176,6 +100,34 @@ module mycpu_top(
     wire FD_MEM_2rs2_sig;
     wire FD_WB_2rs2_sig;
 
+    // 流水线控制信号:阻塞、冲刷
+    wire        stall;           // 顶层统一阻塞信号（当前等价于 block_sig）
+    wire        pc_stall;        // 由 npc 输出：阻塞且本拍不跳转、或 IF/ID 不可收且非跳转时保持 PC
+    wire        hit_exe_rs1;     // 执行阶段冲突1
+    wire        hit_mem_rs1;     // 访存阶段冲突1
+    wire        hit_wb_rs1;      // 写回阶段冲突1
+    wire        hit_exe_rs2;     // 执行阶段冲突2
+    wire        hit_mem_rs2;     // 访存阶段冲突2
+    wire        hit_wb_rs2;      // 写回阶段冲突2
+    wire        RAW_hazard;      // conflict_handle 给出的 RAW 冲突检测结果
+    wire        block_sig;       // 送入 pipeline_controller/npc 的阻塞主信号
+    wire        cancel_sig;      // 冲刷：分支命中或 csr_flush（conflict_handle 内相或）
+
+    // CSR相关信号
+    wire        csr_flush_pipeline;   // 异常或 ERTN（csr_exception_commit_handler → conflict_handle.csr_flush）
+    wire [31:0] csr_next_pc;          // CSR → npc：EENTRY 或 ERTN的返回地址
+    wire [1:0]  csr_redirect;         // CSR → npc：区分csr_next_pc类型的标志位信号，给npc仲裁，类型有`CSR_REDIRECT_EX、`CSR_REDIRECT_ERTN、`CSR_REDIRECT_NONE，具体看宏定义
+    wire        csr_has_int;          // CSR 中断附着（后续接 ID）
+    wire [31:0] csr_rvalue_unused;    // CSR 读返回值（后续接 WB csr 读）
+
+
+    //------------------------------------------------------------------
+    // IF
+    //------------------------------------------------------------------
+    wire [31:0] pc;              // 当前取指 PC（pc 模块输出）
+    wire [31:0] nextpc;          // npc 计算得到的下一拍 PC
+    wire [31:0] pc_exe;          // EXE 级当前指令 PC（用于分支重定向）
+
     pc u_pc(
         .clk    (clk),
         .reset  (reset),
@@ -183,20 +135,6 @@ module mycpu_top(
         .nextpc (nextpc),
         .pc     (pc)
     );
-
-    // bram_data_stream_controller 相关信号（统一管理 IF/MEM 访问 BRAM）
-    wire        bram_inst_re;
-    wire        bram_data_we;
-    wire        bram_data_re;
-    wire [31:0] bram_inst_addr;
-    wire [31:0] bram_data_raddr;
-    wire [31:0] bram_data_waddr;
-    wire [31:0] bram_data_wdata;
-    wire [ 3:0] bram_data_wbyte_en;    // 数据 BRAM 字节写使能
-    wire [31:0] inst_rdata_2IF;
-    wire [31:0] data_rdata_2MEM;
-    wire        inst_r_complete;
-    wire [31:0] pc_2ID_from_bram;
 
     wire        IF_readyGo;      // IF 阶段就绪
     wire        IF_allowIn;      // IF 阶段允许接收（当前 IFport 常 1）
@@ -222,9 +160,9 @@ module mycpu_top(
         .downstream_allowIn (IF_ID_reg_allowIn),
         .readyGo            (IF_readyGo),
         .allowIn            (IF_allowIn),
-        .pc_req_out         (pc_2ram_data_controller),    // 发往bram_data_stream_controller的请求 PC
-        .inst_out           (inst_fromIF),                // 送 IF_ID_reg 的指令
-        .pc_inst_out        (pc_fromIF)                   // 送 IF_ID_reg 的 PC
+        .pc_req_out         (pc_2ram_data_controller), // 发往sram_AXI_bridge的请求 PC
+        .inst_out           (inst_fromIF),             // 送 IF_ID_reg 的指令
+        .pc_inst_out        (pc_fromIF)                // 送 IF_ID_reg 的 PC
     );          
 
     wire [31:0] inst_2ID;        // IF_ID_reg 输出到 ID 的指令
@@ -365,6 +303,8 @@ module mycpu_top(
         .pc_branch_base    (pc_exe),
         .block_sig         (block_sig),
         .IF_ID_reg_allowIn (IF_ID_reg_allowIn),
+        .csr_next_pc       (csr_next_pc),
+        .csr_redirect      (csr_redirect),
         .nextpc            (nextpc),
         .pc_stall          (pc_stall)
     );
@@ -475,9 +415,6 @@ module mycpu_top(
     wire [31:0] mem_pc_2WB;       // MEM 输出到 WB 的 PC
     wire [4:0]  mem_wb_regaddr;   // MEM 输出到 WB 的目的寄存器号
     wire        mem_wb_op;        // MEM 输出到 WB 的写回使能
-    wire [31:0] mem_dsram_wdata;  // 与 data_sram_* 对齐的观测别名（用于 Lint/调试）
-    wire [31:0] mem_dsram_addr;
-    wire        mem_dsram_we;
 
     wire data_w_complete;   // 数据写完成脉冲
     wire data_r_complete;   // 数据读完成脉冲
@@ -621,7 +558,7 @@ module mycpu_top(
 
 
     //------------------------------------------------------------------
-    // 冲突检测与处理、前递、流水线控制器、bram数据交互
+    // 冲突检测与处理、前递、流水线控制器、sram_AXI_bridge、CSR/异常提交
     //------------------------------------------------------------------
     conflict_detector u_conflict_detector(
         .id_rs1        (rf_raddr1),
@@ -658,6 +595,7 @@ module mycpu_top(
         .exe_stage_is_load(exe_stage_is_load),
         .mem_stage_is_load(mem_stage_is_load),
         .br_taken_comb(br_taken_q),
+        .csr_flush   (csr_flush_pipeline),
         .RAW_hazard  (RAW_hazard),
         .block_sig   (block_sig),
         .stall       (stall),
@@ -714,74 +652,100 @@ module mycpu_top(
         .WB_valid           (WB_valid)
     );
 
-    // BRAM 数据交互：
-    // - IF 连续发起读请求（pc1）；
-    // - 下一拍返回上一拍请求对应的指令与 PC（pc2）。
-    wire data_w_wrong;      // 数据写异常（当前未参与流水控制，仅保留观测）
-    wire data_r_wrong;      // 数据读异常（当前未参与流水控制，仅保留观测）
-    wire inst_r_wrong;      // 取指异常  （当前未参与流水控制，仅保留观测）
-    bram_data_stream_controller u_bram_data_stream_controller(
-        .clk                 (clk),                    // 时钟
-        .reset               (reset),                  // 同步复位
-        .inst_re_in_from_IF  (IF_valid & IF_ID_reg_allowIn), // 仅在 IF/ID 可接收时发取指，避免停顿期错位/跳读
-        .data_we_in_from_EXE (data_we_issue_st),       // MEM 发起数据写请求
-        .data_re_in_from_EXE (data_re_issue_ld),
-        .pc_in_from_IF       (pc_2ram_data_controller),// IF 本拍请求 PC
-        .data_raddr_from_EXE (em_data_raddr),          // MEM 读地址
-        .data_waddr_from_EXE (em_data_waddr),          // MEM 写地址
-        .data_wdata_from_EXE (em_data_wdata),          // MEM 写数据
-        .data_byte_en_from_EXE (em_data_wbyte_en),     // 使用 EXE/MEM 锁存后的字节使能
-        .inst_rdata_from_bram(inst_sram_rdata),        // BRAM 返回指令数据
-        .data_rdata_from_bram(data_sram_rdata),        // BRAM 返回数据读数据
-        // 下列 *_in_from_bram 端口在当前实现中未使用，先常 1 保持接口兼容
-        .inst_re_in_from_bram(1'b1),
-        .data_we_in_from_bram(1'b1),
-        .data_re_in_from_bram(1'b1),
-        .inst_re_out_2bram   (bram_inst_re),           // 发往 BRAM 的指令读使能
-        .data_we_out_2bram   (bram_data_we),           // 发往 BRAM 的数据写使能
-        .data_re_out_2bram   (bram_data_re),           // 发往 BRAM 的数据读使能
-        .inst_raddr_2bram    (bram_inst_addr),         // 发往 BRAM 的指令地址
-        .data_raddr_2bram    (bram_data_raddr),        // 发往 BRAM 的数据读地址
-        .data_waddr_2bram    (bram_data_waddr),        // 发往 BRAM 的数据写地址
-        .data_wdata_2bram    (bram_data_wdata),        // 发往 BRAM 的数据写数据
-        .data_wbyte_en_2bram (bram_data_wbyte_en),     // 发往 BRAM 的数据写使能（按字）
-        .inst_rdata_2IF      (inst_rdata_2IF),         // IF 使用的返回指令
-        .data_rdata_2MEM     (data_rdata_2MEM),        // MEM 使用的数据读结果
-        .data_w_wrong        (data_w_wrong),           // 数据写异常
-        .data_r_wrong        (data_r_wrong),           // 数据读异常
-        .inst_r_wrong        (inst_r_wrong),           // 取指异常
-        .data_w_complete     (data_w_complete),        // 数据写完成
-        .data_r_complete     (data_r_complete),        // 数据读完成
-        .inst_r_complete     (inst_r_complete),        // 取指完成（对应上一拍请求）
-        .pc_out_2ID          (pc_2ID_from_bram)        // 返回 PC（pc2，对齐返回指令）
+
+    // SRAM_AXI_bridge数据交互：
+    // IF 在允许时发起取指请求；
+    // 指令与PC 由桥在 AR/R 完成后 通过 inst_r_complete / inst_rdata_2IF / pc_out_2ID 交回
+    // 会有多拍延迟
+    wire data_w_wrong;
+    wire data_r_wrong;
+    wire inst_r_wrong;
+
+    sram_AXI_bridge u_sram_AXI_bridge (
+        .clk                  (clk),
+        .reset                (reset),
+        .inst_re_in_from_IF   (IF_valid & IF_ID_reg_allowIn),
+        .data_we_in_from_EXE  (data_we_issue_st),
+        .data_re_in_from_EXE  (data_re_issue_ld),
+        .pc_in_from_IF        (pc_2ram_data_controller),
+        .data_raddr_from_EXE  (em_data_raddr),
+        .data_waddr_from_EXE  (em_data_waddr),
+        .data_wdata_from_EXE  (em_data_wdata),
+        .data_byte_en_from_EXE(em_data_wbyte_en),
+        .inst_rdata_2IF       (inst_rdata_2IF),
+        .data_rdata_2MEM      (data_rdata_2MEM),
+        .data_w_wrong         (data_w_wrong),
+        .data_r_wrong         (data_r_wrong),
+        .inst_r_wrong         (inst_r_wrong),
+        .data_w_complete      (data_w_complete),
+        .data_r_complete      (data_r_complete),
+        .inst_r_complete      (inst_r_complete),
+        .pc_out_2ID           (pc_2ID_from_bram),
+        .arid                 (arid),
+        .araddr               (araddr),
+        .arlen                (arlen),
+        .arsize               (arsize),
+        .arburst              (arburst),
+        .arlock               (arlock),
+        .arcache              (arcache),
+        .arprot               (arprot),
+        .arvalid              (arvalid),
+        .arready              (arready),
+        .rid                  (rid),
+        .rdata                (rdata),
+        .rresp                (rresp),
+        .rlast                (rlast),
+        .rvalid               (rvalid),
+        .rready               (rready),
+        .awid                 (awid),
+        .awaddr               (awaddr),
+        .awlen                (awlen),
+        .awsize               (awsize),
+        .awburst              (awburst),
+        .awlock               (awlock),
+        .awcache              (awcache),
+        .awprot               (awprot),
+        .awvalid              (awvalid),
+        .awready              (awready),
+        .wid                  (wid),
+        .wdata                (wdata),
+        .wstrb                (wstrb),
+        .wlast                (wlast),
+        .wvalid               (wvalid),
+        .wready               (wready),
+        .bid                  (bid),
+        .bresp                (bresp),
+        .bvalid               (bvalid),
+        .bready               (bready)
     );
 
-
-    assign inst_sram_en    = bram_inst_re;
-    assign inst_sram_we    = 4'b0000;
-    assign inst_sram_addr  = bram_inst_addr;
-    assign inst_sram_wdata = 32'b0;
-
-    wire [1:0] mem_addr_lo = em_result[1:0];
-    wire [3:0] mem_store_we = em_mem_op[`MEM_OP_ST_W] ? 4'b1111 :
-                              em_mem_op[`MEM_OP_ST_H] ? (mem_addr_lo[1] ? 4'b1100 : 4'b0011) :
-                              em_mem_op[`MEM_OP_ST_B] ? (4'b0001 << mem_addr_lo) :
-                              4'b0000;
-    wire [31:0] mem_store_wdata = em_mem_op[`MEM_OP_ST_W] ? em_mem_wdata :
-                                  em_mem_op[`MEM_OP_ST_H] ? {2{em_mem_wdata[15:0]}} :
-                                  em_mem_op[`MEM_OP_ST_B] ? {4{em_mem_wdata[7:0]}} :
-                                  em_mem_wdata;
-
-    assign mem_dsram_addr  = bram_data_we ? bram_data_waddr : bram_data_raddr;
-    assign mem_dsram_wdata = bram_data_wdata;
-    assign mem_dsram_we    = bram_data_we;
-
-    assign data_sram_we    = bram_data_we ? bram_data_wbyte_en : 4'b0000; // 写使能按字
-    assign data_sram_addr  = mem_dsram_addr;
-    assign data_sram_wdata = mem_dsram_wdata;
-
-
-
+    // CSR / 异常提交：WB 异常与 ERTN 等信号后续从译码/提交逻辑接入；现默认无异常无 ERTN
+    csr_exception_commit_handler u_csr_exception_commit_handler (
+        .clk           (clk),
+        .reset         (reset),
+        .csr_num       (12'b0),
+        .csr_we        (1'b0),
+        .csr_wmask     (32'b0),
+        .csr_wvalue    (32'b0),
+        .hw_int_in     (8'b0),
+        .ipi_int_in    (1'b0),
+        .wb_valid      (WB_valid),
+        .wb_pc         (wb_pc),
+        .wb_is_ertn    (1'b0),
+        .wb_vaddr      (32'b0),
+        .wb_ex         (1'b0),
+        .INT_valid     (1'b0),
+        .ADEF_valid    (1'b0),
+        .ALE_valid     (1'b0),
+        .SYS_valid     (1'b0),
+        .BRK_valid     (1'b0),
+        .INE_valid     (1'b0),
+        .flush_pipeline (csr_flush_pipeline),
+        .csr_next_pc   (csr_next_pc),
+        .csr_redirect  (csr_redirect),
+        .has_int       (csr_has_int),
+        .csr_rvalue    (csr_rvalue_unused)
+    );
 
 
     //------------------------------------------------------------------
@@ -815,7 +779,8 @@ module mycpu_top(
     assign mycpu_lint_sink = valid | RAW_hazard | IF_allowIn
                             | data_r_wrong | data_w_wrong | inst_r_wrong
                             | data_re_from_EXE | data_we_from_EXE
-                            | mem_load_req_sent | (|mem_store_we) | (^mem_store_wdata);
-    assign data_sram_en = (bram_data_we | bram_data_re) | (mycpu_lint_sink ^ mycpu_lint_sink) | (mem_dsram_we ^ mem_dsram_we);
+                            | mem_load_req_sent 
+                            | arvalid | awvalid
+                            | csr_has_int | (|csr_rvalue_unused);
 
 endmodule
