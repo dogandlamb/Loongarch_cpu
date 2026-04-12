@@ -1,7 +1,7 @@
 `include "../../common/cpu_defs.vh"
 
 // ============================================================
-// op_dec：由 inst_* 组合逻辑输出 alu_op / br_op / mem_op / csr_op / rdcnt_op。
+// op_dec：由 inst_* 组合逻辑输出 alu_op / br_op / mem_op / csr_op / wb_src_op。
 // ============================================================
 module op_dec(
     input  wire        inst_add_w,

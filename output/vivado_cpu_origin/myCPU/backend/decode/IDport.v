@@ -432,7 +432,6 @@ always @(*) begin
         mem_wdata   = stall ? 32'd0 : src2_rdata;
         wb_op       = stall ? 1'b0  : wb_op_w;
         pc_out      = stall ? 32'd0 : pc_in;
-        adef_valid  = stall ? 1'b0 : adef_valid_in;
 
         // ori 专用路径：使用零扩展 ui12
         if (inst_ori) begin
@@ -450,106 +449,106 @@ always @(*) begin
             wb_src_op   = stall ?  {`WB_SRC_NUM{1'b0}} : wb_src_op_inner;
             pc_out      = stall ? 32'd0 : pc_in;
         end
-
+    end
+    else if (exception_valid_w) begin
+        src1_addr   = rf_raddr1_w;
+        src2_addr   = rf_raddr2_w;
+        wb_reg_addr = 5'b0;
+        alu_src1    = 32'b0;
+        alu_src2    = 32'b0;
+        br_imm      = 32'b0;
+        alu_op      = {`ALU_OP_NUM{1'b0}};
+        br_op       = {`BR_OP_NUM{1'b0}};
+                = {`MEM_OP_NUM{1'b0}};
+        csr_op      = {`CSR_OP_NUM{1'b0}};
+        csr_num     = 12'b0;
+        csr_wmask   = 32'b0;
+        csr_wvalue  = 32'b0;
+        mem_wdata   = 32'b0;
+        wb_op       = 1'b0;
+        wb_src_op   = {`WB_SRC_NUM{1'b0}};
+        pc_out      = stall ? 32'b0 : pc_in;
+        ertn_op     = 1'b0;
+        adef_valid  = adef_valid_in && !stall;
+        wb_vaddr    = adef_valid_in && !stall ? pc_in : 32'b0;
+        sys_valid   = inst_syscall && !stall;
+        brk_valid   = inst_break   && !stall;
+        ine_valid   = (!inst_known) && !stall;
+        int_valid   = has_int && !stall;
+        exception_valid = exception_valid_w && !stall;
+    end
         //2. CSR 三条统一处理 csrrd / csrwr / csrxchg
-        if (inst_csr_all) begin
-            src1_addr   = rf_raddr1_w;
-            src2_addr   = rf_raddr2_w;
-            wb_reg_addr = stall ? 5'd0 : inst[4:0];
-            alu_src1    = 32'b0;
-            alu_src2    = 32'b0;
-            br_imm      = 32'b0;
-            alu_op      = {`ALU_OP_NUM{1'b0}};
-            br_op       = {`BR_OP_NUM{1'b0}};
-            mem_op      = {`MEM_OP_NUM{1'b0}};
-            mem_wdata   = 32'b0;
-            wb_op       = stall ? 1'b0 : 1'b1;
-            wb_src_op   = stall ? {`WB_SRC_NUM{1'b0}} : wb_src_op_inner;
-            pc_out      = stall ? 32'b0 : pc_in;
-            csr_num     = stall ? 12'b0 : inst[23:10];
-            if (inst_csrrd) begin
-                csr_op      = stall ? {`CSR_OP_NUM{1'b0}} :
-                              ({`CSR_OP_NUM{1'b0}} | ({{(`CSR_OP_NUM-1){1'b0}},1'b1} << `CSR_OP_CSRRD));
-                csr_wmask   = 32'b0;
-                csr_wvalue  = 32'b0;
-            end
-            else if (inst_csrwr) begin
-                csr_op      = stall ? {`CSR_OP_NUM{1'b0}} :
-                              ({`CSR_OP_NUM{1'b0}} | ({{(`CSR_OP_NUM-1){1'b0}},1'b1} << `CSR_OP_CSRWR));
-                csr_wmask   = stall ? 32'b0 : 32'hffff_ffff;
-                csr_wvalue  = stall ? 32'b0 : src1_rdata;
-            end
-            else begin
-                csr_op      = stall ? {`CSR_OP_NUM{1'b0}} :
-                              ({`CSR_OP_NUM{1'b0}} | ({{(`CSR_OP_NUM-1){1'b0}},1'b1} << `CSR_OP_CSRXCHG));
-                csr_wmask   = stall ? 32'b0 : src1_rdata;
-                csr_wvalue  = stall ? 32'b0 : src2_rdata;
-            end
-        end
-
-        // rdcnt 三条统一处理 rdcntvl.w / rdcntvh.w / rdcntid
-        else if (inst_rdcnt_all) begin
-            src1_addr   = rf_raddr1_w;
-            src2_addr   = rf_raddr2_w;
-            wb_reg_addr = stall ? 5'd0 : inst[4:0];
-            alu_src1    = 32'b0;
-            alu_src2    = 32'b0;
-            br_imm      = 32'b0;
-            alu_op      = {`ALU_OP_NUM{1'b0}};
-            br_op       = {`BR_OP_NUM{1'b0}};
-            mem_op      = {`MEM_OP_NUM{1'b0}};
-            mem_wdata   = 32'b0;
-            wb_op       = stall ? 1'b0 : 1'b1;
-            wb_src_op   = stall ? {`WB_SRC_NUM{1'b0}} : wb_src_op_inner;
-            pc_out      = stall ? 32'b0 : pc_in;
-        end
--
-        // 异常处理 ertn 
-        else if (inst_ertn) begin
-            src1_addr   = rf_raddr1_w;
-            src2_addr   = rf_raddr2_w;
-            wb_reg_addr = 5'b0;
-            alu_src1    = 32'b0;
-            alu_src2    = 32'b0;
-            br_imm      = 32'b0;
-            alu_op      = {`ALU_OP_NUM{1'b0}};
-            br_op       = {`BR_OP_NUM{1'b0}};
-            mem_op      = {`MEM_OP_NUM{1'b0}};
-            mem_wdata   = 32'b0;
-            wb_op       = 1'b0;
-            wb_src_op   = {`WB_SRC_NUM{1'b0}};
-            pc_out      = stall ? 32'b0 : pc_in;
-            ertn_op     = !stall;
-        end
-        // 异常：SYS / BRK / INE
-        if (exception_valid_w) begin
-            src1_addr   = rf_raddr1_w;
-            src2_addr   = rf_raddr2_w;
-            wb_reg_addr = 5'b0;
-            alu_src1    = 32'b0;
-            alu_src2    = 32'b0;
-            br_imm      = 32'b0;
-            alu_op      = {`ALU_OP_NUM{1'b0}};
-            br_op       = {`BR_OP_NUM{1'b0}};
-            mem_op      = {`MEM_OP_NUM{1'b0}};
-            csr_op      = {`CSR_OP_NUM{1'b0}};
-            csr_num     = 12'b0;
+    else if (inst_csr_all) begin
+        src1_addr   = rf_raddr1_w;
+        src2_addr   = rf_raddr2_w;
+        wb_reg_addr = stall ? 5'd0 : inst[4:0];
+        alu_src1    = 32'b0;
+        alu_src2    = 32'b0;
+        br_imm      = 32'b0;
+        alu_op      = {`ALU_OP_NUM{1'b0}};
+        br_op       = {`BR_OP_NUM{1'b0}};
+        mem_op      = {`MEM_OP_NUM{1'b0}};
+        mem_wdata   = 32'b0;
+        wb_op       = stall ? 1'b0 : 1'b1;
+        wb_src_op   = stall ? {`WB_SRC_NUM{1'b0}} : wb_src_op_inner;
+        pc_out      = stall ? 32'b0 : pc_in;
+        csr_num     = stall ? 12'b0 : inst[23:10];
+        if (inst_csrrd) begin
+            csr_op      = stall ? {`CSR_OP_NUM{1'b0}} :
+                            ({`CSR_OP_NUM{1'b0}} | ({{(`CSR_OP_NUM-1){1'b0}},1'b1} << `CSR_OP_CSRRD));
             csr_wmask   = 32'b0;
             csr_wvalue  = 32'b0;
-            mem_wdata   = 32'b0;
-            wb_op       = 1'b0;
-            wb_src_op   = {`WB_SRC_NUM{1'b0}};
-            pc_out      = stall ? 32'b0 : pc_in;
-            ertn_op     = 1'b0;
-            adef_valid  = adef_valid_in && !stall;
-            wb_vaddr    = adef_valid_in && !stall ? pc_in : 32'b0;
-            sys_valid   = inst_syscall && !stall;
-            brk_valid   = inst_break   && !stall;
-            ine_valid   = (!inst_known) && !stall;
-            int_valid   = has_int && !stall;
-            exception_valid = exception_valid_w && !stall;
+        end
+        else if (inst_csrwr) begin
+            csr_op      = stall ? {`CSR_OP_NUM{1'b0}} :
+                            ({`CSR_OP_NUM{1'b0}} | ({{(`CSR_OP_NUM-1){1'b0}},1'b1} << `CSR_OP_CSRWR));
+            csr_wmask   = stall ? 32'b0 : 32'hffff_ffff;
+            csr_wvalue  = stall ? 32'b0 : src1_rdata;
+        end
+        else begin
+            csr_op      = stall ? {`CSR_OP_NUM{1'b0}} :
+                            ({`CSR_OP_NUM{1'b0}} | ({{(`CSR_OP_NUM-1){1'b0}},1'b1} << `CSR_OP_CSRXCHG));
+            csr_wmask   = stall ? 32'b0 : src1_rdata;
+            csr_wvalue  = stall ? 32'b0 : src2_rdata;
         end
     end
+
+        // rdcnt 三条统一处理 rdcntvl.w / rdcntvh.w / rdcntid
+    else if (inst_rdcnt_all) begin
+        src1_addr   = rf_raddr1_w;
+        src2_addr   = rf_raddr2_w;
+        wb_reg_addr = stall ? 5'd0 : inst[4:0];
+        alu_src1    = 32'b0;
+        alu_src2    = 32'b0;
+        br_imm      = 32'b0;
+        alu_op      = {`ALU_OP_NUM{1'b0}};
+        br_op       = {`BR_OP_NUM{1'b0}};
+        mem_op      = {`MEM_OP_NUM{1'b0}};
+        mem_wdata   = 32'b0;
+        wb_op       = stall ? 1'b0 : 1'b1;
+        wb_src_op   = stall ? {`WB_SRC_NUM{1'b0}} : wb_src_op_inner;
+        pc_out      = stall ? 32'b0 : pc_in;
+    end
+-
+        // 异常处理 ertn 
+    else  (inst_ertn) begin
+        src1_addr   = rf_raddr1_w;
+        src2_addr   = rf_raddr2_w;
+        wb_reg_addr = 5'b0;
+        alu_src1    = 32'b0;
+        alu_src2    = 32'b0;
+        br_imm      = 32'b0;
+        alu_op      = {`ALU_OP_NUM{1'b0}};
+        br_op       = {`BR_OP_NUM{1'b0}};
+        mem_op      = {`MEM_OP_NUM{1'b0}};
+        mem_wdata   = 32'b0;
+        wb_op       = 1'b0;
+        wb_src_op   = {`WB_SRC_NUM{1'b0}};
+        pc_out      = stall ? 32'b0 : pc_in;
+        ertn_op     = !stall;
+    end
+        // 异常：SYS / BRK / INE
+    
 end
 
 endmodule
