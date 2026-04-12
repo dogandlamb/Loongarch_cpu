@@ -153,4 +153,10 @@
 `define CSR_TCFG_INITVAL   31:2
 
 
+/* csr_exception_commit_handler → npc 的 PC 重定向类型（csr_redirect[1:0]） */
+`define CSR_REDIRECT_NONE  2'b00   // 不重定向
+`define CSR_REDIRECT_EX    2'b01   // 该pc是用于异常/中断的EENTRY
+`define CSR_REDIRECT_ERTN  2'b10   // 该pc是用于ERTN的返回地址
+
+
 `endif

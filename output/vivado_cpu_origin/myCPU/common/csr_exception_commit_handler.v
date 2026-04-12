@@ -5,7 +5,7 @@
 // 1) 时序维护 CSR （CRMD/PRMD/ESTAT/ERA/EENTRY/SAVE0~3/ECFG/BADV/TID/TCFG/TVAL/TICLR）
 // 2) 组合逻辑使用模块exception_Decoder译码异常标志信号为异常对应的Ecode、Esubcode
 // 3) WB 提交 异常/中断/ERTN/CSR有关指令 给这个模块 
-// 4) 输出流水线控制信号（flush_pipeline / ex_entry）、csr相关值（与CSR指令有关，给WB写回）
+// 4) 输出流水线控制信号（flush_pipeline）、csr_next_pc + csr_redirect(给 npc)、csr读返回值
 // 有些异常我还没加入！！！但现在不影响
 // ============================================================
 module csr_exception_commit_handler (
@@ -42,15 +42,16 @@ module csr_exception_commit_handler (
 
 
     // ---------------- 输出：冲刷、pc重定向、csr读返回、给ID的中断有效 ----------------
-    output reg         flush_pipeline,
-    output wire [31:0] ex_entry,        // 异常处理入口地址，送给npc
+    output wire        flush_pipeline,  // 异常或 ERTN 提交时冲刷
+    output wire [31:0] csr_next_pc,     // 异常的EENTRY 或 ERTN的返回地址，判断是这两个的哪个，看csr_redirect
+    output wire [1:0]  csr_redirect,    // 区分csr_next_pc类型的标志位信号，给npc仲裁，类型有`CSR_REDIRECT_EX、`CSR_REDIRECT_ERTN、`CSR_REDIRECT_NONE，具体看宏定义
     output wire        has_int,         // 送往ID的中断有效信号，将中断附着在ID指令上
-    output reg  [31:0] csr_rvalue       // CSR寄存器读返回值
+    output wire [31:0] csr_rvalue       // CSR寄存器读返回值                                  
 );
 
-    // 异常译码出ecode、esubcode
+    // 异常译码出ecode、esubcode               
     wire [7:0] Ecode;   // 异常码
-    wire Esubcode;      // 异常子码
+    wire Esubcode;      // 异常子码                  
     exception_Decoder u_exception_Decoder (
         .INT_valid(INT_valid),          
         .ADEF_valid(ADEF_valid),         
@@ -304,6 +305,11 @@ module csr_exception_commit_handler (
     wire csr_ticlr_clr = 1'b0;
 
 
+    // csr处理类型的标志信号
+    wire csr_take_ex   = wb_valid && wb_ex; // 异常
+    wire csr_take_ertn = wb_valid && wb_is_ertn && !csr_take_ex; // ERTN，异常优先于同拍 ERTN（规范上不应同时发生）
+
+
     // CSR 的读出逻辑
     wire [31:0] csr_crmd_rvalue = {23'b0, csr_crmd_datm, csr_crmd_datf, csr_crmd_pg, csr_crmd_da, csr_crmd_ie, csr_crmd_plv};
     wire [31:0] csr_prmd_rvalue = {29'b0, csr_prmd_pie, csr_prmd_pplv};
@@ -342,12 +348,17 @@ module csr_exception_commit_handler (
     // has_int
     assign has_int = ((csr_estat_is[12:0] & csr_ecfg_lie[12:0]) != 13'b0) && (csr_crmd_ie == 1'b1);
 
-
     // flush_pipeline
-    assign flush_pipeline = wb_valid && wb_ex;
+    assign flush_pipeline = csr_take_ex || csr_take_ertn;
 
+    // csr_redirect
+    assign csr_redirect = csr_take_ex   ? `CSR_REDIRECT_EX
+                        : csr_take_ertn ? `CSR_REDIRECT_ERTN
+                        : `CSR_REDIRECT_NONE;
 
-    // ex_entry
-    assign ex_entry = csr_eentry_rvalue;
+    // csr_next_pc
+    assign csr_next_pc = csr_take_ex   ? csr_eentry_rvalue
+                        : csr_take_ertn ? csr_era_rvalue
+                        : 32'b0;
     
 endmodule
