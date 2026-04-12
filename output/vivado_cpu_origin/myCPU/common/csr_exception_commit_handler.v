@@ -46,7 +46,8 @@ module csr_exception_commit_handler (
     output wire [31:0] csr_next_pc,     // 异常的EENTRY 或 ERTN的返回地址，判断是这两个的哪个，看csr_redirect
     output wire [1:0]  csr_redirect,    // 区分csr_next_pc类型的标志位信号，给npc仲裁，类型有`CSR_REDIRECT_EX、`CSR_REDIRECT_ERTN、`CSR_REDIRECT_NONE，具体看宏定义
     output wire        has_int,         // 送往ID的中断有效信号，将中断附着在ID指令上
-    output wire [31:0] csr_rvalue       // CSR寄存器读返回值                                  
+    output wire [31:0] csr_rvalue       // CSR寄存器读返回值
+    output wire [31:0] csr_tid_out      // csr的tid值，用于RDCNTID指令读取计时器ID号                     
 );
 
     // 异常译码出ecode、esubcode               
@@ -360,5 +361,8 @@ module csr_exception_commit_handler (
     assign csr_next_pc = csr_take_ex   ? csr_eentry_rvalue
                         : csr_take_ertn ? csr_era_rvalue
                         : 32'b0;
+
+    // csr_tid
+    assign csr_tid_out = csr_tid_rvalue;
     
 endmodule

@@ -337,6 +337,7 @@ module mycpu_top(
         .clk             (clk),
         .reset           (reset),
         .valid           (EXE_valid),
+        .stall           (stall),
         .wb_reg_addr     (wb_reg_addr_2EXE),
         .alu_src1        (alu_src1_2EXE),
         .alu_src2        (alu_src2_2EXE),

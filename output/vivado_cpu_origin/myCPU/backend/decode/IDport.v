@@ -43,7 +43,7 @@ module IDport (
     output reg  [`WB_SRC_NUM-1:0] wb_src_op,//最后写回值来自哪里
     output reg  [31:0] pc_out,              // 透传 pc_in
     output reg         adef_valid,       // 送 ID_EXE_reg 的指令地址未对齐异常信号
-    output reg  [31:0] wb_vaddr,         // 送 EXE 的访存虚地址（目前仅 adef_valid 时有效，用于数据异常处理模块）
+    output reg  [31:0] if_vaddr,         // 送 EXE 的访存虚地址（目前仅 adef_valid 时有效，用于数据异常处理模块）这里改名为 if_vaddr 更合适，因为是IF阶段就知道了
     output reg         int_valid,            // 送 ID_EXE_reg 的中断有效信号
     output reg         exception_valid     // 送 ID_EXE_reg 的异常有效信号
 );
@@ -95,9 +95,9 @@ wire   inst_rdcnt_all;
 assign inst_csr_all = inst_csrrd | inst_csrwr | inst_csrxchg;
 assign inst_rdcnt_all = inst_rdcntvl_w | inst_rdcntvh_w | inst_rdcntid;
 //assign inst_priv_all = inst_ertn | inst_syscall | inst_break | inst_rdcnt_all | inst_csr_all;
-wire   inst_know;//指令识别信号，输入的指令在指令集内为 1，否则为 0。用于异常处理模块识别非法指令
+wire   inst_known;//指令识别信号，输入的指令在指令集内为 1，否则为 0。用于异常处理模块识别非法指令  写错了，这里少了一个n
 wire   exception_valid_w;//译码阶段的异常有效信号，指令异常或中断时为 1，用于送到 ID_EXE_reg 再传到 EXE 级的异常处理模块
-assign exception_valid_w = inst_syscall | inst_break | !inst_known |has_int |exception_valid_in;
+assign exception_valid_w = inst_syscall | inst_break | !inst_known | has_int | exception_valid_in;
 
 
 inst_dec u_inst_dec(
@@ -220,7 +220,7 @@ op_dec u_op_dec(
     .mem_op         	(mem_op_inner    ),
     .csr_op     	    (csr_op_inner    ),
     .wb_src_op    	    (wb_src_op_inner ),
-    .inst_know          (inst_know       )
+    .inst_known          (inst_known       )
 );
 
 
@@ -415,7 +415,7 @@ always @(*) begin
     mem_wdata   = 32'b0;
     wb_op       = 1'b0;
     pc_out      = 32'b0;
-    wb_vaddr    = 32'b0;
+    if_vaddr    = 32'b0;
 
     if (!reset && valid && !exception_valid_w) begin
         src1_addr   = rf_raddr1_w;
@@ -470,7 +470,7 @@ always @(*) begin
         pc_out      = stall ? 32'b0 : pc_in;
         ertn_op     = 1'b0;
         adef_valid  = adef_valid_in && !stall;
-        wb_vaddr    = adef_valid_in && !stall ? pc_in : 32'b0;
+        if_vaddr    = adef_valid_in && !stall ? pc_in : 32'b0;
         sys_valid   = inst_syscall && !stall;
         brk_valid   = inst_break   && !stall;
         ine_valid   = (!inst_known) && !stall;

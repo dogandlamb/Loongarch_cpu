@@ -64,7 +64,7 @@ module op_dec(
     output wire [`MEM_OP_NUM-1:0] mem_op,
     output wire [`CSR_OP_NUM-1:0] csr_op,
     output wire [`WB_SRC_NUM-1:0] wb_src_op,
-    output wire        inst_know
+    output wire        inst_known
 );
 
     assign alu_op[`ALU_OP_ADD] = inst_add_w | inst_addi_w | inst_jirl | inst_bl
@@ -144,8 +144,8 @@ module op_dec(
     assign wb_src_op[`WB_SRC_CNTVL] = inst_rdcntvl_w;
     assign wb_src_op[`WB_SRC_CNTVH] = inst_rdcntvh_w;
     assign wb_src_op[`WB_SRC_TID] = inst_rdcntid;
-//inst_know：指令识别信号，输入的指令在指令集内为 1，否则为 0。用于异常处理模块识别非法指令
-    assign inst_know = |alu_op |br_op | mem_op | csr_op 
+//inst_known：指令识别信号，输入的指令在指令集内为 1，否则为 0。用于异常处理模块识别非法指令
+    assign inst_known = |alu_op |br_op | mem_op | csr_op 
                      | inst_rdcntvl_w |inst_rdcntvh_w | inst_rdcntid 
                      | inst_ertn | inst_syscall | inst_break;
 
