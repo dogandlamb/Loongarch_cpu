@@ -417,7 +417,8 @@ always @(*) begin
     pc_out      = 32'b0;
     if_vaddr    = 32'b0;
 
-    if (!reset && valid && !exception_valid_w) begin
+    if (!reset && valid && !exception_valid_w
+        && !inst_csr_all && !inst_rdcnt_all && !inst_ertn) begin
         src1_addr   = rf_raddr1_w;
         src2_addr   = rf_raddr2_w;
         // 注意：stall 只对送 EXE 的控制/数据插泡，不影响读寄存器地址。

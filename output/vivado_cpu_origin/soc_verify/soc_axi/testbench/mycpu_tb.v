@@ -131,7 +131,7 @@ end
 
 always @(posedge soc_clk)
 begin
-    if (resetn && |debug_wb_rf_we && debug_wb_rf_wnum!=5'd0 && cycle_cnt < 32'd400)
+    if (1'b0 && resetn && |debug_wb_rf_we && debug_wb_rf_wnum!=5'd0 && cycle_cnt < 32'd400)
     begin
         $display("WB c=%0d pc=0x%8h wnum=%0d wdata=0x%8h",
                  cycle_cnt, debug_wb_pc, debug_wb_rf_wnum, debug_wb_rf_wdata);
@@ -140,24 +140,40 @@ end
 
 always @(posedge soc_clk)
 begin
-    if (resetn && cycle_cnt < 32'd220)
+    if (1'b1 && resetn && cycle_cnt < 32'd40)
     begin
-        $display("EARLY c=%0d pc=0x%8h next=0x%8h pc_exe=0x%8h br_taken=%0d br_imm=0x%8h br_bl=%0d csr_red=%0d csr_npc=0x%8h wb_ex=%0d ine=%0d int=%0d id_inst=0x%8h id_known=%0d id_csrwr=%0d",
+        $display("EARLY c=%0d pc=0x%8h next=0x%8h pc_id=0x%8h pc_exe=0x%8h if_inst=0x%8h id_inst=0x%8h | id_b=%0d id_csrwr=%0d id_known=%0d rs1=%0d id1=0x%8h csr_w=0x%8h fw_wb=%0d wb_rd=%0d wb_data=0x%8h | br_taken=%0d br_op=0x%0h br_imm=0x%8h src1=0x%8h src2=0x%8h | csr_red=%0d csr_npc=0x%8h wb_ex=%0d ine=%0d int=%0d | v=%0d/%0d/%0d/%0d/%0d",
                  cycle_cnt,
                  soc_lite.u_cpu.pc,
                  soc_lite.u_cpu.nextpc,
+                 soc_lite.u_cpu.pc_2ID,
                  soc_lite.u_cpu.pc_exe,
+                 soc_lite.u_cpu.inst_rdata_2IF,
+                 soc_lite.u_cpu.inst_2ID,
+                 soc_lite.u_cpu.u_IDport.inst_b,
+                 soc_lite.u_cpu.u_IDport.inst_csrwr,
+                 soc_lite.u_cpu.u_IDport.inst_known,
+                 soc_lite.u_cpu.rf_raddr1,
+                 soc_lite.u_cpu.ID_src1_rdata,
+                 soc_lite.u_cpu.csr_wvalue_fromID,
+                 soc_lite.u_cpu.FD_WB_2rs1_sig,
+                 soc_lite.u_cpu.wb_waddr,
+                 soc_lite.u_cpu.wb_wdata,
                  soc_lite.u_cpu.br_taken_q,
-             soc_lite.u_cpu.br_imm_2EXE,
-                 soc_lite.u_cpu.br_op_2EXE[3],
+                 soc_lite.u_cpu.br_op_2EXE,
+                 soc_lite.u_cpu.br_imm_2EXE,
+                 soc_lite.u_cpu.alu_src1_2EXE,
+                 soc_lite.u_cpu.alu_src2_2EXE,
                  soc_lite.u_cpu.csr_redirect,
                  soc_lite.u_cpu.csr_next_pc,
                  soc_lite.u_cpu.wb_ex_2csr,
                  soc_lite.u_cpu.wb_ine_valid_2csr,
                  soc_lite.u_cpu.wb_int_valid_2csr,
-             soc_lite.u_cpu.inst_2ID,
-             soc_lite.u_cpu.u_IDport.inst_known,
-             soc_lite.u_cpu.u_IDport.inst_csrwr);
+                 soc_lite.u_cpu.IF_valid,
+                 soc_lite.u_cpu.ID_valid,
+                 soc_lite.u_cpu.EXE_valid,
+                 soc_lite.u_cpu.MEM_valid,
+                 soc_lite.u_cpu.WB_valid);
     end
 end
 
@@ -224,6 +240,25 @@ begin
                       ref_wb_pc, ref_wb_rf_wnum, ref_wb_rf_wdata_v);
             $display("    mycpu    : PC = 0x%8h, wb_rf_wnum = 0x%2h, wb_rf_wdata = 0x%8h",
                       debug_wb_pc, debug_wb_rf_wnum, debug_wb_rf_wdata_v);
+            $display("    pipe     : pc=0x%8h next=0x%8h pc_id=0x%8h pc_exe=0x%8h wb_pc=0x%8h",
+                      soc_lite.u_cpu.pc, soc_lite.u_cpu.nextpc, soc_lite.u_cpu.pc_2ID,
+                      soc_lite.u_cpu.pc_exe, soc_lite.u_cpu.wb_pc);
+            $display("    inst     : if=0x%8h id=0x%8h id_b=%0d id_csrwr=%0d id_known=%0d",
+                      soc_lite.u_cpu.inst_rdata_2IF, soc_lite.u_cpu.inst_2ID,
+                      soc_lite.u_cpu.u_IDport.inst_b, soc_lite.u_cpu.u_IDport.inst_csrwr,
+                      soc_lite.u_cpu.u_IDport.inst_known);
+            $display("    branch   : taken=%0d op=0x%0h imm=0x%8h src1=0x%8h src2=0x%8h",
+                      soc_lite.u_cpu.br_taken_q, soc_lite.u_cpu.br_op_2EXE,
+                      soc_lite.u_cpu.br_imm_2EXE, soc_lite.u_cpu.alu_src1_2EXE,
+                      soc_lite.u_cpu.alu_src2_2EXE);
+            $display("    csr      : red=%0d npc=0x%8h rvalue=0x%8h crmd=0x%8h ex=%0d int=%0d",
+                      soc_lite.u_cpu.csr_redirect, soc_lite.u_cpu.csr_next_pc,
+                      soc_lite.u_cpu.csr_rvalue_unused,
+                      soc_lite.u_cpu.u_csr_exception_commit_handler.csr_crmd_rvalue,
+                      soc_lite.u_cpu.wb_ex_2csr, soc_lite.u_cpu.wb_int_valid_2csr);
+            $display("    valid    : if/id/exe/mem/wb = %0d/%0d/%0d/%0d/%0d",
+                      soc_lite.u_cpu.IF_valid, soc_lite.u_cpu.ID_valid, soc_lite.u_cpu.EXE_valid,
+                      soc_lite.u_cpu.MEM_valid, soc_lite.u_cpu.WB_valid);
             $display("--------------------------------------------------------------");
             debug_wb_err <= 1'b1;
             #40;

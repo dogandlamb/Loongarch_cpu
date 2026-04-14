@@ -11,6 +11,7 @@
 module csr_exception_commit_handler (
     input  wire        clk,
     input  wire        reset,
+    input  wire [11:0] csr_rnum,
 
 
     // ---------------- CSR 访问（来自 csr 指令，在WB真正执行） ----------------------------
@@ -109,10 +110,28 @@ module csr_exception_commit_handler (
 
     // CRMD 的 DA、PG、DATF、DATM 域
     // 还没有实现MMU全部功能，暂时置为常值
-    wire csr_crmd_da = 1'b1;
-    wire csr_crmd_pg = 1'b0;
-    wire [1:0] csr_crmd_datf = 2'b00;
-    wire [1:0] csr_crmd_datm = 2'b00;
+    reg csr_crmd_da;
+    reg csr_crmd_pg;
+    reg [1:0] csr_crmd_datf;
+    reg [1:0] csr_crmd_datm;
+    always @(posedge clk) begin
+        if (reset) begin
+            csr_crmd_da   <= 1'b1;
+            csr_crmd_pg   <= 1'b0;
+            csr_crmd_datf <= 2'b00;
+            csr_crmd_datm <= 2'b00;
+        end
+        else if (csr_we && csr_num == `CSR_CRMD) begin
+            csr_crmd_da <= csr_wmask[`CSR_CRMD_DA] & csr_wvalue[`CSR_CRMD_DA]
+                        | ~csr_wmask[`CSR_CRMD_DA] & csr_crmd_da;
+            csr_crmd_pg <= csr_wmask[`CSR_CRMD_PG] & csr_wvalue[`CSR_CRMD_PG]
+                        | ~csr_wmask[`CSR_CRMD_PG] & csr_crmd_pg;
+            csr_crmd_datf <= csr_wmask[`CSR_CRMD_DATF] & csr_wvalue[`CSR_CRMD_DATF]
+                          | ~csr_wmask[`CSR_CRMD_DATF] & csr_crmd_datf;
+            csr_crmd_datm <= csr_wmask[`CSR_CRMD_DATM] & csr_wvalue[`CSR_CRMD_DATM]
+                          | ~csr_wmask[`CSR_CRMD_DATM] & csr_crmd_datm;
+        end
+    end
     
 
     // PRMD 的 PPLV、PIE 域
@@ -340,21 +359,21 @@ module csr_exception_commit_handler (
     wire [31:0] csr_tval_rvalue = csr_tval;
     wire [31:0] csr_ticlr_rvalue = 32'b0;
     
-    assign csr_rvalue = {32{csr_num == `CSR_CRMD}} & csr_crmd_rvalue
-                       | {32{csr_num == `CSR_PRMD}} & csr_prmd_rvalue
-                       | {32{csr_num == `CSR_ECFG}} & csr_ecfg_rvalue
-                       | {32{csr_num == `CSR_ESTAT}} & csr_estat_rvalue
-                       | {32{csr_num == `CSR_ERA}} & csr_era_rvalue
-                       | {32{csr_num == `CSR_BADV}} & csr_badv_rvalue
-                       | {32{csr_num == `CSR_EENTRY}} & csr_eentry_rvalue
-                       | {32{csr_num == `CSR_SAVE0}} & csr_save0_rvalue
-                       | {32{csr_num == `CSR_SAVE1}} & csr_save1_rvalue
-                       | {32{csr_num == `CSR_SAVE2}} & csr_save2_rvalue
-                       | {32{csr_num == `CSR_SAVE3}} & csr_save3_rvalue
-                       | {32{csr_num == `CSR_TID}} & csr_tid_rvalue
-                       | {32{csr_num == `CSR_TCFG}} & csr_tcfg_rvalue
-                       | {32{csr_num == `CSR_TVAL}} & csr_tval_rvalue
-                       | {32{csr_num == `CSR_TICLR}} & csr_ticlr_rvalue
+    assign csr_rvalue = {32{csr_rnum == `CSR_CRMD}} & csr_crmd_rvalue
+                       | {32{csr_rnum == `CSR_PRMD}} & csr_prmd_rvalue
+                       | {32{csr_rnum == `CSR_ECFG}} & csr_ecfg_rvalue
+                       | {32{csr_rnum == `CSR_ESTAT}} & csr_estat_rvalue
+                       | {32{csr_rnum == `CSR_ERA}} & csr_era_rvalue
+                       | {32{csr_rnum == `CSR_BADV}} & csr_badv_rvalue
+                       | {32{csr_rnum == `CSR_EENTRY}} & csr_eentry_rvalue
+                       | {32{csr_rnum == `CSR_SAVE0}} & csr_save0_rvalue
+                       | {32{csr_rnum == `CSR_SAVE1}} & csr_save1_rvalue
+                       | {32{csr_rnum == `CSR_SAVE2}} & csr_save2_rvalue
+                       | {32{csr_rnum == `CSR_SAVE3}} & csr_save3_rvalue
+                       | {32{csr_rnum == `CSR_TID}} & csr_tid_rvalue
+                       | {32{csr_rnum == `CSR_TCFG}} & csr_tcfg_rvalue
+                       | {32{csr_rnum == `CSR_TVAL}} & csr_tval_rvalue
+                       | {32{csr_rnum == `CSR_TICLR}} & csr_ticlr_rvalue
                        | 32'b0;
     
 

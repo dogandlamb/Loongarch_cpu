@@ -26,6 +26,7 @@ module EXEport (
     input wire  [11:0]            csr_num_in,
     input wire  [31:0]            csr_wmask_in,
     input wire  [31:0]            csr_wvalue_in,
+    input wire  [31:0]            csr_rvalue_from_csr,
     input wire  [31:0]            csr_tid_from_csr, // 从CSR模块读出的tid值
     input wire  [`WB_SRC_NUM-1:0] wb_src_op_in, // 写回数据来源选择
     
@@ -159,6 +160,7 @@ assign link_pc4_w      = pc_in + 32'd4;
 assign  exe_alu_or_addr_or_cnt = !valid ? 32'b0 :
                                 stall ? 32'b0 :
                                 (br_op[`BR_OP_JIRL] || br_op[`BR_OP_BL]) ? link_pc4_w :
+                                (wb_src_op_in[`WB_SRC_CSR])   ? csr_rvalue_from_csr :
                                 (wb_src_op_in[`WB_SRC_CNTVL]) ? cnt_low :
                                 (wb_src_op_in[`WB_SRC_CNTVH]) ? cnt_high :
                                 (wb_src_op_in[`WB_SRC_TID])   ? csr_tid_from_csr :

@@ -1,27 +1,40 @@
 create_project -force loongson ./project -part xc7a200tfbg676-1
 
-# 禁止 Vivado 将未解析到的层次源文件标为 AutoDisabled（否则 sim 缺 IDport 等）
+# Keep manual source management so Vivado does not auto-disable unresolved
+# hierarchy files while the project is being reconstructed for simulation.
 set_property source_mgmt_mode None [current_project]
 
-set script_dir [file dirname [file normalize [info script]]]
+# Derive the script directory from the raw script string instead of using Tcl
+# path normalization, which breaks in this Windows user path.
+set script_path [string map {\\ /} [info script]]
+if {![regexp {^(.*)/[^/]+$} $script_path -> script_dir]} {
+    set script_dir "."
+}
+puts "create_project script_dir=$script_dir"
 
-# Add conventional sources
-add_files -scan_for_includes [glob -nocomplain ../rtl/*.v]
-add_files -scan_for_includes [glob -nocomplain ../rtl/*/*.v]
-
-# Add IPs (axi_ram 等：仿真改用 verilog 桩，避免缺生成网表)
-add_files -quiet [glob -nocomplain ../rtl/xilinx_ip/*/*.xci]
-
-# Add simulation files
-add_files -fileset sim_1 ../testbench
-set mem_f [file normalize [file join $script_dir .. sim_stubs inst_ram.mem]]
-if {[file exists $mem_f]} {
-    add_files -fileset sim_1 $mem_f
+if {![regexp {^(.*)/[^/]+$} $script_dir -> soc_axi_dir]} {
+    set soc_axi_dir $script_dir
+}
+if {![regexp {^(.*)/[^/]+$} $soc_axi_dir -> soc_verify_dir]} {
+    set soc_verify_dir $soc_axi_dir
+}
+if {![regexp {^(.*)/[^/]+$} $soc_verify_dir -> vivado_cpu_dir]} {
+    set vivado_cpu_dir $soc_verify_dir
 }
 
-# myCPU：递归加入所有 .v（单目录 add_files 会漏子目录，导致 elaborate 缺 IDport 等）
+set rtl_dir "$soc_axi_dir/rtl"
+set tb_dir "$soc_axi_dir/testbench"
+set sim_stub_dir "$soc_axi_dir/sim_stubs"
+set cpu_root "$vivado_cpu_dir/myCPU"
+
+proc add_files_if_any {args} {
+    if {[llength $args] > 0} {
+        uplevel 1 add_files {*}$args
+    }
+}
+
 proc add_verilog_under {root} {
-    foreach p [glob -nocomplain [file join $root *]] {
+    foreach p [glob -nocomplain "$root/*"] {
         if {[file isdirectory $p]} {
             add_verilog_under $p
         } elseif {[string match "*.v" $p]} {
@@ -29,20 +42,31 @@ proc add_verilog_under {root} {
         }
     }
 }
-set cpu_root [file normalize [file join $script_dir .. .. .. myCPU]]
-add_verilog_under $cpu_root
 
-# XSim：乘除 / axi_ram 行为桩（与 xci 同名模块二选一：关闭 axi_ram 的 sim 使用桩）
-set stub_v [file normalize [file join $script_dir .. sim_stubs xsim_ip_stubs.v]]
+add_verilog_under $rtl_dir
+
+if {[file exists $tb_dir]} {
+    add_files -fileset sim_1 $tb_dir
+}
+
+set mem_f "$sim_stub_dir/inst_ram.mem"
+if {[file exists $mem_f]} {
+    add_files -fileset sim_1 $mem_f
+}
+
+add_verilog_under $cpu_root
+puts "sources_1_count=[llength [get_files -quiet -of_objects [get_filesets sources_1]]]"
+puts "sim_1_count=[llength [get_files -quiet -of_objects [get_filesets sim_1]]]"
+
+set stub_v "$sim_stub_dir/xsim_ip_stubs.v"
 if {[file exists $stub_v]} {
     add_files -fileset sim_1 $stub_v
 }
-foreach xf [get_files -quiet -of_objects [get_filesets sources_1] *axi_ram.xci] {
-    set_property used_in_simulation false $xf
+
+set constr_dir "$script_dir/constraints"
+if {[file exists $constr_dir]} {
+    add_files -fileset constrs_1 -quiet $constr_dir
 }
 
-# Add constraints
-add_files -fileset constrs_1 -quiet ./constraints
-
-set_property -name "top" -value "tb_top" -objects  [get_filesets sim_1]
-set_property -name "xsim.simulate.log_all_signals" -value "1" -objects [get_filesets sim_1]
+set_property -name top -value tb_top -objects [get_filesets sim_1]
+set_property -name xsim.simulate.log_all_signals -value 1 -objects [get_filesets sim_1]

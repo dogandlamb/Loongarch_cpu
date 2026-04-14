@@ -330,6 +330,18 @@ module sram_AXI_bridge (
         end
     end
 
+    wire instq_dbg_hit = 1'b0;
+
+    always @(posedge clk) begin
+        if (!reset && instq_dbg_hit) begin
+            $display("INSTQ2DBG t=%0t st=%0d re_if=%0d pc_if=0x%08h issue_now=%0d issue_addr=0x%08h ir1=%0d:0x%08h ir2=%0d:0x%08h arv=%0d arr=%0d ar_done=%0d rvalid=%0d rid=%0d r_done=%0d pc_pend=0x%08h pc_reg=0x%08h wait=%0d inst_ok=%0d inst_cpl=%0d",
+                     $time, state, inst_re_in_from_IF, pc_in_from_IF, inst_issue_now, inst_issue_addr,
+                     ir_pending, ir_addr, ir_pending2, ir_addr2,
+                     arvalid, arready, inst_ar_done, rvalid, rid, inst_r_done,
+                     inst_pc_pending, inst_pc_reg, inst_wait_data, inst_data_ok_pulse, inst_r_complete);
+        end
+    end
+
     always @(posedge clk) begin
         if (reset)
             data_wr_got_b <= 1'b0;

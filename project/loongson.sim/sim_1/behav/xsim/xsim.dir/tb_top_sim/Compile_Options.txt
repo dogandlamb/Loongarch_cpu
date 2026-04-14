@@ -1,0 +1,1 @@
+--timescale "1ns/1ps" "xil_defaultlib.tb_top" -L "xil_defaultlib" -L "unisims_ver" -L "unimacro_ver" -L "secureip" -debug "typical" -s "tb_top_sim" 

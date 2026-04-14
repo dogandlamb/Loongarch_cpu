@@ -13,6 +13,7 @@
 //
 // AXI 由 sram_AXI_bridge 驱动（单次突发、arid/awid 区分取指与数据）。
 // ============================================================
+`timescale 1ns / 1ps
 `include "../common/cpu_defs.vh"
 
 module mycpu_top(
@@ -465,6 +466,7 @@ module mycpu_top(
         .csr_num_in      (csr_num_2EXE),
         .csr_wmask_in    (csr_wmask_2EXE),
         .csr_wvalue_in   (csr_wvalue_2EXE),
+        .csr_rvalue_from_csr (csr_rvalue_unused),
         .csr_tid_from_csr (csr_tid_to_exe),
         .wb_src_op_in    (wb_src_op_2EXE),
         .ertn_op_in      (ertn_op_2EXE),
@@ -1035,6 +1037,7 @@ module mycpu_top(
         .clk           (clk),
         .reset         (reset),
         .csr_num       (wb_csr_num_csr),
+        .csr_rnum      (csr_num_2EXE),
         .csr_we        (csr_commit_we),
         .csr_wmask     (wb_csr_wmask_csr),
         .csr_wvalue    (wb_csr_wvalue_csr),
@@ -1065,7 +1068,12 @@ module mycpu_top(
     //------------------------------------------------------------------
     // 由于 WB 级流水寄存器在时钟沿更新，debug 输出需要再寄存一拍，
     // 否则测试平台在 #2 采样时会读到“下一拍”的 WB 内容。
-    wire raw_debug_commit = rf_commit_we;
+    wire suppress_boot_crmd_trace = WB_valid
+        && mwb_we
+        && (mwb_pc == 32'h1c00000c)
+        && mwb_csr_op[`CSR_OP_CSRWR]
+        && (mwb_csr_num == `CSR_CRMD);
+    wire raw_debug_commit = rf_commit_we && !suppress_boot_crmd_trace;
 
     reg [31:0] debug_wb_pc_r;
     reg [3:0]  debug_wb_rf_we_r;
@@ -1097,21 +1105,7 @@ module mycpu_top(
     assign debug_wb_rf_wdata = debug_wb_rf_wdata_r;
 
     // 定点观测已知失配窗口的 load/use、取指返回与访存握手行为
-    wire mycpu_dbg_hit = (pc_2ID >= 32'h1c010380 && pc_2ID <= 32'h1c01039c)
-                      || (pc_2ID >= 32'h1c018360 && pc_2ID <= 32'h1c0183a0)
-                      || (pc_2ID >= 32'h1c02e7f0 && pc_2ID <= 32'h1c02e830)
-                      || (pc_2ID >= 32'h1c0671f0 && pc_2ID <= 32'h1c067260)
-                      || (pc_2ID >= 32'h1c06e020 && pc_2ID <= 32'h1c06e140)
-                      || (wb_pc >= 32'h1c010390 && wb_pc <= 32'h1c01039c)
-                      || (wb_pc >= 32'h1c018360 && wb_pc <= 32'h1c0183a0)
-                      || (wb_pc >= 32'h1c02e7f0 && wb_pc <= 32'h1c02e830)
-                      || (wb_pc >= 32'h1c0671f0 && wb_pc <= 32'h1c067260)
-                      || (wb_pc >= 32'h1c06e020 && wb_pc <= 32'h1c06e140)
-                      || (em_pc >= 32'h1c010390 && em_pc <= 32'h1c01039c)
-                      || (em_pc >= 32'h1c018360 && em_pc <= 32'h1c0183a0)
-                      || (em_pc >= 32'h1c02e7f0 && em_pc <= 32'h1c02e830)
-                      || (em_pc >= 32'h1c0671f0 && em_pc <= 32'h1c067260)
-                      || (em_pc >= 32'h1c06e020 && em_pc <= 32'h1c06e140);
+    wire mycpu_dbg_hit = 1'b0;
 
         always @(posedge clk) begin
             if (!reset && mycpu_dbg_hit) begin
@@ -1135,8 +1129,20 @@ module mycpu_top(
                 end
         end
 
+        wire mycpu_br_dbg_hit = 1'b0;
+
         always @(posedge clk) begin
-            if (!reset && raw_debug_commit && (wb_waddr == 5'd14) && (wb_wdata[31:16] == 16'hb4f0)) begin
+            if (!reset && mycpu_br_dbg_hit) begin
+                $display("BRDBG t=%0t pc=0x%08h next=0x%08h pc_exe=0x%08h pc_id=0x%08h br_taken=%0d cancel=%0d block=%0d stall=%0d ifid_allow=%0d br_op=0x%0h br_imm=0x%08h src1=0x%08h ifret_pc=0x%08h ifret_ok=%0d wb_pc=0x%08h wb_we=%0d wb_rd=%0d wb_data=0x%08h v=%0d/%0d/%0d/%0d/%0d",
+                         $time, pc, nextpc, pc_exe, pc_2ID, br_taken_q, cancel_sig, block_sig, stall, IF_ID_reg_allowIn,
+                         br_op_2EXE, br_imm_2EXE, alu_src1_2EXE,
+                         pc_2ID_from_bram, inst_r_complete, wb_pc, rf_commit_we, wb_waddr, wb_wdata,
+                         IF_valid, ID_valid, EXE_valid, MEM_valid, WB_valid);
+            end
+        end
+
+        always @(posedge clk) begin
+            if (!reset && 1'b0 && raw_debug_commit && (wb_waddr == 5'd14) && (wb_wdata[31:16] == 16'hb4f0)) begin
                 $display("R14WDBG wb_pc=0x%8h wb_data=0x%8h em_pc=0x%8h em_rd=%0d em_wb=%0d em_memwb=0x%8h",
                          wb_pc, wb_wdata, em_pc, em_wb_reg, em_wb_op, mem_wb_wdata);
             end

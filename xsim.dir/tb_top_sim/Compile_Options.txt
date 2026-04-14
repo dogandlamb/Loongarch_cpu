@@ -1,0 +1,1 @@
+"tb_top" -L "unisims_ver" -L "unimacro_ver" -L "secureip" -debug "typical" -s "tb_top_sim" 

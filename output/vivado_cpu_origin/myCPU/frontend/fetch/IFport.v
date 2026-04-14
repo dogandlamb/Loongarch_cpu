@@ -91,6 +91,16 @@ always @(posedge clk) begin
     end
 end
 
+wire ifport_dbg_hit = 1'b0;
+
+always @(posedge clk) begin
+    if (!reset && ifport_dbg_hit) begin
+        $display("IFPDBG t=%0t cancel=%0d drop=%0d redir=0x%08h pc_req=0x%08h pc_inst=0x%08h inst_v=%0d resp_ok=%0d stale=%0d hold_v=%0d out_v=%0d down_allow=%0d",
+                 $time, cancel_in, drop_next_resp, redirect_pc_in, pc_req_in, pc_inst_in,
+                 inst_valid_in, resp_ok, stale_redirect_resp, hold_valid, out_valid, downstream_allowIn);
+    end
+end
+
 assign readyGo = out_valid;
 assign allowIn = 1'b1;
 

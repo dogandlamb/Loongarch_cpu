@@ -175,6 +175,12 @@ module confreg
     reg [31:0] buf_addr;
     reg [7 :0] buf_len;
     reg [2 :0] buf_size;
+    wire        conf_we;
+    wire [31:0] conf_addr;
+    wire [31:0] conf_wdata;
+    assign conf_we    = w_enter;
+    assign conf_addr  = buf_addr;
+    assign conf_wdata = wdata;
     
     always @(posedge aclk)
     begin
@@ -267,14 +273,6 @@ module confreg
             conf_rvalid_reg <= 1'b0;
         end
     end
-
-    //conf write, only support a word write
-    wire        conf_we;
-    wire [31:0] conf_addr;
-    wire [31:0] conf_wdata;
-    assign conf_we   = w_enter;
-    assign conf_addr = buf_addr;
-    assign conf_wdata= wdata;
 
     reg conf_bvalid_reg;
     assign bvalid = conf_bvalid_reg;
