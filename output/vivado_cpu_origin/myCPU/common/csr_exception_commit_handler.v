@@ -46,8 +46,8 @@ module csr_exception_commit_handler (
     output wire [31:0] csr_next_pc,     // 异常的EENTRY 或 ERTN的返回地址，判断是这两个的哪个，看csr_redirect
     output wire [1:0]  csr_redirect,    // 区分csr_next_pc类型的标志位信号，给npc仲裁，类型有`CSR_REDIRECT_EX、`CSR_REDIRECT_ERTN、`CSR_REDIRECT_NONE，具体看宏定义
     output wire        has_int,         // 送往ID的中断有效信号，将中断附着在ID指令上
-    output wire [31:0] csr_rvalue       // CSR寄存器读返回值
-    output wire [31:0] csr_tid_out      // csr的tid值，用于RDCNTID指令读取计时器ID号                     
+    output wire [31:0] csr_rvalue,      // CSR寄存器读返回值
+    output wire [31:0] csr_tid_out      // csr的tid值，用于RDCNTID指令读取计时器ID号
 );
 
     // 异常译码出ecode、esubcode               
@@ -116,9 +116,12 @@ module csr_exception_commit_handler (
     
 
     // PRMD 的 PPLV、PIE 域
-    reg csr_prmd_pie;
     always @(posedge clk) begin
-        if (wb_valid && wb_ex) begin
+        if (reset) begin
+            csr_prmd_pplv <= 2'b0;
+            csr_prmd_pie  <= 1'b0;
+        end
+        else if (wb_valid && wb_ex) begin
             csr_prmd_pplv <= csr_crmd_plv;
             csr_prmd_pie <= csr_crmd_ie;
         end
@@ -144,30 +147,28 @@ module csr_exception_commit_handler (
     end
 
 
-    // ESTAT 的 IS 域
+    // ESTAT 的 IS 域（timer_cnt 在本块使用，声明需前置）
     reg [12:0] csr_estat_is;
+    reg [31:0] timer_cnt;
     always @(posedge clk) begin
         if (reset) begin
-            csr_estat_is[1:0] <= 2'b0;
+            // 必须整域复位，否则 IS[11] 等在首拍为 X → has_int 为 X → ID 译码条件失效、写回数据 X
+            csr_estat_is <= 13'b0;
+        end else begin
+            if (csr_we && csr_num == `CSR_ESTAT) begin
+                csr_estat_is[1:0] <= csr_wmask[`CSR_ESTAT_IS10] & csr_wvalue[`CSR_ESTAT_IS10] 
+                                | ~csr_wmask[`CSR_ESTAT_IS10] & csr_estat_is[1:0];
+            end
+            csr_estat_is[9:2] <= hw_int_in[7:0];
+            csr_estat_is[10] <= 1'b0;
+            if (timer_cnt[31:0] == 32'b0) begin
+                csr_estat_is[11] <= 1'b1;
+            end else if (csr_we && csr_num == `CSR_TICLR && csr_wmask[`CSR_TICLR_CLR] 
+                     && csr_wvalue[`CSR_TICLR_CLR]) begin
+                csr_estat_is[11] <= 1'b0;
+            end
+            csr_estat_is[12] <= ipi_int_in;
         end
-        else if (csr_we && csr_num == `CSR_ESTAT) begin
-            csr_estat_is[1:0] <= csr_wmask[`CSR_ESTAT_IS10] & csr_wvalue[`CSR_ESTAT_IS10] 
-                            | ~csr_wmask[`CSR_ESTAT_IS10] & csr_estat_is[1:0];
-        end
-        
-        csr_estat_is[9:2] <= hw_int_in[7:0];
-
-        csr_estat_is[10] <= 1'b0;
-
-        if (timer_cnt[31:0] == 32'b0) begin
-            csr_estat_is[11] <= 1'b1;
-        end
-        else if (csr_we && csr_num == `CSR_TICLR && csr_wmask[`CSR_TICLR_CLR] 
-                 && csr_wvalue[`CSR_TICLR_CLR]) begin
-            csr_estat_is[11] <= 1'b0;
-        end
-
-        csr_estat_is[12] <= ipi_int_in;
     end
 
 
@@ -175,7 +176,11 @@ module csr_exception_commit_handler (
     reg [7:0] csr_estat_ecode;
     reg csr_estat_esubcode;
     always @(posedge clk) begin
-        if (wb_valid && wb_ex) begin
+        if (reset) begin
+            csr_estat_ecode <= 8'b0;
+            csr_estat_esubcode <= 1'b0;
+        end
+        else if (wb_valid && wb_ex) begin
             csr_estat_ecode <= Ecode[5:0];
             csr_estat_esubcode <= {8'b0,Esubcode};
         end
@@ -210,7 +215,10 @@ module csr_exception_commit_handler (
     // EENTRY 的 VA 域
     reg [25:0] csr_eentry_va;
     always @(posedge clk) begin
-        if (csr_we && csr_num == `CSR_EENTRY) begin
+        if (reset) begin
+            csr_eentry_va <= 26'b0;
+        end
+        else if (csr_we && csr_num == `CSR_EENTRY) begin
             csr_eentry_va <= csr_wmask[`CSR_EENTRY_VA] & csr_wvalue[`CSR_EENTRY_VA] 
                             | ~csr_wmask[`CSR_EENTRY_VA] & csr_eentry_va;
         end
@@ -245,7 +253,10 @@ module csr_exception_commit_handler (
     // TID 的 TID 域
     reg [31:0] csr_tid_tid;
     always @(posedge clk) begin
-        if (csr_we && csr_num == `CSR_TID) begin
+        if (reset) begin
+            csr_tid_tid <= 32'b0;
+        end
+        else if (csr_we && csr_num == `CSR_TID) begin
             csr_tid_tid <= csr_wmask[`CSR_TID_TID] & csr_wvalue[`CSR_TID_TID] 
                             | ~csr_wmask[`CSR_TID_TID] & csr_tid_tid;
         end
@@ -259,6 +270,8 @@ module csr_exception_commit_handler (
     always @(posedge clk) begin
         if (reset) begin
             csr_tcfg_en <= 1'b0;
+            csr_tcfg_periodic <= 1'b0;
+            csr_tcfg_initval <= 30'b0;
         end
         else if (csr_we && csr_num == `CSR_TCFG) begin
             csr_tcfg_en <= csr_wmask[`CSR_TCFG_EN] & csr_wvalue[`CSR_TCFG_EN] 
@@ -277,7 +290,6 @@ module csr_exception_commit_handler (
     // TVAL 的 TimerVal 域
     wire [31:0] tcfg_next_value;
     wire [31:0] csr_tval;
-    reg timer_cnt;
 
     assign tcfg_next_value = csr_wmask[31:0] & csr_wvalue[31:0] 
                            | ~csr_wmask[31:0] & {csr_tcfg_initval, csr_tcfg_periodic, csr_tcfg_en};
@@ -307,8 +319,8 @@ module csr_exception_commit_handler (
 
 
     // csr处理类型的标志信号
-    wire csr_take_ex   = wb_valid && wb_ex; // 异常
-    wire csr_take_ertn = wb_valid && wb_is_ertn && !csr_take_ex; // ERTN，异常优先于同拍 ERTN（规范上不应同时发生）
+    wire csr_take_ex   = (wb_valid === 1'b1) && (wb_ex === 1'b1); // 异常
+    wire csr_take_ertn = (wb_valid === 1'b1) && (wb_is_ertn === 1'b1) && !csr_take_ex; // ERTN，异常优先于同拍 ERTN（规范上不应同时发生）
 
 
     // CSR 的读出逻辑
@@ -347,7 +359,7 @@ module csr_exception_commit_handler (
     
 
     // has_int
-    assign has_int = ((csr_estat_is[12:0] & csr_ecfg_lie[12:0]) != 13'b0) && (csr_crmd_ie == 1'b1);
+    assign has_int = (((csr_estat_is[12:0] & csr_ecfg_lie[12:0]) != 13'b0) === 1'b1) && (csr_crmd_ie === 1'b1);
 
     // flush_pipeline
     assign flush_pipeline = csr_take_ex || csr_take_ertn;

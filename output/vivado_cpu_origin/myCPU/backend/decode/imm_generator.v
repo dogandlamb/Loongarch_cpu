@@ -68,9 +68,10 @@ module imm_generator (
     assign need_si26 = inst_b | inst_bl;
     assign src2_is_4 = inst_jirl | inst_bl;
 
-    wire imm_unused_inputs; // 归约未单独参与选择的 inst 类信号，为了解决run linter报错，不影响原有逻辑
+    // 勿对 inst 做归约或(|inst)：inst 在复位/取指边界可能含 X，会毒化 alu_imm 进而污染整级流水写回
+    wire imm_unused_inputs;
     assign imm_unused_inputs = inst_add_w | inst_sub_w | inst_and | inst_or | inst_nor | inst_xor
-                             | inst_slt | inst_sltu | (|inst);
+                             | inst_slt | inst_sltu;
     
     assign ui5 = inst[14:10];
     assign i12 = inst[21:10];

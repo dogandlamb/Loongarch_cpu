@@ -72,8 +72,16 @@ always @(posedge clk) begin
     end else begin
         if (drop_next_resp && inst_valid_in && (pc_inst_in == redirect_pc_pending))
             drop_next_resp <= 1'b0;
-        if (hold_valid && downstream_allowIn)
-            hold_valid <= 1'b0;
+        if (hold_valid && downstream_allowIn) begin
+            if (resp_ok) begin
+                hold_valid <= 1'b1;
+                hold_inst  <= inst_in;
+                hold_pc    <= pc_inst_in;
+                hold_adef  <= adef_valid_in;
+            end else begin
+                hold_valid <= 1'b0;
+            end
+        end
         else if (!hold_valid && !downstream_allowIn && resp_ok) begin
             hold_valid <= 1'b1;
             hold_inst  <= inst_in;

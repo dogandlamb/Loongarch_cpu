@@ -29,6 +29,9 @@ module sram_AXI_bridge (
     output reg         data_r_wrong,
     output reg         inst_r_wrong,
 
+    // 仅取指 AR/R 在途：冻结顺序 PC，避免下一笔 AR 用超前 PC（勿用整桥 busy，易与访存互锁）
+    output wire        axi_if_busy,
+
     output reg         data_w_complete,
     output reg         data_r_complete,
     output reg         inst_r_complete,
@@ -113,11 +116,26 @@ module sram_AXI_bridge (
 
     reg        dr_pending;
     reg [31:0] dr_addr;
+    reg        ir_pending;
+    reg [31:0] ir_addr;
+    reg        ir_adef;
+    reg        ir_pending2;
+    reg [31:0] ir_addr2;
+    reg        ir_adef2;
 
     reg [31:0] inst_rdata_reg;
     reg [31:0] data_rdata_reg;
 
     reg        data_wr_got_b;
+    reg [31:0] aw_wdata_lat;
+    reg [3:0]  aw_wstrb_lat;
+    reg [31:0] sh_addr [0:7];
+    reg [31:0] sh_data [0:7];
+    reg [3:0]  sh_strb [0:7];
+    reg [7:0]  sh_valid;
+    reg [2:0]  sh_ptr;
+    reg [2:0]  sh_pop_ptr;
+    reg [31:0] data_rd_addr_issued;
 
     wire data_w_wrong_local;
     wire data_r_wrong_local;
@@ -132,7 +150,52 @@ module sram_AXI_bridge (
 
     wire data_rd_live = data_re_in_from_EXE & ((state != S_IDLE) | data_we_in_from_EXE);
     wire data_rd_need = dr_pending | data_re_in_from_EXE;
-    wire [31:0] data_rd_araddr = data_re_in_from_EXE ? data_raddr_from_EXE : dr_addr;
+    wire [31:0] data_rd_araddr = dr_pending ? dr_addr : data_raddr_from_EXE;
+    wire inst_issue_now = (state == S_IDLE) && !data_we_in_from_EXE && !data_rd_need && (inst_re_in_from_IF || ir_pending);
+    wire [2:0] sh_idx0 = sh_ptr - 3'd1;
+    wire [2:0] sh_idx1 = sh_ptr - 3'd2;
+    wire [2:0] sh_idx2 = sh_ptr - 3'd3;
+    wire [2:0] sh_idx3 = sh_ptr - 3'd4;
+    wire [2:0] sh_idx4 = sh_ptr - 3'd5;
+    wire [2:0] sh_idx5 = sh_ptr - 3'd6;
+    wire [2:0] sh_idx6 = sh_ptr - 3'd7;
+    wire [2:0] sh_idx7 = sh_ptr - 3'd0;
+    // MMIO reads (e.g. confreg at 0xbfafxxxx) should observe device return data directly.
+    wire sh_bypass_en = (data_rd_addr_issued[31:16] != 16'hbfaf);
+    wire sh_hit0 = sh_bypass_en && sh_valid[sh_idx0] && (sh_addr[sh_idx0][31:2] == data_rd_addr_issued[31:2]);
+    wire sh_hit1 = sh_bypass_en && sh_valid[sh_idx1] && (sh_addr[sh_idx1][31:2] == data_rd_addr_issued[31:2]);
+    wire sh_hit2 = sh_bypass_en && sh_valid[sh_idx2] && (sh_addr[sh_idx2][31:2] == data_rd_addr_issued[31:2]);
+    wire sh_hit3 = sh_bypass_en && sh_valid[sh_idx3] && (sh_addr[sh_idx3][31:2] == data_rd_addr_issued[31:2]);
+    wire sh_hit4 = sh_bypass_en && sh_valid[sh_idx4] && (sh_addr[sh_idx4][31:2] == data_rd_addr_issued[31:2]);
+    wire sh_hit5 = sh_bypass_en && sh_valid[sh_idx5] && (sh_addr[sh_idx5][31:2] == data_rd_addr_issued[31:2]);
+    wire sh_hit6 = sh_bypass_en && sh_valid[sh_idx6] && (sh_addr[sh_idx6][31:2] == data_rd_addr_issued[31:2]);
+    wire sh_hit7 = sh_bypass_en && sh_valid[sh_idx7] && (sh_addr[sh_idx7][31:2] == data_rd_addr_issued[31:2]);
+    wire sh_hit  = sh_hit0 | sh_hit1 | sh_hit2 | sh_hit3 | sh_hit4 | sh_hit5 | sh_hit6 | sh_hit7;
+
+    function [31:0] merge_store_bytes;
+        input [31:0] base;
+        input [31:0] wdata_i;
+        input [3:0]  wstrb_i;
+        begin
+            merge_store_bytes = base;
+            if (wstrb_i[0]) merge_store_bytes[7:0]   = wdata_i[7:0];
+            if (wstrb_i[1]) merge_store_bytes[15:8]  = wdata_i[15:8];
+            if (wstrb_i[2]) merge_store_bytes[23:16] = wdata_i[23:16];
+            if (wstrb_i[3]) merge_store_bytes[31:24] = wdata_i[31:24];
+        end
+    endfunction
+
+    wire [31:0] sh_rdata_s7 = sh_hit7 ? merge_store_bytes(rdata,      sh_data[sh_idx7], sh_strb[sh_idx7]) : rdata;
+    wire [31:0] sh_rdata_s6 = sh_hit6 ? merge_store_bytes(sh_rdata_s7, sh_data[sh_idx6], sh_strb[sh_idx6]) : sh_rdata_s7;
+    wire [31:0] sh_rdata_s5 = sh_hit5 ? merge_store_bytes(sh_rdata_s6, sh_data[sh_idx5], sh_strb[sh_idx5]) : sh_rdata_s6;
+    wire [31:0] sh_rdata_s4 = sh_hit4 ? merge_store_bytes(sh_rdata_s5, sh_data[sh_idx4], sh_strb[sh_idx4]) : sh_rdata_s5;
+    wire [31:0] sh_rdata_s3 = sh_hit3 ? merge_store_bytes(sh_rdata_s4, sh_data[sh_idx3], sh_strb[sh_idx3]) : sh_rdata_s4;
+    wire [31:0] sh_rdata_s2 = sh_hit2 ? merge_store_bytes(sh_rdata_s3, sh_data[sh_idx2], sh_strb[sh_idx2]) : sh_rdata_s3;
+    wire [31:0] sh_rdata_s1 = sh_hit1 ? merge_store_bytes(sh_rdata_s2, sh_data[sh_idx1], sh_strb[sh_idx1]) : sh_rdata_s2;
+    wire [31:0] sh_rdata    = sh_hit0 ? merge_store_bytes(sh_rdata_s1, sh_data[sh_idx0], sh_strb[sh_idx0]) : sh_rdata_s1;
+    wire inst_issue_from_pending = ir_pending;
+    wire [31:0] inst_issue_addr = inst_issue_from_pending ? ir_addr : pc_in_from_IF;
+    wire inst_issue_adef = inst_issue_from_pending ? ir_adef : adef_valid_in_from_IF;
     wire b_handshake  = (state == S_B) & bvalid & bready & (bid == AXI_ID_DATA);
 
     wire sram_inst_addr_ok = inst_ar_done;
@@ -142,31 +205,128 @@ module sram_AXI_bridge (
     wire sram_data_data_ok    = sram_data_data_ok_rd | sram_data_data_ok_wr;
 
     reg  data_w_pending;
-    reg  data_r_pending;
+    reg  data_we_prev;
+    reg [1:0] data_r_pending_cnt;
     reg  data_r_complete_d;
+    reg  inst_data_ok_d;
     reg [31:0] inst_pc_pending;
+    reg [31:0] inst_pc_reg;
     reg  inst_wait_data;
     reg  inst_adef_pending;
+
+    wire inst_data_ok_pulse = sram_inst_data_ok & ~inst_data_ok_d;
 
     assign inst_rdata_2IF  = inst_rdata_reg;
     assign adef_valid_2IF  = inst_adef_pending;
     assign data_rdata_2MEM = data_rdata_reg;
-    assign pc_out_2ID      = inst_pc_pending;
+    assign pc_out_2ID      = inst_pc_reg;
 
     assign rready = 1'b1;
     assign bready = 1'b1;
+
+    wire data_path_busy = (state == S_AR_DATA) || (state == S_R_DATA) || (state == S_AW) || (state == S_W) || (state == S_B);
+
+    assign axi_if_busy = (state == S_AR_INST) || (state == S_R_INST) || ir_pending2 || (data_path_busy && (ir_pending || ir_pending2));
+
+    always @(posedge clk) begin
+        if (!reset && data_we_in_from_EXE && (data_waddr_from_EXE[31:4] == 28'h000d3b6)) begin
+            $display("AXI_WDBG t=%0t REQ addr=0x%08h data=0x%08h strb=0x%1h state=%0d", $time, data_waddr_from_EXE, data_wdata_from_EXE, data_byte_en_from_EXE, state);
+        end
+    end
 
     always @(posedge clk) begin
         if (reset) begin
             dr_pending <= 1'b0;
             dr_addr    <= 32'd0;
+            ir_pending <= 1'b0;
+            ir_addr    <= 32'd0;
+            ir_adef    <= 1'b0;
+            ir_pending2 <= 1'b0;
+            ir_addr2    <= 32'd0;
+            ir_adef2    <= 1'b0;
+            sh_ptr     <= 3'd0;
+            sh_pop_ptr <= 3'd0;
+            sh_valid   <= 8'd0;
+            data_rd_addr_issued <= 32'd0;
         end else begin
             if (state == S_AR_DATA && arvalid && arready)
                 dr_pending <= 1'b0;
-            else if (data_rd_live) begin
+            else if (data_rd_live && !dr_pending) begin
                 dr_pending <= 1'b1;
                 dr_addr    <= data_raddr_from_EXE;
             end
+
+            if (state == S_AR_DATA && arvalid && arready)
+                data_rd_addr_issued <= araddr;
+
+            if (inst_issue_now) begin
+                if (ir_pending2) begin
+                    ir_pending  <= 1'b1;
+                    ir_addr     <= ir_addr2;
+                    ir_adef     <= ir_adef2;
+                    ir_pending2 <= 1'b0;
+                end else begin
+                    ir_pending <= 1'b0;
+                end
+
+                if (inst_re_in_from_IF && (pc_in_from_IF != inst_issue_addr)) begin
+                    if (ir_pending2) begin
+                        ir_pending2 <= 1'b1;
+                        ir_addr2    <= pc_in_from_IF;
+                        ir_adef2    <= adef_valid_in_from_IF;
+                    end else begin
+                        ir_pending  <= 1'b1;
+                        ir_addr     <= pc_in_from_IF;
+                        ir_adef     <= adef_valid_in_from_IF;
+                    end
+                end
+            end else if (inst_re_in_from_IF) begin
+                if (!ir_pending) begin
+                    ir_pending <= 1'b1;
+                    ir_addr    <= pc_in_from_IF;
+                    ir_adef    <= adef_valid_in_from_IF;
+                end else if (ir_pending2 && (pc_in_from_IF == (ir_addr2 + 32'd4))) begin
+                    // 两级队列已满且仍然是顺序取指：先保持现有两笔请求，等待桥空出位置。
+                end else if (pc_in_from_IF != (ir_addr + 32'd4)) begin
+                    // 非顺序取指（如分支重定向）优先覆盖并丢弃旧的顺序下一条
+                    ir_pending  <= 1'b1;
+                    ir_addr     <= pc_in_from_IF;
+                    ir_adef     <= adef_valid_in_from_IF;
+                    ir_pending2 <= 1'b0;
+                end else if (!ir_pending2) begin
+                    ir_pending2 <= 1'b1;
+                    ir_addr2    <= pc_in_from_IF;
+                    ir_adef2    <= adef_valid_in_from_IF;
+                end
+            end
+
+            // Push exactly once per store request edge.
+            if (data_we_in_from_EXE && !data_we_prev) begin
+                sh_addr[sh_ptr] <= data_waddr_from_EXE;
+                sh_data[sh_ptr] <= data_wdata_from_EXE;
+                sh_strb[sh_ptr] <= data_byte_en_from_EXE;
+                sh_valid[sh_ptr] <= 1'b1;
+                sh_ptr <= sh_ptr + 3'd1;
+            end
+
+            if (b_handshake) begin
+                // If push and pop hit the same slot in one cycle, keep the newly pushed entry valid.
+                if (!(data_we_in_from_EXE && (sh_ptr == sh_pop_ptr)))
+                    sh_valid[sh_pop_ptr] <= 1'b0;
+                sh_pop_ptr <= sh_pop_ptr + 3'd1;
+            end
+
+
+        end
+    end
+
+    always @(posedge clk) begin
+        if (!reset && ((pc_in_from_IF[31:4] == 28'h1c01838) || (pc_in_from_IF[31:4] == 28'h1c01839) ||
+                   (inst_issue_addr[31:4] == 28'h1c01838) || (inst_issue_addr[31:4] == 28'h1c01839) ||
+                   (pc_in_from_IF[31:4] == 28'h1c02e80) || (inst_issue_addr[31:4] == 28'h1c02e80))) begin
+            $display("INSTQDBG t=%0t state=%0d issue_now=%0d re_if=%0d pc_if=0x%08h issue_addr=0x%08h pending=%0d pending2=%0d wait=%0d arv=%0d arr=%0d araddr=0x%08h",
+                     $time, state, inst_issue_now, inst_re_in_from_IF, pc_in_from_IF, inst_issue_addr,
+                     ir_pending, ir_pending2, inst_wait_data, arvalid, arready, araddr);
         end
     end
 
@@ -209,6 +369,10 @@ module sram_AXI_bridge (
             wlast           <= 1'b0;
             inst_rdata_reg  <= 32'd0;
             data_rdata_reg  <= 32'd0;
+            inst_pc_pending  <= 32'b0;
+            inst_pc_reg      <= 32'b0;
+            aw_wdata_lat    <= 32'd0;
+            aw_wstrb_lat    <= 4'd0;
         end else begin
             case (state)
                 S_IDLE: begin
@@ -224,19 +388,23 @@ module sram_AXI_bridge (
                         awlen   <= 8'd0;
                         awsize  <= 3'b010;
                         awburst <= 2'b01;
+                        aw_wdata_lat <= data_wdata_from_EXE;
+                        aw_wstrb_lat <= data_byte_en_from_EXE;
                     end else if (data_rd_need) begin
                         state   <= S_AR_DATA;
                         arvalid <= 1'b1;
                         arid    <= AXI_ID_DATA;
-                        araddr  <= data_rd_araddr;
+                        // Data path is word-sized on AXI; align read address and let MEMport
+                        // select byte/half with original low bits.
+                        araddr  <= {data_rd_araddr[31:2], 2'b00};
                         arlen   <= 8'd0;
                         arsize  <= 3'b010;
                         arburst <= 2'b01;
-                    end else if (inst_re_in_from_IF) begin
+                    end else if (inst_re_in_from_IF || ir_pending) begin
                         state   <= S_AR_INST;
                         arvalid <= 1'b1;
                         arid    <= AXI_ID_INST;
-                        araddr  <= pc_in_from_IF;
+                        araddr  <= inst_issue_addr;
                         arlen   <= 8'd0;
                         arsize  <= 3'b010;
                         arburst <= 2'b01;
@@ -246,11 +414,14 @@ module sram_AXI_bridge (
                     if (arvalid & arready) begin
                         arvalid <= 1'b0;
                         state   <= S_R_INST;
+                        // 与 rdata 对应的取指 PC：必须用本事务 araddr（握手时 pc_in 可能已是下一条顺序地址）
+                        inst_pc_pending <= araddr;
                     end
                 end
                 S_R_INST: begin
                     if (rvalid & rlast & (rid == AXI_ID_INST)) begin
                         inst_rdata_reg <= rdata;
+                        inst_pc_reg    <= inst_pc_pending;
                         state          <= S_IDLE;
                     end
                 end
@@ -262,31 +433,44 @@ module sram_AXI_bridge (
                 end
                 S_R_DATA: begin
                     if (rvalid & rlast & (rid == AXI_ID_DATA)) begin
-                        data_rdata_reg <= rdata;
+                        data_rdata_reg <= sh_hit ? sh_rdata : rdata;
                         state          <= S_IDLE;
+                        if (data_rd_addr_issued[31:4] == 28'h000d3b6) begin
+                            $display("AXI_SHDBG t=%0t R addr=0x%08h rdata=0x%08h hit=%0d sh=0x%08h", $time, data_rd_addr_issued, rdata, sh_hit, sh_rdata);
+                        end
                     end
                 end
                 S_AW: begin
                     if (awvalid & awready) begin
+                        if ((awaddr[31:4] == 28'h000d3b6)) begin
+                            $display("AXI_WDBG t=%0t AW addr=0x%08h data_lat=0x%08h strb=0x%1h", $time, awaddr, aw_wdata_lat, aw_wstrb_lat);
+                        end
                         awvalid <= 1'b0;
                         state   <= S_W;
                         wvalid  <= 1'b1;
                         wlast   <= 1'b1;
                         wid     <= AXI_ID_DATA;
-                        wdata   <= data_wdata_from_EXE;
-                        wstrb   <= data_byte_en_from_EXE;
+                        wdata   <= aw_wdata_lat;
+                        wstrb   <= aw_wstrb_lat;
                     end
                 end
                 S_W: begin
                     if (wvalid & wready) begin
+                        if ((awaddr[31:4] == 28'h000d3b6)) begin
+                            $display("AXI_WDBG t=%0t W  data=0x%08h strb=0x%1h", $time, wdata, wstrb);
+                        end
                         wvalid <= 1'b0;
                         wlast  <= 1'b0;
                         state  <= S_B;
                     end
                 end
                 S_B: begin
-                    if (bvalid & bready & (bid == AXI_ID_DATA))
+                    if (bvalid & bready & (bid == AXI_ID_DATA)) begin
+                        if ((awaddr[31:4] == 28'h000d3b6)) begin
+                            $display("AXI_WDBG t=%0t B  resp=0x%0h", $time, bresp);
+                        end
                         state <= S_IDLE;
+                    end
                 end
                 default: state <= S_IDLE;
             endcase
@@ -296,37 +480,43 @@ module sram_AXI_bridge (
     always @(posedge clk) begin
         if (reset) begin
             data_w_pending    <= 1'b0;
-            data_r_pending    <= 1'b0;
+            data_we_prev      <= 1'b0;
+            data_r_pending_cnt <= 2'd0;
             data_r_complete_d <= 1'b0;
             data_r_complete   <= 1'b0;
-            inst_pc_pending   <= 32'b0;
+            inst_data_ok_d    <= 1'b0;
             inst_wait_data    <= 1'b0;
             inst_adef_pending <= 1'b0;
             inst_r_complete   <= 1'b0;
         end else begin
-            if (inst_re_in_from_IF && sram_inst_addr_ok)
-                inst_pc_pending <= pc_in_from_IF;
+            inst_data_ok_d <= sram_inst_data_ok;
 
-            if (inst_re_in_from_IF)
-                inst_adef_pending <= adef_valid_in_from_IF;
+            if (inst_issue_now)
+                inst_adef_pending <= inst_issue_adef;
 
-            if (sram_inst_data_ok)
-                inst_wait_data <= 1'b0;
-            else if (inst_re_in_from_IF && sram_inst_addr_ok)
+            // Outstanding 取指：在 AR 握手完成时置位。若同拍既有旧响应又有新 AR，
+            // 以“仍有新的取指在途”为准，避免把等待标志提前清掉。
+            if (inst_ar_done)
                 inst_wait_data <= 1'b1;
+            else if (inst_data_ok_pulse)
+                inst_wait_data <= 1'b0;
 
-            if (!data_w_pending && data_we_in_from_EXE)
+            if (!data_w_pending && data_we_in_from_EXE && !data_we_prev) begin
                 data_w_pending <= 1'b1;
-            else if (data_w_pending && !data_we_in_from_EXE && sram_data_data_ok)
+            end
+            else if (data_w_pending && sram_data_data_ok)
                 data_w_pending <= 1'b0;
 
-            if (!data_r_pending && data_re_in_from_EXE)
-                data_r_pending <= 1'b1;
-            else if (data_r_pending && !data_re_in_from_EXE && sram_data_data_ok)
-                data_r_pending <= 1'b0;
+            data_we_prev <= data_we_in_from_EXE;
+
+            case ({data_re_in_from_EXE, sram_data_data_ok_rd})
+                2'b10: if (data_r_pending_cnt != 2'b11) data_r_pending_cnt <= data_r_pending_cnt + 2'd1;
+                2'b01: if (data_r_pending_cnt != 2'b00) data_r_pending_cnt <= data_r_pending_cnt - 2'd1;
+                default: data_r_pending_cnt <= data_r_pending_cnt;
+            endcase
 
             if (!data_r_wrong_local) begin
-                data_r_complete_d <= data_r_pending & !data_re_in_from_EXE & sram_data_data_ok;
+                data_r_complete_d <= (data_r_pending_cnt != 2'b00) & sram_data_data_ok_rd;
                 data_r_complete   <= data_r_complete_d;
             end else begin
                 data_r_complete_d <= 1'b0;
@@ -334,8 +524,7 @@ module sram_AXI_bridge (
             end
 
             if (!inst_r_wrong_local)
-                inst_r_complete <= sram_inst_data_ok
-                    & (inst_wait_data | (inst_re_in_from_IF & sram_inst_addr_ok));
+                inst_r_complete <= inst_data_ok_pulse & (inst_wait_data | inst_ar_done);
             else
                 inst_r_complete <= 1'b0;
         end
@@ -359,7 +548,7 @@ module sram_AXI_bridge (
     always @(posedge clk) begin
         if (reset) data_w_complete <= 1'b0;
         else if (!data_w_wrong_local)
-            data_w_complete <= data_w_pending & !data_we_in_from_EXE & sram_data_data_ok;
+            data_w_complete <= data_w_pending & sram_data_data_ok_wr;
         else data_w_complete <= 1'b0;
     end
 

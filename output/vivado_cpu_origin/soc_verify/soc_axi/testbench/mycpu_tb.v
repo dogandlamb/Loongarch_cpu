@@ -36,7 +36,7 @@ THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 `define TRACE_REF_FILE "../../../../../../../../gettrace/golden_trace.txt"
 `define CONFREG_NUM_REG      soc_lite.u_confreg.num_data
-`define CONFREG_OPEN_TRACE   soc_lite.u_confreg.open_trace
+`define CONFREG_OPEN_TRACE   1'b1
 `define CONFREG_NUM_MONITOR  soc_lite.u_confreg.num_monitor
 `define CONFREG_UART_DISPLAY soc_lite.u_confreg.write_uart_valid
 `define CONFREG_UART_DATA    soc_lite.u_confreg.write_uart_data
@@ -126,6 +126,38 @@ begin
         begin
             commit_cnt <= commit_cnt + 1'b1;
         end
+    end
+end
+
+always @(posedge soc_clk)
+begin
+    if (resetn && |debug_wb_rf_we && debug_wb_rf_wnum!=5'd0 && cycle_cnt < 32'd400)
+    begin
+        $display("WB c=%0d pc=0x%8h wnum=%0d wdata=0x%8h",
+                 cycle_cnt, debug_wb_pc, debug_wb_rf_wnum, debug_wb_rf_wdata);
+    end
+end
+
+always @(posedge soc_clk)
+begin
+    if (resetn && cycle_cnt < 32'd220)
+    begin
+        $display("EARLY c=%0d pc=0x%8h next=0x%8h pc_exe=0x%8h br_taken=%0d br_imm=0x%8h br_bl=%0d csr_red=%0d csr_npc=0x%8h wb_ex=%0d ine=%0d int=%0d id_inst=0x%8h id_known=%0d id_csrwr=%0d",
+                 cycle_cnt,
+                 soc_lite.u_cpu.pc,
+                 soc_lite.u_cpu.nextpc,
+                 soc_lite.u_cpu.pc_exe,
+                 soc_lite.u_cpu.br_taken_q,
+             soc_lite.u_cpu.br_imm_2EXE,
+                 soc_lite.u_cpu.br_op_2EXE[3],
+                 soc_lite.u_cpu.csr_redirect,
+                 soc_lite.u_cpu.csr_next_pc,
+                 soc_lite.u_cpu.wb_ex_2csr,
+                 soc_lite.u_cpu.wb_ine_valid_2csr,
+                 soc_lite.u_cpu.wb_int_valid_2csr,
+             soc_lite.u_cpu.inst_2ID,
+             soc_lite.u_cpu.u_IDport.inst_known,
+             soc_lite.u_cpu.u_IDport.inst_csrwr);
     end
 end
 
@@ -251,6 +283,37 @@ begin
         $display ("        [%t] Test is running, debug_wb_pc = 0x%8h",$time, debug_wb_pc);
         $display ("        cycle=%0d commit=%0d open_trace=%0d num_data=0x%8h",
                   cycle_cnt, commit_cnt, `CONFREG_OPEN_TRACE, confreg_num_reg);
+        $display ("        fetch_pc=0x%8h nextpc=0x%8h csr_redirect=%0d flush=%0d",
+                  soc_lite.u_cpu.pc, soc_lite.u_cpu.nextpc,
+                  soc_lite.u_cpu.csr_redirect, soc_lite.u_cpu.csr_flush_pipeline);
+        $display ("        wb_ex=%0d int=%0d adef=%0d ale=%0d sys=%0d brk=%0d ine=%0d wb_pc=0x%8h id_inst=0x%8h",
+                  soc_lite.u_cpu.wb_ex_2csr,
+                  soc_lite.u_cpu.wb_int_valid_2csr,
+                  soc_lite.u_cpu.wb_adef_valid_2csr,
+                  soc_lite.u_cpu.wb_ale_valid_2csr,
+                  soc_lite.u_cpu.wb_sys_valid_2csr,
+                  soc_lite.u_cpu.wb_brk_valid_2csr,
+                  soc_lite.u_cpu.wb_ine_valid_2csr,
+                  soc_lite.u_cpu.wb_pc,
+                  soc_lite.u_cpu.inst_2ID);
+        $display ("        ctrl: stall=%0d block=%0d pc_stall=%0d cancel=%0d ifid_allow=%0d idexe_allow=%0d exemem_allow=%0d memwb_allow=%0d",
+                  soc_lite.u_cpu.stall,
+                  soc_lite.u_cpu.block_sig,
+                  soc_lite.u_cpu.pc_stall,
+                  soc_lite.u_cpu.cancel_sig,
+                  soc_lite.u_cpu.IF_ID_reg_allowIn,
+                  soc_lite.u_cpu.ID_EXE_reg_allowIn,
+                  soc_lite.u_cpu.EXE_MEM_reg_allowIn,
+                  soc_lite.u_cpu.MEM_WB_reg_allowIn);
+        $display ("        stage: IF(v/r/a)=%0d/%0d/%0d ID(v/r/a)=%0d/%0d/%0d EXE(v/r/a)=%0d/%0d/%0d MEM(v/r/a)=%0d/%0d/%0d WB(v/a)=%0d/%0d",
+                  soc_lite.u_cpu.IF_valid,  soc_lite.u_cpu.IF_readyGo,  soc_lite.u_cpu.IF_allowIn,
+                  soc_lite.u_cpu.ID_valid,  soc_lite.u_cpu.ID_readyGo,  soc_lite.u_cpu.ID_allowIn,
+                  soc_lite.u_cpu.EXE_valid, soc_lite.u_cpu.EXE_readyGo, soc_lite.u_cpu.EXE_allowIn,
+                  soc_lite.u_cpu.MEM_valid, soc_lite.u_cpu.MEM_readyGo, soc_lite.u_cpu.MEM_allowIn,
+                  soc_lite.u_cpu.WB_valid,  soc_lite.u_cpu.wb_allowIn);
+        $display ("        memif: inst_r_complete=%0d axi_if_busy=%0d", 
+                  soc_lite.u_cpu.inst_r_complete,
+                  soc_lite.u_cpu.axi_if_busy);
     end
 end
 

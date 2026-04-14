@@ -31,11 +31,12 @@ wire hit_exe;
 wire hit_mem;
 wire hit_wb;
 
-assign hit_exe = (hit_exe_rs1 == 1'b1) | (hit_exe_rs2 == 1'b1);
-assign hit_mem = (hit_mem_rs1 == 1'b1) | (hit_mem_rs2 == 1'b1);
-assign hit_wb  = (hit_wb_rs1  == 1'b1) | (hit_wb_rs2  == 1'b1);
+assign hit_exe = (hit_exe_rs1 == 1'b1) || (hit_exe_rs2 == 1'b1);
+assign hit_mem = (hit_mem_rs1 == 1'b1) || (hit_mem_rs2 == 1'b1);
+assign hit_wb  = (hit_wb_rs1  == 1'b1) || (hit_wb_rs2  == 1'b1);
 
-assign RAW_hazard = (hit_exe & exe_stage_is_load) | (hit_mem & mem_stage_is_load) | (hit_wb ^ hit_wb);
+assign RAW_hazard = ((hit_exe == 1'b1) && (exe_stage_is_load == 1'b1))
+                  || ((hit_mem == 1'b1) && (mem_stage_is_load == 1'b1));
 assign block_sig  = BLOCK_MODE_ENABLE ? RAW_hazard : 1'b0;
 assign stall      = BLOCK_MODE_ENABLE ? block_sig  : 1'b0;
 

@@ -145,7 +145,7 @@ module op_dec(
     assign wb_src_op[`WB_SRC_CNTVH] = inst_rdcntvh_w;
     assign wb_src_op[`WB_SRC_TID] = inst_rdcntid;
 //inst_known：指令识别信号，输入的指令在指令集内为 1，否则为 0。用于异常处理模块识别非法指令
-    assign inst_known = |alu_op |br_op | mem_op | csr_op 
+    assign inst_known = (|alu_op) | (|br_op) | (|mem_op) | (|csr_op)
                      | inst_rdcntvl_w |inst_rdcntvh_w | inst_rdcntid 
                      | inst_ertn | inst_syscall | inst_break;
 

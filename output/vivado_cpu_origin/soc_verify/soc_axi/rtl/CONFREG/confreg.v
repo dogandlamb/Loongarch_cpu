@@ -257,6 +257,10 @@ module confreg
                 `NUM_MONITOR_ADDR: conf_rdata_reg <= {31'd0,num_monitor} ;
                 default        : conf_rdata_reg <= 32'd0;
             endcase
+                if (conf_addr[15:0] == `SW_INTER_ADDR) begin
+                    $display("CONFREG READ sw_inter: addr=0x%8h switch=0x%2h sw_inter_data=0x%8h next_rdata=0x%8h",
+                             conf_addr, switch, sw_inter_data, sw_inter_data);
+                end
         end
         else if(r_retire)
         begin

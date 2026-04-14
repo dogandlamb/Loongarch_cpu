@@ -202,11 +202,6 @@ wire mul_result_ok = op_mul_any && op_mul_any_d;
 
 assign alu_result_valid = op_alu_1cycle | mul_result_ok | div_result_ok;
 
-// 读全宽乘法/移位/除法中间向量未直接参与 alu_result[31:0] 的位，满足 ASSIGN-6/ASSIGN-1
-wire alu_wide_hi_lint = mul_result_raw[65] | mul_result_raw[64]
-                      | div_half_quot_wide[32] | div_half_rem_fix_wide[32] | div_half_sub_wide[32]
-                      | (|sr64_result[63:32]);
-
 wire [31:0] alu_result_mux;
 assign alu_result_mux = ({32{op_add | op_sub}} & add_sub_result)
                       | ({32{op_slt}} & slt_result)
@@ -224,7 +219,7 @@ assign alu_result_mux = ({32{op_add | op_sub}} & add_sub_result)
                       | ({32{op_div_w | op_div_wu}} & div_quot_result)
                       | ({32{op_mod_w | op_mod_wu}} & div_rem_result);
 
-// 自消去异或读入标量 lint，不改变数值，其实就只是为了满足run linter报错，不影响原有逻辑
-assign alu_result = alu_result_mux ^ ({32{alu_wide_hi_lint}} ^ {32{alu_wide_hi_lint}});
+// mul_result_raw 在首几拍可为 X；若 alu_wide_hi_lint 参与异或自消去，会把 X 扩散到 alu_result，毒化 addi 等单周期运算
+assign alu_result = alu_result_mux;
 
 endmodule

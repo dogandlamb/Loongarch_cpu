@@ -1,3 +1,5 @@
+`include "../../common/cpu_defs.vh"
+
 // ============================================================
 // WBport：写回级组合逻辑。valid 且非复位时透传 MEM_WB_reg 输出到 regfile；
 // ============================================================
@@ -32,7 +34,7 @@ module WBport (
     output wire [31:0] wb_wdata_out,     // 送 regfile 的写数据
     output wire [31:0] pc_out,           // 送 debug 的 PC,也送给csr模块用于记录异常发生时的PC
     output wire [ 4:0] wb_reg_addr_out,  // 送 regfile 的写地址
-    output wire        wb_op_out         // 送 regfile 的写使能
+    output wire        wb_op_out,        // 送 regfile 的写使能
 
     // to CSR
     output wire  [`CSR_OP_NUM-1:0] csr_op_out,
@@ -45,14 +47,10 @@ module WBport (
     output wire  [31:0]            wb_vaddr_out,
     output wire                    int_valid_out_2csr,     // 写回阶段指令是否是有效的中断（送 CSR 模块用于记录中断发生时的 PC 和指令地址）
     output wire                    adef_valid_out_2csr,    // 写回阶段指令是否是有效的地址异常（送 CSR 模块用于记录地址异常发生时的 PC 和指令地址）
-    output wire                    ale_valid_out_2csr      // 写回阶段指令是否是有效的地址错误异常（送 CSR 模块用于记录地址错误异常发生时的 PC 和指令地址）
+    output wire                    ale_valid_out_2csr,     // 写回阶段指令是否是有效的地址错误异常（送 CSR 模块用于记录地址错误异常发生时的 PC 和指令地址）
     output wire                    sys_valid_out_2csr,     // 写回阶段指令是否是有效的系统调用（送 CSR 模块用于记录系统调用发生时的 PC 和指令地址）
     output wire                    brk_valid_out_2csr,     // 写回阶段指令是否是有效的断点（送 CSR 模块用于记录断点发生时的 PC 和指令地址）
     output wire                    ine_valid_out_2csr      // 写回阶段指令是否是有效的非法指令（送 CSR 模块用于记录非法指令发生时的 PC 和指令地址）
-    
-    
-
-
 );
 wire exception_valid_w;
 assign exception_valid_w = exception_valid_in;
@@ -72,13 +70,13 @@ assign csr_wvalue_out = (reset || !valid) ? 32'b0 : csr_wvalue_in;
 assign wb_ex_2csr = exception_valid_w && valid;
 assign wb_valid_2csr = valid;
 assign wb_is_ertn_2csr = ertn_op_in && valid;
-assign wb_vaddr_out = (reset || !valid) ? 32'b0 : if_vaddr_in;
 assign int_valid_out_2csr = int_valid_in && valid;
 assign adef_valid_out_2csr = adef_valid_in && valid;
 assign ale_valid_out_2csr = ale_valid_in && valid;
 assign sys_valid_out_2csr = sys_valid_in && valid;
 assign brk_valid_out_2csr = brk_valid_in && valid;
 assign ine_valid_out_2csr = ine_valid_in && valid;
-assign wb_vaddr_out = !valid ? 32'b0 : (adef_valid_in ? if_vaddr_in : (ale_valid_in ? ale_vaddr_in : 32'b0));
+assign wb_vaddr_out = (reset || !valid) ? 32'b0
+                    : (adef_valid_in ? if_vaddr_in : (ale_valid_in ? ale_vaddr_in : 32'b0));
 
 endmodule

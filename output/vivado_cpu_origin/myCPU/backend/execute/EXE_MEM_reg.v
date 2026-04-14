@@ -130,8 +130,9 @@ always @(posedge clk) begin
         ale_vaddr_out <= ale_vaddr_in;
     end 
     
-    // 上游无效：输出清空
-    else if (!valid) begin
+    // 上游无效且本级可接收新槽：输出清空
+    // 若下游反压(allowIn=0)，需保持当前槽，不能因上游valid=0而清空。
+    else if (!valid && allowIn) begin
         exe_alu_or_addr_out <= 32'h0;
         pc_out <= 32'h0;
         wb_reg_addr_out <= 5'h0;

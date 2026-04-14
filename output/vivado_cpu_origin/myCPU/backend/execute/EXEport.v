@@ -77,6 +77,9 @@ module EXEport (
 wire [31:0] alu_result_w;           // ALU 组合结果
 wire        alu_result_valid_w;     // 多周期指令完成
 wire        br_taken_w;             // 组合分支条件满足
+wire [31:0] br_target_w;            // EXE 级分支目标
+wire [31:0] seq_target_w;           // EXE 级顺序目标（pc+4）
+wire        br_to_seq_w;            // 分支目标与顺序目标相同（无需重定向）
 wire [31:0] link_pc4_w;             // jirl/bl 链路：pc+4
 
 wire [ 7:0] w_byte_data;            // 写一个字节的数据
@@ -127,16 +130,19 @@ alu u_alu(
 );
 
 
-assign br_taken_w = (br_op[`BR_OP_BEQ]  && (alu_src1 == alu_src2))
-                  | (1'b0 & (|br_imm))
-                  | (br_op[`BR_OP_BNE]  && (alu_src1 != alu_src2))
-                  | (br_op[`BR_OP_BLT]  && ($signed(alu_src1) < $signed(alu_src2)))
-                  | (br_op[`BR_OP_BGE]  && ($signed(alu_src1) >= $signed(alu_src2)))
-                  | (br_op[`BR_OP_BLTU] && (alu_src1 < alu_src2))
-                  | (br_op[`BR_OP_BGEU] && (alu_src1 >= alu_src2))
-                  |  br_op[`BR_OP_JIRL]
-                  |  br_op[`BR_OP_BL]
-                  |  br_op[`BR_OP_B];
+assign br_taken_w = (((br_op[`BR_OP_BEQ]  == 1'b1) && (alu_src1 == alu_src2))
+                  || ((br_op[`BR_OP_BNE]  == 1'b1) && (alu_src1 != alu_src2))
+                  || ((br_op[`BR_OP_BLT]  == 1'b1) && ($signed(alu_src1) < $signed(alu_src2)))
+                  || ((br_op[`BR_OP_BGE]  == 1'b1) && ($signed(alu_src1) >= $signed(alu_src2)))
+                  || ((br_op[`BR_OP_BLTU] == 1'b1) && (alu_src1 < alu_src2))
+                  || ((br_op[`BR_OP_BGEU] == 1'b1) && (alu_src1 >= alu_src2))
+                  ||  (br_op[`BR_OP_JIRL] == 1'b1)
+                  ||  (br_op[`BR_OP_BL]   == 1'b1)
+                  ||  (br_op[`BR_OP_B]    == 1'b1));
+
+assign seq_target_w = pc_in + 32'd4;
+assign br_target_w  = br_op[`BR_OP_JIRL] ? (alu_src1 + br_imm) : (pc_in + br_imm);
+assign br_to_seq_w  = (br_target_w == seq_target_w);
 
 assign readyGo       = !valid || alu_result_valid_w || ~(|alu_op);
 /** 
@@ -147,7 +153,7 @@ assign readyGo       = !valid || alu_result_valid_w || ~(|alu_op);
 */
 assign allowIn       = 1'b1;
 
-assign br_taken        = valid && br_taken_w;
+assign br_taken        = valid && !stall && br_taken_w && !br_to_seq_w;
 assign link_pc4_w      = pc_in + 32'd4;
 
 assign  exe_alu_or_addr_or_cnt = !valid ? 32'b0 :
@@ -172,21 +178,21 @@ assign data_re_from_EXE = (valid && !exception_valid_w) ?
                         : 1'b0;
      
 
-assign data_raddr_from_EXE = (valid && !exception_valid_w) ? 
-                            (!stall ? exe_alu_or_addr : 32'b0) 
+assign data_raddr_from_EXE = (valid && !exception_valid_w) ?
+                            (!stall ? alu_result_w : 32'b0)
                             : 32'b0;
 assign data_waddr_from_EXE = (valid && !exception_valid_w) ?
-                            (!stall ? exe_alu_or_addr : 32'b0) 
+                            (!stall ? alu_result_w : 32'b0)
                              : 32'b0;
 assign data_wdata_from_EXE = (valid && !exception_valid_w) ? 
                             (!stall ? wdata_2bram : 32'b0) 
                             : 32'b0;
 
 assign data_wbyte_en_from_EXE = (valid && !exception_valid_w) ? (!stall ? ((mem_op[`MEM_OP_ST_W]) ? 4'b1111 :
-                                    (mem_op[`MEM_OP_ST_H]) ? ((exe_alu_or_addr[1] ? 4'b1100 : 4'b0011)) :
-                                    (mem_op[`MEM_OP_ST_B]) ? (4'b0001 << exe_alu_or_addr[1:0]) : 4'b0000) : 4'b0000) : 4'b0000;
+                                    (mem_op[`MEM_OP_ST_H]) ? ((alu_result_w[1] ? 4'b1100 : 4'b0011)) :
+                                    (mem_op[`MEM_OP_ST_B]) ? (4'b0001 << alu_result_w[1:0]) : 4'b0000) : 4'b0000) : 4'b0000;
 
-assign csr_op_out = valid ? !stall ? csr_op_in : {'CSR_OP_NUM{1'b0}} : {'CSR_OP_NUM{1'b0}};
+assign csr_op_out = valid ? (!stall ? csr_op_in : {`CSR_OP_NUM{1'b0}}) : {`CSR_OP_NUM{1'b0}};
 assign csr_num_out = valid ? !stall ? csr_num_in : 12'b0 : 12'b0;
 assign csr_wmask_out = valid ? !stall ? csr_wmask_in : 32'b0 : 32'b0;
 assign csr_wvalue_out = valid ? !stall ? csr_wvalue_in : 32'b0 : 32'b0;
@@ -200,7 +206,7 @@ assign int_valid_out = valid ? !stall ? int_valid_in : 1'b0 : 1'b0;
 assign ale_valid_out = valid ? !stall ? addr_error : 1'b0 : 1'b0;
 assign exception_valid_out = valid ? !stall ? exception_valid_w : 1'b0 : 1'b0;
 assign if_vaddr_out = valid && adef_valid_in ? !stall ? if_vaddr_in : 32'b0 : 32'b0;
-assign ale_vaddr_out = valid && ale_valid_out ? !stall ? exe_alu_or_addr : 32'b0 : 32'b0;
+assign ale_vaddr_out = valid && ale_valid_out ? (!stall ? alu_result_w : 32'b0) : 32'b0;
 
 
 
