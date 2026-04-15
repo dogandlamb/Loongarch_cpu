@@ -4,11 +4,15 @@ create_project -force loongson ./project -part xc7a200tfbg676-1
 # hierarchy files while the project is being reconstructed for simulation.
 set_property source_mgmt_mode None [current_project]
 
-# Derive the script directory from the raw script string instead of using Tcl
-# path normalization, which breaks in this Windows user path.
-set script_path [string map {\\ /} [info script]]
-if {![regexp {^(.*)/[^/]+$} $script_path -> script_dir]} {
-    set script_dir "."
+# Prefer the directory resolved by the batch launcher. When this file is sourced,
+# [info script] can lose its directory component and fall back to the current cwd.
+if {[info exists ::proj_dir_override]} {
+    set script_dir $::proj_dir_override
+} else {
+    set script_path [string map {\\ /} [info script]]
+    if {![regexp {^(.*)/[^/]+$} $script_path -> script_dir]} {
+        set script_dir [file dirname [string map {\\ /} [file normalize [info script]]]]
+    }
 }
 puts "create_project script_dir=$script_dir"
 

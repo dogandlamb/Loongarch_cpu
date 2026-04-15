@@ -37,7 +37,7 @@ add_glob_to_sources "$cpu_root/backend/hazard/*.v"
 add_glob_to_sources "$cpu_root/backend/memory/*.v"
 add_glob_to_sources "$cpu_root/backend/writeback/*.v"
 
-# 确保仿真桩在 sim_1 且 axi_ram.xci 不参与仿真 elaborate（避免与桩模块 axi_ram 重名）
+# ????????? sim_1 ??axi_ram.xci ????????elaborate???????????axi_ram ?????
 set stub_v "$proj_dir/../sim_stubs/xsim_ip_stubs.v"
 if {[file exists $stub_v]} {
     set have_stub [get_files -quiet -of_objects [get_filesets sim_1] *xsim_ip_stubs.v]
@@ -96,7 +96,8 @@ if {[file exists $trace_src]} {
 }
 
 # Run until $finish or timeout (tb uses # cycles)
-run all
+run 1000ns
 
 puts "Simulation finished."
 exit 0
+

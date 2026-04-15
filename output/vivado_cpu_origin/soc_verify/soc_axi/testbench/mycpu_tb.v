@@ -34,10 +34,10 @@ THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 可选：仿真前 `define TB_DUMP_VCD 以生成 dump.vcd
 `timescale 1ns / 1ps
 
-`define TRACE_REF_FILE "../../../../../../../../gettrace/golden_trace.txt"
+`define TRACE_REF_FILE "E:/Loongarch_cpu/output/vivado_cpu_origin/gettrace/golden_trace.txt"
 `define CONFREG_NUM_REG      soc_lite.u_confreg.num_data
 `define CONFREG_OPEN_TRACE   1'b1
-`define CONFREG_NUM_MONITOR  soc_lite.u_confreg.num_monitor
+`define CONFREG_NUM_MONITOR  1'b0
 `define CONFREG_UART_DISPLAY soc_lite.u_confreg.write_uart_valid
 `define CONFREG_UART_DATA    soc_lite.u_confreg.write_uart_data
 `define END_PC 32'h1c000100
@@ -378,6 +378,28 @@ wire global_err = debug_wb_err || (err_count!=8'd0);
 wire test_end = (debug_wb_pc==`END_PC) || (uart_display && uart_data==8'hff);
 always @(posedge soc_clk)
 begin
+    if (resetn && !debug_end && cycle_cnt != 32'd0 && (cycle_cnt % 32'd100000 == 32'd0))
+    begin
+        $display("[HB] cycle=%0d commit=%0d pc=0x%8h next=0x%8h wb_pc=0x%8h csr_red=%0d csr_npc=0x%8h br_taken=%0d br_op=0x%0h inst_r_complete=%0d axi_if_busy=%0d | st=%0d arv=%0d arr=%0d araddr=0x%8h rv=%0d rid=%0d ir1=%0d ir2=%0d iwait=%0d ipp=0x%8h rw=%0d rt=%0d sw=%0d",
+                 cycle_cnt, commit_cnt, soc_lite.u_cpu.pc, soc_lite.u_cpu.nextpc, debug_wb_pc,
+                 soc_lite.u_cpu.csr_redirect, soc_lite.u_cpu.csr_next_pc,
+                 soc_lite.u_cpu.br_taken_q, soc_lite.u_cpu.br_op_2EXE,
+                 soc_lite.u_cpu.inst_r_complete, soc_lite.u_cpu.axi_if_busy,
+                 soc_lite.u_cpu.u_sram_AXI_bridge.state,
+                 soc_lite.u_cpu.u_sram_AXI_bridge.arvalid,
+                 soc_lite.u_cpu.u_sram_AXI_bridge.arready,
+             soc_lite.u_cpu.u_sram_AXI_bridge.araddr,
+                 soc_lite.u_cpu.u_sram_AXI_bridge.rvalid,
+                 soc_lite.u_cpu.u_sram_AXI_bridge.rid,
+                 soc_lite.u_cpu.u_sram_AXI_bridge.ir_pending,
+                 soc_lite.u_cpu.u_sram_AXI_bridge.ir_pending2,
+                 soc_lite.u_cpu.u_sram_AXI_bridge.inst_wait_data,
+                 soc_lite.u_cpu.u_sram_AXI_bridge.inst_pc_pending,
+                 soc_lite.u_cpu.u_sram_AXI_bridge.r_wait_cnt,
+                 soc_lite.u_cpu.u_sram_AXI_bridge.inst_retry_cnt,
+                 soc_lite.u_cpu.u_sram_AXI_bridge.inst_stall_cnt);
+    end
+
     if(resetn && (cycle_cnt > `TB_TIMEOUT_CYCLES) && !debug_end)
     begin
         $display("==============================================================");

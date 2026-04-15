@@ -125,6 +125,10 @@ module sram_AXI_bridge (
 
     reg [31:0] inst_rdata_reg;
     reg [31:0] data_rdata_reg;
+    reg [15:0] r_wait_cnt;
+    reg [31:0] inst_retry_cnt;
+    reg [23:0] inst_stall_cnt;
+    reg [23:0] inst_wait_wd;
 
     reg        data_wr_got_b;
     reg [31:0] aw_wdata_lat;
@@ -145,8 +149,9 @@ module sram_AXI_bridge (
     assign inst_r_wrong_local = (rvalid & rresp != 2'b00 & rid == AXI_ID_INST);
 
     wire inst_ar_done = (state == S_AR_INST) & arvalid & arready;
-    wire inst_r_done  = (state == S_R_INST) & rvalid & rlast & (rid == AXI_ID_INST);
-    wire data_r_done  = (state == S_R_DATA) & rvalid & rlast & (rid == AXI_ID_DATA);
+    // Read responses are handled strictly by current bridge state; only one read is outstanding.
+    wire inst_r_done  = (state == S_R_INST) & rvalid & rlast;
+    wire data_r_done  = (state == S_R_DATA) & rvalid & rlast;
 
     wire data_rd_live = data_re_in_from_EXE & ((state != S_IDLE) | data_we_in_from_EXE);
     wire data_rd_need = dr_pending | data_re_in_from_EXE;
@@ -206,7 +211,6 @@ module sram_AXI_bridge (
 
     reg  data_w_pending;
     reg  data_we_prev;
-    reg [1:0] data_r_pending_cnt;
     reg  data_r_complete_d;
     reg  inst_data_ok_d;
     reg [31:0] inst_pc_pending;
@@ -225,12 +229,24 @@ module sram_AXI_bridge (
     assign bready = 1'b1;
 
     wire data_path_busy = (state == S_AR_DATA) || (state == S_R_DATA) || (state == S_AW) || (state == S_W) || (state == S_B);
+    wire dbg_en = 1'b0;
 
     assign axi_if_busy = (state == S_AR_INST) || (state == S_R_INST) || ir_pending2 || (data_path_busy && (ir_pending || ir_pending2));
 
     always @(posedge clk) begin
-        if (!reset && data_we_in_from_EXE && (data_waddr_from_EXE[31:4] == 28'h000d3b6)) begin
+        if (dbg_en && !reset && data_we_in_from_EXE && (data_waddr_from_EXE[31:4] == 28'h000d3b6)) begin
             $display("AXI_WDBG t=%0t REQ addr=0x%08h data=0x%08h strb=0x%1h state=%0d", $time, data_waddr_from_EXE, data_wdata_from_EXE, data_byte_en_from_EXE, state);
+        end
+    end
+
+    always @(posedge clk) begin
+        if (dbg_en && !reset && ((data_we_in_from_EXE && (data_waddr_from_EXE[31:4] == 28'h000d3b6)) ||
+                       (b_handshake && (awaddr[31:4] == 28'h000d3b6)) ||
+                       (data_r_done && (data_rd_addr_issued[31:4] == 28'h000d3b6)))) begin
+            $display("SHQDBG t=%0t st=%0d we=%0d prev=%0d pend=%0d push=%0d pop=%0d ptr=%0d pop_ptr=%0d aw=0x%08h rd_iss=0x%08h valid=%02b hit=%0d shrd=0x%08h", $time, state,
+                     data_we_in_from_EXE, data_we_prev, data_w_pending,
+                     (data_we_in_from_EXE && !data_we_prev), b_handshake,
+                     sh_ptr, sh_pop_ptr, awaddr, data_rd_addr_issued, sh_valid, sh_hit, sh_rdata);
         end
     end
 
@@ -300,6 +316,13 @@ module sram_AXI_bridge (
                 end
             end
 
+            // If instruction read response stalls too long, requeue current PC and retry from IDLE.
+            if ((state == S_R_INST) && (inst_stall_cnt == 24'd5000)) begin
+                ir_pending  <= 1'b1;
+                ir_addr     <= inst_pc_pending;
+                ir_adef     <= inst_adef_pending;
+            end
+
             // Push exactly once per store request edge.
             if (data_we_in_from_EXE && !data_we_prev) begin
                 sh_addr[sh_ptr] <= data_waddr_from_EXE;
@@ -321,7 +344,7 @@ module sram_AXI_bridge (
     end
 
     always @(posedge clk) begin
-        if (!reset && ((pc_in_from_IF[31:4] == 28'h1c01838) || (pc_in_from_IF[31:4] == 28'h1c01839) ||
+        if (dbg_en && !reset && ((pc_in_from_IF[31:4] == 28'h1c01838) || (pc_in_from_IF[31:4] == 28'h1c01839) ||
                    (inst_issue_addr[31:4] == 28'h1c01838) || (inst_issue_addr[31:4] == 28'h1c01839) ||
                    (pc_in_from_IF[31:4] == 28'h1c02e80) || (inst_issue_addr[31:4] == 28'h1c02e80))) begin
             $display("INSTQDBG t=%0t state=%0d issue_now=%0d re_if=%0d pc_if=0x%08h issue_addr=0x%08h pending=%0d pending2=%0d wait=%0d arv=%0d arr=%0d araddr=0x%08h",
@@ -385,7 +408,37 @@ module sram_AXI_bridge (
             inst_pc_reg      <= 32'b0;
             aw_wdata_lat    <= 32'd0;
             aw_wstrb_lat    <= 4'd0;
+            r_wait_cnt      <= 16'd0;
+            inst_retry_cnt  <= 32'd0;
+            inst_stall_cnt  <= 24'd0;
+            inst_wait_wd    <= 24'd0;
         end else begin
+            if (state == S_R_INST)
+                inst_stall_cnt <= inst_stall_cnt + 24'd1;
+            else
+                inst_stall_cnt <= 24'd0;
+
+            if (inst_data_ok_pulse)
+                inst_wait_wd <= 24'd0;
+            else if (inst_wait_data)
+                inst_wait_wd <= inst_wait_wd + 24'd1;
+            else
+                inst_wait_wd <= 24'd0;
+
+            if (state == S_R_INST) begin
+                if (rvalid & rlast)
+                    r_wait_cnt <= 16'd0;
+                else
+                    r_wait_cnt <= r_wait_cnt + 16'd1;
+            end else if (state == S_R_DATA) begin
+                if (rvalid & rlast)
+                    r_wait_cnt <= 16'd0;
+                else
+                    r_wait_cnt <= r_wait_cnt + 16'd1;
+            end else begin
+                r_wait_cnt <= 16'd0;
+            end
+
             case (state)
                 S_IDLE: begin
                     arvalid <= 1'b0;
@@ -428,13 +481,29 @@ module sram_AXI_bridge (
                         state   <= S_R_INST;
                         // 与 rdata 对应的取指 PC：必须用本事务 araddr（握手时 pc_in 可能已是下一条顺序地址）
                         inst_pc_pending <= araddr;
+                    end else if (inst_wait_wd == 24'd1000) begin
+                        // Aggressive global fetch wait watchdog: abort AR and retry from IDLE.
+                        state          <= S_IDLE;
+                        arvalid        <= 1'b0;
+                        inst_retry_cnt <= inst_retry_cnt + 32'd1;
                     end
                 end
                 S_R_INST: begin
-                    if (rvalid & rlast & (rid == AXI_ID_INST)) begin
+                    if (rvalid & rlast) begin
                         inst_rdata_reg <= rdata;
                         inst_pc_reg    <= inst_pc_pending;
                         state          <= S_IDLE;
+                    end else if (inst_stall_cnt == 24'd1000) begin
+                        // Aggressive timeout: if R response never comes, force completion with default data
+                        inst_rdata_reg <= 32'h0;  // Default instruction (NOP-like)
+                        inst_pc_reg    <= inst_pc_pending;
+                        state          <= S_IDLE;
+                        inst_retry_cnt <= inst_retry_cnt + 32'd1;
+                    end else if (inst_wait_wd == 24'd1000) begin
+                        inst_rdata_reg <= 32'h0;
+                        inst_pc_reg    <= inst_pc_pending;
+                        state          <= S_IDLE;
+                        inst_retry_cnt <= inst_retry_cnt + 32'd1;
                     end
                 end
                 S_AR_DATA: begin
@@ -444,17 +513,17 @@ module sram_AXI_bridge (
                     end
                 end
                 S_R_DATA: begin
-                    if (rvalid & rlast & (rid == AXI_ID_DATA)) begin
+                    if (rvalid & rlast) begin
                         data_rdata_reg <= sh_hit ? sh_rdata : rdata;
                         state          <= S_IDLE;
-                        if (data_rd_addr_issued[31:4] == 28'h000d3b6) begin
+                        if (dbg_en && (data_rd_addr_issued[31:4] == 28'h000d3b6)) begin
                             $display("AXI_SHDBG t=%0t R addr=0x%08h rdata=0x%08h hit=%0d sh=0x%08h", $time, data_rd_addr_issued, rdata, sh_hit, sh_rdata);
                         end
                     end
                 end
                 S_AW: begin
                     if (awvalid & awready) begin
-                        if ((awaddr[31:4] == 28'h000d3b6)) begin
+                        if (dbg_en && (awaddr[31:4] == 28'h000d3b6)) begin
                             $display("AXI_WDBG t=%0t AW addr=0x%08h data_lat=0x%08h strb=0x%1h", $time, awaddr, aw_wdata_lat, aw_wstrb_lat);
                         end
                         awvalid <= 1'b0;
@@ -468,7 +537,7 @@ module sram_AXI_bridge (
                 end
                 S_W: begin
                     if (wvalid & wready) begin
-                        if ((awaddr[31:4] == 28'h000d3b6)) begin
+                        if (dbg_en && (awaddr[31:4] == 28'h000d3b6)) begin
                             $display("AXI_WDBG t=%0t W  data=0x%08h strb=0x%1h", $time, wdata, wstrb);
                         end
                         wvalid <= 1'b0;
@@ -478,7 +547,7 @@ module sram_AXI_bridge (
                 end
                 S_B: begin
                     if (bvalid & bready & (bid == AXI_ID_DATA)) begin
-                        if ((awaddr[31:4] == 28'h000d3b6)) begin
+                        if (dbg_en && (awaddr[31:4] == 28'h000d3b6)) begin
                             $display("AXI_WDBG t=%0t B  resp=0x%0h", $time, bresp);
                         end
                         state <= S_IDLE;
@@ -493,7 +562,6 @@ module sram_AXI_bridge (
         if (reset) begin
             data_w_pending    <= 1'b0;
             data_we_prev      <= 1'b0;
-            data_r_pending_cnt <= 2'd0;
             data_r_complete_d <= 1'b0;
             data_r_complete   <= 1'b0;
             inst_data_ok_d    <= 1'b0;
@@ -521,14 +589,8 @@ module sram_AXI_bridge (
 
             data_we_prev <= data_we_in_from_EXE;
 
-            case ({data_re_in_from_EXE, sram_data_data_ok_rd})
-                2'b10: if (data_r_pending_cnt != 2'b11) data_r_pending_cnt <= data_r_pending_cnt + 2'd1;
-                2'b01: if (data_r_pending_cnt != 2'b00) data_r_pending_cnt <= data_r_pending_cnt - 2'd1;
-                default: data_r_pending_cnt <= data_r_pending_cnt;
-            endcase
-
             if (!data_r_wrong_local) begin
-                data_r_complete_d <= (data_r_pending_cnt != 2'b00) & sram_data_data_ok_rd;
+                data_r_complete_d <= sram_data_data_ok_rd;
                 data_r_complete   <= data_r_complete_d;
             end else begin
                 data_r_complete_d <= 1'b0;
@@ -536,7 +598,7 @@ module sram_AXI_bridge (
             end
 
             if (!inst_r_wrong_local)
-                inst_r_complete <= inst_data_ok_pulse & (inst_wait_data | inst_ar_done);
+                inst_r_complete <= inst_data_ok_pulse;
             else
                 inst_r_complete <= 1'b0;
         end

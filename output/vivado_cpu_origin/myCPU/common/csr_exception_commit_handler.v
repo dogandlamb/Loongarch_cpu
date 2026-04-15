@@ -51,6 +51,9 @@ module csr_exception_commit_handler (
     output wire [31:0] csr_tid_out      // csr的tid值，用于RDCNTID指令读取计时器ID号
 );
 
+    // 默认异常入口为 0x1c000000，避免在软件初始化前中断/异常重定向到 0x00000000。
+    localparam [25:0] CSR_EENTRY_RESET_VA = 26'h700000;
+
     // 异常译码出ecode、esubcode               
     wire [7:0] Ecode;   // 异常码
     wire Esubcode;      // 异常子码                  
@@ -235,7 +238,7 @@ module csr_exception_commit_handler (
     reg [25:0] csr_eentry_va;
     always @(posedge clk) begin
         if (reset) begin
-            csr_eentry_va <= 26'b0;
+            csr_eentry_va <= CSR_EENTRY_RESET_VA;
         end
         else if (csr_we && csr_num == `CSR_EENTRY) begin
             csr_eentry_va <= csr_wmask[`CSR_EENTRY_VA] & csr_wvalue[`CSR_EENTRY_VA] 
