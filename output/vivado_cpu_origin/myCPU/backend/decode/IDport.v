@@ -96,8 +96,10 @@ assign inst_csr_all = inst_csrrd | inst_csrwr | inst_csrxchg;
 assign inst_rdcnt_all = inst_rdcntvl_w | inst_rdcntvh_w | inst_rdcntid;
 //assign inst_priv_all = inst_ertn | inst_syscall | inst_break | inst_rdcnt_all | inst_csr_all;
 wire   inst_known;//指令识别信号，输入的指令在指令集内为 1，否则为 0。用于异常处理模块识别非法指令  写错了，这里少了一个n
+wire   has_int_attach;// 对本条指令是否附着中断异常（ERTN 不附着，先返回再处理中断）
 wire   exception_valid_w;//译码阶段的异常有效信号，指令异常或中断时为 1，用于送到 ID_EXE_reg 再传到 EXE 级的异常处理模块
-assign exception_valid_w = inst_syscall | inst_break | !inst_known | has_int | exception_valid_in;
+assign has_int_attach = has_int && !inst_ertn;
+assign exception_valid_w = inst_syscall | inst_break | !inst_known | has_int_attach | exception_valid_in;
 
 
 inst_dec u_inst_dec(
@@ -475,7 +477,7 @@ always @(*) begin
         sys_valid   = inst_syscall && !stall;
         brk_valid   = inst_break   && !stall;
         ine_valid   = (!inst_known) && !stall;
-        int_valid   = has_int && !stall;
+        int_valid   = has_int_attach && !stall;
         exception_valid = exception_valid_w && !stall;
     end
     else if (inst_csr_all) begin
@@ -515,7 +517,8 @@ always @(*) begin
     else if (inst_rdcnt_all) begin
         src1_addr   = rf_raddr1_w;
         src2_addr   = rf_raddr2_w;
-        wb_reg_addr = stall ? 5'd0 : inst[4:0];
+        // rdcntid 的目的寄存器在 rj 字段，rdcntvl/rdcntvh 在 rd 字段
+        wb_reg_addr = stall ? 5'd0 : (inst_rdcntid ? inst[9:5] : inst[4:0]);
         alu_src1    = 32'b0;
         alu_src2    = 32'b0;
         br_imm      = 32'b0;

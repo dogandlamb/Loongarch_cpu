@@ -213,7 +213,9 @@ module csr_exception_commit_handler (
     reg [31:0] csr_era_pc;
     always @(posedge clk) begin
         if (wb_valid && wb_ex) begin
-            csr_era_pc <= wb_pc;
+            // IF ADEF arrives one step advanced on current front-end timing;
+            // record architectural fault PC for CSR visible state.
+            csr_era_pc <= ADEF_valid ? (wb_pc - 32'd4) : wb_pc;
         end
         else if (csr_we && csr_num == `CSR_ERA) begin
             csr_era_pc <= csr_wmask[`CSR_ERA_PC] & csr_wvalue[`CSR_ERA_PC] 
@@ -229,7 +231,7 @@ module csr_exception_commit_handler (
     always @(posedge clk) begin
         if (wb_valid && wb_ex && wb_ex_addr_err) begin
             csr_badv_vaddr <= ((Ecode == `ADEF_ECODE || Ecode == `ADEM_ECODE) &&
-                               Esubcode==`ADEF_ESUBCODE) ? wb_pc : wb_vaddr;
+                               Esubcode==`ADEF_ESUBCODE) ? (ADEF_valid ? (wb_pc - 32'd4) : wb_pc) : wb_vaddr;
         end
     end
 

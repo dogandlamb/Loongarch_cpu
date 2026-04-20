@@ -30,8 +30,6 @@ LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 --------------------------------------------------------------------------------
 ------------------------------------------------------------------------------*/
-// 综合验证用 testbench（覆盖 exp11~exp16 功能测试与 AXI SoC 仿真）
-// 可选：仿真前 `define TB_DUMP_VCD 以生成 dump.vcd
 `timescale 1ns / 1ps
 
 `define TRACE_REF_FILE "E:/Loongarch_cpu/output/vivado_cpu_origin/gettrace/golden_trace.txt"
@@ -42,16 +40,9 @@ THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 `define CONFREG_UART_DATA    soc_lite.u_confreg.write_uart_data
 `define END_PC 32'h1c000100
 
-// exp13~16 测试集较大，可适当调大；若仍超时请再增大
-`ifndef TB_TIMEOUT_CYCLES
-`define TB_TIMEOUT_CYCLES 32'd8000000
-`endif
-
 module tb_top( );
 reg resetn;
 reg clk;
-reg [31:0] cycle_cnt;
-reg [31:0] commit_cnt;
 
 //goio
 wire [15:0] led;
@@ -69,10 +60,6 @@ assign btn_step    = 2'd3;
 
 initial
 begin
-`ifdef TB_DUMP_VCD
-    $dumpfile("dump.vcd");
-    $dumpvars;
-`endif
     clk = 1'b0;
     resetn = 1'b0;
     #2000;
@@ -112,6 +99,7 @@ assign debug_wb_rf_we    = soc_lite.debug_wb_rf_we;
 assign debug_wb_rf_wnum  = soc_lite.debug_wb_rf_wnum;
 assign debug_wb_rf_wdata = soc_lite.debug_wb_rf_wdata;
 
+<<<<<<< Updated upstream
 always @(posedge soc_clk)
 begin
     if (!resetn)
@@ -177,6 +165,8 @@ begin
     end
 end
 
+=======
+>>>>>>> Stashed changes
 // open the trace file;
 integer trace_ref;
 initial begin
@@ -191,7 +181,6 @@ reg [31:0] ref_wb_pc;
 reg [4 :0] ref_wb_rf_wnum;
 reg [31:0] ref_wb_rf_wdata;
 
-integer a;
 always @(posedge soc_clk)
 begin 
     #1;
@@ -200,7 +189,7 @@ begin
         trace_cmp_flag=1'b0;
         while (!trace_cmp_flag && !($feof(trace_ref)))
         begin
-            a = $fscanf(trace_ref, "%h %h %h %h", trace_cmp_flag,
+            $fscanf(trace_ref, "%h %h %h %h", trace_cmp_flag,
                     ref_wb_pc, ref_wb_rf_wnum, ref_wb_rf_wdata);
         end
     end
@@ -234,8 +223,7 @@ begin
             ||(debug_wb_rf_wdata_v!==ref_wb_rf_wdata_v) )
         begin
             $display("--------------------------------------------------------------");
-            $display("[%t] TRACE MISMATCH (WB) !!!",$time);
-            $display("    cycle=%0d commit=%0d", cycle_cnt, commit_cnt);
+            $display("[%t] Error!!!",$time);
             $display("    reference: PC = 0x%8h, wb_rf_wnum = 0x%2h, wb_rf_wdata = 0x%8h",
                       ref_wb_pc, ref_wb_rf_wnum, ref_wb_rf_wdata_v);
             $display("    mycpu    : PC = 0x%8h, wb_rf_wnum = 0x%2h, wb_rf_wdata = 0x%8h",
@@ -308,13 +296,13 @@ begin
     $timeformat(-9,0," ns",10);
     while(!resetn) #5;
     $display("==============================================================");
-    $display("Test begin! (AXI SoC / exp16 unified TB: exp11~16 func + trace compare)");
-    $display("TB_TIMEOUT_CYCLES=%0d  (override: +define+TB_TIMEOUT_CYCLES=<val>)", `TB_TIMEOUT_CYCLES);
+    $display("Test begin!");
 
     #10000;
     while(`CONFREG_NUM_MONITOR)
     begin
         #10000;
+<<<<<<< Updated upstream
         $display ("        [%t] Test is running, debug_wb_pc = 0x%8h",$time, debug_wb_pc);
         $display ("        cycle=%0d commit=%0d open_trace=%0d num_data=0x%8h",
                   cycle_cnt, commit_cnt, `CONFREG_OPEN_TRACE, confreg_num_reg);
@@ -349,6 +337,9 @@ begin
         $display ("        memif: inst_r_complete=%0d axi_if_busy=%0d", 
                   soc_lite.u_cpu.inst_r_complete,
                   soc_lite.u_cpu.axi_if_busy);
+=======
+        $display ("        [%t] Test is running",$time);
+>>>>>>> Stashed changes
     end
 end
 
@@ -360,16 +351,9 @@ assign uart_data    = `CONFREG_UART_DATA;
 
 always @(posedge soc_clk)
 begin
-    if(uart_display)
+    if(uart_display && uart_data!=8'hff)
     begin
-        if(uart_data==8'hff)
-        begin
-            // 结束符由下方 test_end 统一处理
-        end
-        else
-        begin
-            $write("%c",uart_data);
-        end
+        $write("%c",uart_data);
     end
 end
 
@@ -378,6 +362,7 @@ wire global_err = debug_wb_err || (err_count!=8'd0);
 wire test_end = (debug_wb_pc==`END_PC) || (uart_display && uart_data==8'hff);
 always @(posedge soc_clk)
 begin
+<<<<<<< Updated upstream
     if (resetn && !debug_end && cycle_cnt != 32'd0 && (cycle_cnt % 32'd100000 == 32'd0))
     begin
         $display("[HB] cycle=%0d commit=%0d pc=0x%8h next=0x%8h wb_pc=0x%8h csr_red=%0d csr_npc=0x%8h br_taken=%0d br_op=0x%0h inst_r_complete=%0d axi_if_busy=%0d | st=%0d arv=%0d arr=%0d araddr=0x%8h rv=%0d rid=%0d ir1=%0d ir2=%0d iwait=%0d ipp=0x%8h rw=%0d rt=%0d sw=%0d",
@@ -415,6 +400,9 @@ begin
         $finish;
     end
     else if (!resetn)
+=======
+    if (!resetn)
+>>>>>>> Stashed changes
     begin
         debug_end <= 1'b0;
     end
@@ -423,7 +411,6 @@ begin
         debug_end <= 1'b1;
         $display("==============================================================");
         $display("Test end!");
-        $display("final cycle=%0d commit=%0d", cycle_cnt, commit_cnt);
         #40;
         $fclose(trace_ref);
         if (global_err)

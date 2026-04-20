@@ -7,22 +7,6 @@ default:
 	make tidy
 	@echo "=====\nNote: do \"make EXP=N\"(N={0,6-16,18-19,21-23}) for corresponding EXP\n====="
 
-# 一次生成 exp11~exp16 对应的反汇编快照（用于对照各阶段测试范围）
-exp11_16:
-	make clean
-	make EXP=11 all && cp -f obj/test.s obj/test_exp11.s
-	make clean
-	make EXP=12 all && cp -f obj/test.s obj/test_exp12.s
-	make clean
-	make EXP=13 all && cp -f obj/test.s obj/test_exp13.s
-	make clean
-	make EXP=14 all && cp -f obj/test.s obj/test_exp14.s
-	make clean
-	make EXP=15 all && cp -f obj/test.s obj/test_exp15.s
-	make clean
-	make EXP=16 all && cp -f obj/test.s obj/test_exp16.s
-	@echo "Generated obj/test_exp11.s ~ obj/test_exp16.s"
-
 all:
 	mkdir -p ${obj_path}
 	make ${obj_path}/inst_ram.coe ${obj_path}/test.s

@@ -20,6 +20,7 @@ module sram_AXI_bridge (
     input  wire [31:0] data_wdata_from_EXE,
     input  wire [ 3:0] data_byte_en_from_EXE,
     input  wire        adef_valid_in_from_IF, //地址未对齐异常信号，与pc如夫妻一般跟随，鱼水之情不用考虑代码的模块化
+    input  wire        cancel_sig,
 
     output wire [31:0] inst_rdata_2IF,
     output wire        adef_valid_2IF, // 指令地址未对齐异常信号，送 IF 用于判断指令地址错误
@@ -130,7 +131,10 @@ module sram_AXI_bridge (
     reg [23:0] inst_stall_cnt;
     reg [23:0] inst_wait_wd;
 
+<<<<<<< Updated upstream
     reg        data_wr_got_b;
+=======
+>>>>>>> Stashed changes
     reg [31:0] aw_wdata_lat;
     reg [3:0]  aw_wstrb_lat;
     reg [31:0] sh_addr [0:7];
@@ -138,6 +142,10 @@ module sram_AXI_bridge (
     reg [3:0]  sh_strb [0:7];
     reg [7:0]  sh_valid;
     reg [2:0]  sh_ptr;
+<<<<<<< Updated upstream
+=======
+    reg [2:0]  sh_issue_ptr;
+>>>>>>> Stashed changes
     reg [2:0]  sh_pop_ptr;
     reg [31:0] data_rd_addr_issued;
 
@@ -153,10 +161,22 @@ module sram_AXI_bridge (
     wire inst_r_done  = (state == S_R_INST) & rvalid & rlast;
     wire data_r_done  = (state == S_R_DATA) & rvalid & rlast;
 
-    wire data_rd_live = data_re_in_from_EXE & ((state != S_IDLE) | data_we_in_from_EXE);
+    wire stq_has_queued = sh_valid[sh_issue_ptr];
+    wire store_req_now  = data_we_in_from_EXE | stq_has_queued;
+    wire [31:0] store_req_addr = stq_has_queued ? sh_addr[sh_issue_ptr] : data_waddr_from_EXE;
+    wire [31:0] store_req_data = stq_has_queued ? sh_data[sh_issue_ptr] : data_wdata_from_EXE;
+    wire [3:0]  store_req_strb = stq_has_queued ? sh_strb[sh_issue_ptr] : data_byte_en_from_EXE;
+    wire push_store_fire = data_we_in_from_EXE & !sh_valid[sh_ptr];
+    wire store_issue_fire = (state == S_IDLE) & store_req_now;
+
+    wire data_rd_live = data_re_in_from_EXE & ((state != S_IDLE) | store_req_now);
     wire data_rd_need = dr_pending | data_re_in_from_EXE;
     wire [31:0] data_rd_araddr = dr_pending ? dr_addr : data_raddr_from_EXE;
+<<<<<<< Updated upstream
     wire inst_issue_now = (state == S_IDLE) && !data_we_in_from_EXE && !data_rd_need && (inst_re_in_from_IF || ir_pending);
+=======
+    wire inst_issue_now = (state == S_IDLE) && !store_req_now && !data_rd_need && (inst_re_in_from_IF || ir_pending);
+>>>>>>> Stashed changes
     wire [2:0] sh_idx0 = sh_ptr - 3'd1;
     wire [2:0] sh_idx1 = sh_ptr - 3'd2;
     wire [2:0] sh_idx2 = sh_ptr - 3'd3;
@@ -206,17 +226,31 @@ module sram_AXI_bridge (
     wire sram_inst_addr_ok = inst_ar_done;
     wire sram_inst_data_ok = inst_r_done;
     wire sram_data_data_ok_rd = data_r_done;
-    wire sram_data_data_ok_wr = data_wr_got_b & ~data_we_in_from_EXE;
+    wire sram_data_data_ok_wr = b_handshake;
     wire sram_data_data_ok    = sram_data_data_ok_rd | sram_data_data_ok_wr;
 
     reg  data_w_pending;
+<<<<<<< Updated upstream
     reg  data_we_prev;
+=======
+>>>>>>> Stashed changes
     reg  data_r_complete_d;
     reg  inst_data_ok_d;
     reg [31:0] inst_pc_pending;
     reg [31:0] inst_pc_reg;
     reg  inst_wait_data;
+    reg  inst_adef_done_pend;
     reg  inst_adef_pending;
+    reg  inst_replay_guard;
+    reg [31:0] inst_last_done_pc;
+
+    wire inst_fetch_inflight = (state == S_AR_INST) || (state == S_R_INST);
+    wire [31:0] inst_fetch_inflight_pc = (state == S_AR_INST) ? araddr : inst_pc_pending;
+    wire inst_req_same_as_inflight = inst_fetch_inflight && (pc_in_from_IF[31:2] == inst_fetch_inflight_pc[31:2]);
+    wire inst_issue_suppressed = inst_replay_guard && (inst_issue_addr[31:2] == inst_last_done_pc[31:2]);
+
+    wire inst_data_ok_pulse = sram_inst_data_ok & ~inst_data_ok_d;
+    wire inst_adef_local_done = (state == S_IDLE) && inst_issue_now && inst_issue_adef;
 
     wire inst_data_ok_pulse = sram_inst_data_ok & ~inst_data_ok_d;
 
@@ -229,6 +263,7 @@ module sram_AXI_bridge (
     assign bready = 1'b1;
 
     wire data_path_busy = (state == S_AR_DATA) || (state == S_R_DATA) || (state == S_AW) || (state == S_W) || (state == S_B);
+<<<<<<< Updated upstream
     wire dbg_en = 1'b0;
 
     assign axi_if_busy = (state == S_AR_INST) || (state == S_R_INST) || ir_pending2 || (data_path_busy && (ir_pending || ir_pending2));
@@ -250,6 +285,10 @@ module sram_AXI_bridge (
         end
     end
 
+=======
+    assign axi_if_busy = (state == S_AR_INST) || (state == S_R_INST) || ir_pending2 || (data_path_busy && (ir_pending || ir_pending2));
+
+>>>>>>> Stashed changes
     always @(posedge clk) begin
         if (reset) begin
             dr_pending <= 1'b0;
@@ -261,6 +300,10 @@ module sram_AXI_bridge (
             ir_addr2    <= 32'd0;
             ir_adef2    <= 1'b0;
             sh_ptr     <= 3'd0;
+<<<<<<< Updated upstream
+=======
+            sh_issue_ptr <= 3'd0;
+>>>>>>> Stashed changes
             sh_pop_ptr <= 3'd0;
             sh_valid   <= 8'd0;
             data_rd_addr_issued <= 32'd0;
@@ -271,6 +314,7 @@ module sram_AXI_bridge (
                 dr_pending <= 1'b1;
                 dr_addr    <= data_raddr_from_EXE;
             end
+<<<<<<< Updated upstream
 
             if (state == S_AR_DATA && arvalid && arready)
                 data_rd_addr_issued <= araddr;
@@ -364,15 +408,92 @@ module sram_AXI_bridge (
                      inst_pc_pending, inst_pc_reg, inst_wait_data, inst_data_ok_pulse, inst_r_complete);
         end
     end
+=======
+>>>>>>> Stashed changes
 
-    always @(posedge clk) begin
-        if (reset)
-            data_wr_got_b <= 1'b0;
-        else begin
-            if (b_handshake)
-                data_wr_got_b <= 1'b1;
-            else if (data_wr_got_b & ~data_we_in_from_EXE)
-                data_wr_got_b <= 1'b0;
+            if (state == S_AR_DATA && arvalid && arready)
+                data_rd_addr_issued <= araddr;
+
+            if (cancel_sig) begin
+                ir_pending  <= 1'b0;
+                ir_addr     <= 32'd0;
+                ir_adef     <= 1'b0;
+                ir_pending2 <= 1'b0;
+                ir_addr2    <= 32'd0;
+                ir_adef2    <= 1'b0;
+            end else begin
+                if (inst_issue_now) begin
+                    if (ir_pending2) begin
+                        ir_pending  <= 1'b1;
+                        ir_addr     <= ir_addr2;
+                        ir_adef     <= ir_adef2;
+                        ir_pending2 <= 1'b0;
+                    end else begin
+                        ir_pending <= 1'b0;
+                    end
+
+                    if (inst_re_in_from_IF && (pc_in_from_IF != inst_issue_addr)) begin
+                        if (ir_pending2) begin
+                            ir_pending2 <= 1'b1;
+                            ir_addr2    <= pc_in_from_IF;
+                            ir_adef2    <= adef_valid_in_from_IF;
+                        end else begin
+                            ir_pending  <= 1'b1;
+                            ir_addr     <= pc_in_from_IF;
+                            ir_adef     <= adef_valid_in_from_IF;
+                        end
+                    end
+                end else if (inst_re_in_from_IF) begin
+                    if (inst_req_same_as_inflight) begin
+                        // Same fetch PC already in AR/R flight: do not enqueue a duplicate.
+                    end else 
+                    if (!ir_pending) begin
+                        ir_pending <= 1'b1;
+                        ir_addr    <= pc_in_from_IF;
+                        ir_adef    <= adef_valid_in_from_IF;
+                    end else if (ir_pending2 && (pc_in_from_IF == (ir_addr2 + 32'd4))) begin
+                        // 两级队列已满且仍然是顺序取指：先保持现有两笔请求，等待桥空出位置。
+                    end else if (pc_in_from_IF != (ir_addr + 32'd4)) begin
+                        // 非顺序取指（如分支重定向）优先覆盖并丢弃旧的顺序下一条
+                        ir_pending  <= 1'b1;
+                        ir_addr     <= pc_in_from_IF;
+                        ir_adef     <= adef_valid_in_from_IF;
+                        ir_pending2 <= 1'b0;
+                    end else if (!ir_pending2) begin
+                        ir_pending2 <= 1'b1;
+                        ir_addr2    <= pc_in_from_IF;
+                        ir_adef2    <= adef_valid_in_from_IF;
+                    end
+                end
+            end
+
+            // If instruction read response stalls too long, requeue current PC and retry from IDLE.
+            if (!cancel_sig && (state == S_R_INST) && (inst_stall_cnt == 24'd5000)) begin
+                ir_pending  <= 1'b1;
+                ir_addr     <= inst_pc_pending;
+                ir_adef     <= inst_adef_pending;
+            end
+
+            // Enqueue every incoming store request; each MEM slot drives one pulse.
+            if (push_store_fire) begin
+                sh_addr[sh_ptr] <= data_waddr_from_EXE;
+                sh_data[sh_ptr] <= data_wdata_from_EXE;
+                sh_strb[sh_ptr] <= data_byte_en_from_EXE;
+                sh_valid[sh_ptr] <= 1'b1;
+                sh_ptr <= sh_ptr + 3'd1;
+            end
+
+            if (store_issue_fire)
+                sh_issue_ptr <= sh_issue_ptr + 3'd1;
+
+            if (b_handshake) begin
+                // If push and pop hit the same slot in one cycle, keep the newly pushed entry valid.
+                if (!(push_store_fire && (sh_ptr == sh_pop_ptr)))
+                    sh_valid[sh_pop_ptr] <= 1'b0;
+                sh_pop_ptr <= sh_pop_ptr + 3'd1;
+            end
+
+
         end
     end
 
@@ -445,16 +566,21 @@ module sram_AXI_bridge (
                     awvalid <= 1'b0;
                     wvalid  <= 1'b0;
                     wlast   <= 1'b0;
-                    if (data_we_in_from_EXE) begin
+                    if (store_req_now) begin
                         state   <= S_AW;
                         awvalid <= 1'b1;
                         awid    <= AXI_ID_DATA;
-                        awaddr  <= data_waddr_from_EXE;
+                        awaddr  <= store_req_addr;
                         awlen   <= 8'd0;
                         awsize  <= 3'b010;
                         awburst <= 2'b01;
+<<<<<<< Updated upstream
                         aw_wdata_lat <= data_wdata_from_EXE;
                         aw_wstrb_lat <= data_byte_en_from_EXE;
+=======
+                        aw_wdata_lat <= store_req_data;
+                        aw_wstrb_lat <= store_req_strb;
+>>>>>>> Stashed changes
                     end else if (data_rd_need) begin
                         state   <= S_AR_DATA;
                         arvalid <= 1'b1;
@@ -462,6 +588,7 @@ module sram_AXI_bridge (
                         // Data path is word-sized on AXI; align read address and let MEMport
                         // select byte/half with original low bits.
                         araddr  <= {data_rd_araddr[31:2], 2'b00};
+<<<<<<< Updated upstream
                         arlen   <= 8'd0;
                         arsize  <= 3'b010;
                         arburst <= 2'b01;
@@ -470,16 +597,36 @@ module sram_AXI_bridge (
                         arvalid <= 1'b1;
                         arid    <= AXI_ID_INST;
                         araddr  <= inst_issue_addr;
+=======
+>>>>>>> Stashed changes
                         arlen   <= 8'd0;
                         arsize  <= 3'b010;
                         arburst <= 2'b01;
+                    end else if ((inst_re_in_from_IF || ir_pending) && !inst_issue_suppressed) begin
+                        // Misaligned fetch is completed locally so IF can raise ADEF promptly.
+                        if (inst_issue_adef) begin
+                            inst_rdata_reg <= 32'h00000000;
+                            inst_pc_reg    <= inst_issue_addr;
+                        end else begin
+                            state   <= S_AR_INST;
+                            arvalid <= 1'b1;
+                            arid    <= AXI_ID_INST;
+                            araddr  <= inst_issue_addr;
+                            arlen   <= 8'd0;
+                            arsize  <= 3'b010;
+                            arburst <= 2'b01;
+                        end
                     end
                 end
                 S_AR_INST: begin
                     if (arvalid & arready) begin
                         arvalid <= 1'b0;
                         state   <= S_R_INST;
+<<<<<<< Updated upstream
                         // 与 rdata 对应的取指 PC：必须用本事务 araddr（握手时 pc_in 可能已是下一条顺序地址）
+=======
+                        // Keep the request PC paired with response data.
+>>>>>>> Stashed changes
                         inst_pc_pending <= araddr;
                     end else if (inst_wait_wd == 24'd1000) begin
                         // Aggressive global fetch wait watchdog: abort AR and retry from IDLE.
@@ -547,9 +694,12 @@ module sram_AXI_bridge (
                 end
                 S_B: begin
                     if (bvalid & bready & (bid == AXI_ID_DATA)) begin
+<<<<<<< Updated upstream
                         if (dbg_en && (awaddr[31:4] == 28'h000d3b6)) begin
                             $display("AXI_WDBG t=%0t B  resp=0x%0h", $time, bresp);
                         end
+=======
+>>>>>>> Stashed changes
                         state <= S_IDLE;
                     end
                 end
@@ -561,34 +711,77 @@ module sram_AXI_bridge (
     always @(posedge clk) begin
         if (reset) begin
             data_w_pending    <= 1'b0;
+<<<<<<< Updated upstream
             data_we_prev      <= 1'b0;
+=======
+>>>>>>> Stashed changes
             data_r_complete_d <= 1'b0;
             data_r_complete   <= 1'b0;
             inst_data_ok_d    <= 1'b0;
             inst_wait_data    <= 1'b0;
+            inst_adef_done_pend <= 1'b0;
             inst_adef_pending <= 1'b0;
+            inst_replay_guard <= 1'b0;
+            inst_last_done_pc <= 32'b0;
             inst_r_complete   <= 1'b0;
         end else begin
             inst_data_ok_d <= sram_inst_data_ok;
 
+<<<<<<< Updated upstream
             if (inst_issue_now)
                 inst_adef_pending <= inst_issue_adef;
 
             // Outstanding 取指：在 AR 握手完成时置位。若同拍既有旧响应又有新 AR，
             // 以“仍有新的取指在途”为准，避免把等待标志提前清掉。
             if (inst_ar_done)
+=======
+            if (inst_data_ok_pulse) begin
+                inst_replay_guard <= 1'b1;
+                inst_last_done_pc <= inst_pc_pending;
+            end else if (inst_adef_local_done) begin
+                inst_replay_guard <= 1'b1;
+                inst_last_done_pc <= inst_issue_addr;
+            end else begin
+                inst_replay_guard <= 1'b0;
+            end
+
+            if (cancel_sig)
+                inst_adef_done_pend <= 1'b0;
+            else if (inst_adef_local_done)
+                inst_adef_done_pend <= 1'b1;
+            else
+                inst_adef_done_pend <= 1'b0;
+
+            if (cancel_sig)
+                inst_adef_pending <= 1'b0;
+            else if (inst_issue_now)
+                inst_adef_pending <= inst_issue_adef;
+
+            // Outstanding 取指：在 AR 握手完成时置位。若同拍既有旧响应又有新 AR，
+            // 以“仍有新的取指在途”为准，避免把等待标志提前清掉。
+            if (cancel_sig)
+                inst_wait_data <= 1'b0;
+            else if (inst_ar_done)
+>>>>>>> Stashed changes
                 inst_wait_data <= 1'b1;
             else if (inst_data_ok_pulse)
                 inst_wait_data <= 1'b0;
 
+<<<<<<< Updated upstream
             if (!data_w_pending && data_we_in_from_EXE && !data_we_prev) begin
+=======
+            if (!data_w_pending && store_issue_fire) begin
+>>>>>>> Stashed changes
                 data_w_pending <= 1'b1;
             end
             else if (data_w_pending && sram_data_data_ok)
                 data_w_pending <= 1'b0;
 
+<<<<<<< Updated upstream
             data_we_prev <= data_we_in_from_EXE;
 
+=======
+>>>>>>> Stashed changes
             if (!data_r_wrong_local) begin
                 data_r_complete_d <= sram_data_data_ok_rd;
                 data_r_complete   <= data_r_complete_d;
@@ -598,7 +791,11 @@ module sram_AXI_bridge (
             end
 
             if (!inst_r_wrong_local)
+<<<<<<< Updated upstream
                 inst_r_complete <= inst_data_ok_pulse;
+=======
+                inst_r_complete <= inst_data_ok_pulse | inst_adef_done_pend;
+>>>>>>> Stashed changes
             else
                 inst_r_complete <= 1'b0;
         end

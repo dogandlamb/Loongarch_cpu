@@ -2,7 +2,7 @@
 report_timing -file E:/360MoveData/Users/admin/Desktop/timing.txt
 
 在PowerShell执行xsim仿真：
-cd E:\Loongarch_cpu\output\vivado_cpu_origin\soc_verify\soc_bram\run_vivado\project\loongson.sim\sim_1\behav\xsim
+cd E:\Loongarch_cpu\output\vivado_cpu_origin\soc_verify\soc_axi\run_vivado\project\loongson.sim\sim_1\behav\xsim
 $env:PATH='E:\Xilinx\Vivado\2023.2\bin;' + $env:PATH
 .\compile.bat
 .\elaborate.bat

@@ -47,7 +47,9 @@ wire [31:0] out_pc;
 wire        out_adef_valid;
 wire        stale_redirect_resp;
 
-assign stale_redirect_resp = drop_next_resp && (pc_inst_in != redirect_pc_pending);
+// For locally completed ADEF fetches, allow the response through even if
+// redirect drop window is active, otherwise IF can livelock at TP51.
+assign stale_redirect_resp = drop_next_resp && (pc_inst_in != redirect_pc_pending) && !adef_valid_in;
 assign resp_ok   = valid && inst_valid_in && !cancel_in && !stale_redirect_resp;
 assign out_valid = hold_valid | resp_ok;
 assign out_inst  = hold_valid ? hold_inst : inst_in;
@@ -70,7 +72,7 @@ always @(posedge clk) begin
         drop_next_resp <= 1'b1;
         redirect_pc_pending <= redirect_pc_in;
     end else begin
-        if (drop_next_resp && inst_valid_in && (pc_inst_in == redirect_pc_pending))
+        if (drop_next_resp && inst_valid_in && ((pc_inst_in == redirect_pc_pending) || adef_valid_in))
             drop_next_resp <= 1'b0;
         if (hold_valid && downstream_allowIn) begin
             if (resp_ok) begin

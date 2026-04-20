@@ -899,9 +899,15 @@ module mycpu_top(
     );
 
     wire mem_stage_is_load = mem_load_hazard;
+<<<<<<< Updated upstream
+=======
+    // Use ID/EXE register outputs for EXE load hazard to avoid comb feedback:
+    // stall -> EXEport.mem_op -> exe_stage_is_load -> stall.
+>>>>>>> Stashed changes
     wire exe_stage_is_load = EXE_valid
-                              & (exe_mem_op[`MEM_OP_LD_W] | exe_mem_op[`MEM_OP_LD_H] | exe_mem_op[`MEM_OP_LD_B]
-                              |  exe_mem_op[`MEM_OP_LD_HU] | exe_mem_op[`MEM_OP_LD_BU]);
+                              & !exception_valid_2EXE
+                              & (mem_op_2EXE[`MEM_OP_LD_W] | mem_op_2EXE[`MEM_OP_LD_H] | mem_op_2EXE[`MEM_OP_LD_B]
+                              |  mem_op_2EXE[`MEM_OP_LD_HU] | mem_op_2EXE[`MEM_OP_LD_BU]);
                               
     conflict_handle u_conflict_handle(
         .hit_exe_rs1   (hit_exe_rs1),
@@ -947,6 +953,7 @@ module mycpu_top(
         .reset              (reset),
         .block_sig          (block_sig),
         .cancel_sig         (cancel_sig),
+        .csr_flush          (csr_flush_pipeline),
         .IF_readyGo         (IF_readyGo),
         .ID_readyGo         (ID_readyGo),
         .EXE_readyGo        (EXE_readyGo),
@@ -983,6 +990,7 @@ module mycpu_top(
         .data_wdata_from_EXE  (em_data_wdata),
         .data_byte_en_from_EXE(em_data_wbyte_en),
         .adef_valid_in_from_IF(adef_valid_req_fromIF),
+        .cancel_sig           (cancel_sig),
         .inst_rdata_2IF       (inst_rdata_2IF),
         .adef_valid_2IF       (adef_valid_2IF),
         .data_rdata_2MEM      (data_rdata_2MEM),
@@ -1073,6 +1081,11 @@ module mycpu_top(
         && (mwb_pc == 32'h1c00000c)
         && mwb_csr_op[`CSR_OP_CSRWR]
         && (mwb_csr_num == `CSR_CRMD);
+<<<<<<< Updated upstream
+=======
+    always @(posedge clk) begin
+    end
+>>>>>>> Stashed changes
     wire raw_debug_commit = rf_commit_we && !suppress_boot_crmd_trace;
 
     reg [31:0] debug_wb_pc_r;
@@ -1103,6 +1116,7 @@ module mycpu_top(
     assign debug_wb_rf_we    = debug_wb_rf_we_r;
     assign debug_wb_rf_wnum  = debug_wb_rf_wnum_r;
     assign debug_wb_rf_wdata = debug_wb_rf_wdata_r;
+<<<<<<< Updated upstream
 
     // 定点观测已知失配窗口的 load/use、取指返回与访存握手行为
     wire mycpu_dbg_hit = 1'b0;
@@ -1147,6 +1161,8 @@ module mycpu_top(
                          wb_pc, wb_wdata, em_pc, em_wb_reg, em_wb_op, mem_wb_wdata);
             end
         end
+=======
+>>>>>>> Stashed changes
 
     // Spyglass：读未参与 BRAM 控制逻辑的观测/调试用 wire
     wire mycpu_lint_sink;

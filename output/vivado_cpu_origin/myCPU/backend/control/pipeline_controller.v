@@ -9,6 +9,7 @@ module pipeline_controller(
 
     input wire        block_sig,           // RAW 等阻塞
     input wire        cancel_sig,          // 分支冲刷（清 ID/EXE valid）
+    input wire        csr_flush,           // 异常/ERTN 冲刷（需精确清空更年轻级）
 
     input wire        IF_readyGo,
     input wire        ID_readyGo,
@@ -64,18 +65,29 @@ always @(posedge clk) begin
         if (cancel_sig) begin
             ID_valid  <= 1'b0;
             EXE_valid <= 1'b0;
+
+            // On exception/ERTN flush, squash younger MEM/WB flow to keep precise traps.
+            if (csr_flush) begin
+                MEM_valid <= 1'b0;
+            end else if (EXE_MEM_reg_allowIn) begin
+                MEM_valid <= EXE_valid && EXE_readyGo;
+            end
         end else begin
             if (IF_ID_reg_allowIn)
                 ID_valid <= IF_valid && IF_readyGo;
             if (ID_EXE_reg_allowIn)
                 EXE_valid <= ID_valid && ID_readyGo;
+
+            if (EXE_MEM_reg_allowIn)
+                MEM_valid <= EXE_valid && EXE_readyGo;
         end
 
-        if (EXE_MEM_reg_allowIn)
-            MEM_valid <= EXE_valid && EXE_readyGo;
-
-        if (MEM_WB_reg_allowIn)
+        if (csr_flush) begin
+            if (MEM_WB_reg_allowIn)
+                WB_valid <= 1'b0;
+        end else if (MEM_WB_reg_allowIn) begin
             WB_valid <= MEM_valid && MEM_readyGo;
+        end
     end
 end
 
