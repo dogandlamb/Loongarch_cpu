@@ -1319,11 +1319,7 @@
         <spirit:parameters>
           <spirit:parameter>
             <spirit:name>GENtimestamp</spirit:name>
-<<<<<<< Updated upstream
-            <spirit:value>Sun Apr 12 17:21:09 UTC 2026</spirit:value>
-=======
-            <spirit:value>Thu Apr 16 04:29:57 UTC 2026</spirit:value>
->>>>>>> Stashed changes
+            <spirit:value>Tue Apr 21 03:48:15 UTC 2026</spirit:value>
           </spirit:parameter>
           <spirit:parameter>
             <spirit:name>outputProductCRC</spirit:name>
@@ -1342,11 +1338,7 @@
         <spirit:parameters>
           <spirit:parameter>
             <spirit:name>GENtimestamp</spirit:name>
-<<<<<<< Updated upstream
-            <spirit:value>Sun Apr 12 17:21:09 UTC 2026</spirit:value>
-=======
-            <spirit:value>Thu Apr 16 04:29:57 UTC 2026</spirit:value>
->>>>>>> Stashed changes
+            <spirit:value>Tue Apr 21 03:48:15 UTC 2026</spirit:value>
           </spirit:parameter>
           <spirit:parameter>
             <spirit:name>outputProductCRC</spirit:name>
@@ -1355,8 +1347,6 @@
         </spirit:parameters>
       </spirit:view>
       <spirit:view>
-<<<<<<< Updated upstream
-=======
         <spirit:name>xilinx_anylanguagesynthesis</spirit:name>
         <spirit:displayName>Synthesis</spirit:displayName>
         <spirit:envIdentifier>:vivado.xilinx.com:synthesis</spirit:envIdentifier>
@@ -1367,7 +1357,7 @@
         <spirit:parameters>
           <spirit:parameter>
             <spirit:name>GENtimestamp</spirit:name>
-            <spirit:value>Sun Apr 19 09:17:06 UTC 2026</spirit:value>
+            <spirit:value>Tue Apr 21 03:48:15 UTC 2026</spirit:value>
           </spirit:parameter>
           <spirit:parameter>
             <spirit:name>outputProductCRC</spirit:name>
@@ -1386,7 +1376,7 @@
         <spirit:parameters>
           <spirit:parameter>
             <spirit:name>GENtimestamp</spirit:name>
-            <spirit:value>Sun Apr 19 09:17:06 UTC 2026</spirit:value>
+            <spirit:value>Tue Apr 21 03:48:15 UTC 2026</spirit:value>
           </spirit:parameter>
           <spirit:parameter>
             <spirit:name>outputProductCRC</spirit:name>
@@ -1395,7 +1385,6 @@
         </spirit:parameters>
       </spirit:view>
       <spirit:view>
->>>>>>> Stashed changes
         <spirit:name>xilinx_elaborateports</spirit:name>
         <spirit:displayName>Elaborate Ports</spirit:displayName>
         <spirit:envIdentifier>:vivado.xilinx.com:elaborate.ports</spirit:envIdentifier>
@@ -1416,7 +1405,7 @@
         <spirit:parameters>
           <spirit:parameter>
             <spirit:name>GENtimestamp</spirit:name>
-            <spirit:value>Sun Apr 19 09:17:47 UTC 2026</spirit:value>
+            <spirit:value>Tue Apr 21 03:49:34 UTC 2026</spirit:value>
           </spirit:parameter>
           <spirit:parameter>
             <spirit:name>outputProductCRC</spirit:name>
@@ -1434,7 +1423,7 @@
         <spirit:parameters>
           <spirit:parameter>
             <spirit:name>GENtimestamp</spirit:name>
-            <spirit:value>Sun Apr 19 09:17:06 UTC 2026</spirit:value>
+            <spirit:value>Tue Apr 21 03:48:16 UTC 2026</spirit:value>
           </spirit:parameter>
           <spirit:parameter>
             <spirit:name>outputProductCRC</spirit:name>
@@ -1465,7 +1454,7 @@
         <spirit:parameters>
           <spirit:parameter>
             <spirit:name>GENtimestamp</spirit:name>
-            <spirit:value>Tue Apr 07 05:14:48 UTC 2026</spirit:value>
+            <spirit:value>Tue Apr 21 03:47:22 UTC 2026</spirit:value>
           </spirit:parameter>
           <spirit:parameter>
             <spirit:name>outputProductCRC</spirit:name>
@@ -1483,7 +1472,7 @@
         <spirit:parameters>
           <spirit:parameter>
             <spirit:name>GENtimestamp</spirit:name>
-            <spirit:value>Wed Apr 15 17:15:27 UTC 2026</spirit:value>
+            <spirit:value>Tue Apr 21 03:48:16 UTC 2026</spirit:value>
           </spirit:parameter>
           <spirit:parameter>
             <spirit:name>outputProductCRC</spirit:name>
@@ -1500,10 +1489,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -1526,10 +1512,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -1556,10 +1539,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic_vector</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -1582,10 +1562,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -1608,10 +1585,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -1635,10 +1609,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic_vector</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -1665,10 +1636,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic_vector</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -1691,10 +1659,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -1717,10 +1682,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -1744,10 +1706,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic_vector</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -1767,10 +1726,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -1790,10 +1746,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -1820,10 +1773,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic_vector</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -1846,10 +1796,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -1872,10 +1819,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -1899,10 +1843,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic_vector</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -1926,10 +1867,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic_vector</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -1949,10 +1887,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -1972,10 +1907,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -1998,10 +1930,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -2024,10 +1953,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -2050,10 +1976,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -2076,10 +1999,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -2102,10 +2022,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -2128,10 +2045,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -2154,10 +2068,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -2177,10 +2088,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -2200,10 +2108,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -2226,10 +2131,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -2252,10 +2154,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -2282,10 +2181,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic_vector</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -2312,10 +2208,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic_vector</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -2338,10 +2231,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -2368,10 +2258,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic_vector</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -2394,10 +2281,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -2420,10 +2304,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -2446,10 +2327,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -2472,10 +2350,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -2498,10 +2373,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -2514,10 +2386,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -2530,10 +2399,7 @@
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
               <spirit:typeName>std_logic</spirit:typeName>
-<<<<<<< Updated upstream
-=======
               <spirit:viewNameRef>xilinx_anylanguagesynthesis</spirit:viewNameRef>
->>>>>>> Stashed changes
               <spirit:viewNameRef>xilinx_anylanguagebehavioralsimulation</spirit:viewNameRef>
             </spirit:wireTypeDef>
           </spirit:wireTypeDefs>
@@ -4001,8 +3867,6 @@
       </spirit:file>
     </spirit:fileSet>
     <spirit:fileSet>
-<<<<<<< Updated upstream
-=======
       <spirit:name>xilinx_anylanguagesynthesis_view_fileset</spirit:name>
       <spirit:file>
         <spirit:name>clk_pll.xdc</spirit:name>
@@ -4114,7 +3978,6 @@
       </spirit:file>
     </spirit:fileSet>
     <spirit:fileSet>
->>>>>>> Stashed changes
       <spirit:name>xilinx_veriloginstantiationtemplate_view_fileset</spirit:name>
       <spirit:file>
         <spirit:name>clk_pll.veo</spirit:name>

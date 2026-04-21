@@ -175,12 +175,6 @@ module confreg
     reg [31:0] buf_addr;
     reg [7 :0] buf_len;
     reg [2 :0] buf_size;
-    wire        conf_we;
-    wire [31:0] conf_addr;
-    wire [31:0] conf_wdata;
-    assign conf_we    = w_enter;
-    assign conf_addr  = buf_addr;
-    assign conf_wdata = wdata;
     
     always @(posedge aclk)
     begin
@@ -263,16 +257,20 @@ module confreg
                 `NUM_MONITOR_ADDR: conf_rdata_reg <= {31'd0,num_monitor} ;
                 default        : conf_rdata_reg <= 32'd0;
             endcase
-                if (1'b0 && (conf_addr[15:0] == `SW_INTER_ADDR)) begin
-                    $display("CONFREG READ sw_inter: addr=0x%8h switch=0x%2h sw_inter_data=0x%8h next_rdata=0x%8h",
-                             conf_addr, switch, sw_inter_data, sw_inter_data);
-                end
         end
         else if(r_retire)
         begin
             conf_rvalid_reg <= 1'b0;
         end
     end
+
+    //conf write, only support a word write
+    wire        conf_we;
+    wire [31:0] conf_addr;
+    wire [31:0] conf_wdata;
+    assign conf_we   = w_enter;
+    assign conf_addr = buf_addr;
+    assign conf_wdata= wdata;
 
     reg conf_bvalid_reg;
     assign bvalid = conf_bvalid_reg;

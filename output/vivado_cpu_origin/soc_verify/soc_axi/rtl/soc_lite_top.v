@@ -55,7 +55,6 @@ THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //*************************************************************************
 
 `default_nettype none
-`timescale 1ns / 1ps
 
 //for simulation:
 //1. if define SIMU_USE_PLL = 1, will use clk_pll to generate cpu_clk/timer_clk,
@@ -604,6 +603,4 @@ confreg #(.SIMULATION(SIMULATION)) u_confreg
 );
 
 endmodule
-
-`default_nettype wire
 

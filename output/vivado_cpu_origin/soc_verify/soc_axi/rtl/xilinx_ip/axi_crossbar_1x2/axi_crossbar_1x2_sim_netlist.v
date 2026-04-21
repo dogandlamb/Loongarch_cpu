@@ -2,10 +2,10 @@
 // Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
 // --------------------------------------------------------------------------------
 // Tool Version: Vivado v.2023.2 (win64) Build 4029153 Fri Oct 13 20:14:34 MDT 2023
-// Date        : Thu Apr 16 01:25:02 2026
+// Date        : Tue Apr 21 11:51:04 2026
 // Host        : DESKTOP-829P7GE running 64-bit major release  (build 9200)
-// Command     : write_verilog -force -mode funcsim -rename_top axi_crossbar_1x2 -prefix
-//               axi_crossbar_1x2_ axi_crossbar_1x2_sim_netlist.v
+// Command     : write_verilog -force -mode funcsim
+//               e:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_axi/rtl/xilinx_ip/axi_crossbar_1x2/axi_crossbar_1x2_sim_netlist.v
 // Design      : axi_crossbar_1x2
 // Purpose     : This verilog netlist is a functional simulation representation of the design and should not be modified
 //               or synthesized. This netlist cannot be used for SDF annotated simulation.
@@ -414,6 +414,7 @@ module axi_crossbar_1x2
         .s_axi_wvalid(s_axi_wvalid));
 endmodule
 
+(* ORIG_REF_NAME = "axi_crossbar_v2_1_30_addr_arbiter" *) 
 module axi_crossbar_1x2_axi_crossbar_v2_1_30_addr_arbiter
    (\gen_no_arbiter.s_ready_i_reg[0]_0 ,
     p_1_in,
@@ -1909,6 +1910,7 @@ module axi_crossbar_1x2_axi_crossbar_v2_1_30_addr_arbiter_0
         .O(\m_ready_d[1]_i_4_n_0 ));
 endmodule
 
+(* ORIG_REF_NAME = "axi_crossbar_v2_1_30_arbiter_resp" *) 
 module axi_crossbar_1x2_axi_crossbar_v2_1_30_arbiter_resp
    (\chosen_reg[1]_0 ,
     \chosen_reg[2]_0 ,
@@ -3212,13 +3214,13 @@ endmodule
 (* C_NUM_MASTER_SLOTS = "2" *) (* C_NUM_SLAVE_SLOTS = "1" *) (* C_R_REGISTER = "0" *) 
 (* C_S_AXI_ARB_PRIORITY = "0" *) (* C_S_AXI_BASE_ID = "0" *) (* C_S_AXI_READ_ACCEPTANCE = "4" *) 
 (* C_S_AXI_SINGLE_THREAD = "0" *) (* C_S_AXI_THREAD_ID_WIDTH = "4" *) (* C_S_AXI_WRITE_ACCEPTANCE = "4" *) 
-(* DowngradeIPIdentifiedWarnings = "yes" *) (* P_ADDR_DECODE = "1" *) (* P_AXI3 = "1" *) 
-(* P_AXI4 = "0" *) (* P_AXILITE = "2" *) (* P_AXILITE_SIZE = "3'b010" *) 
-(* P_FAMILY = "artix7" *) (* P_INCR = "2'b01" *) (* P_LEN = "4" *) 
-(* P_LOCK = "2" *) (* P_M_AXI_ERR_MODE = "64'b0000000000000000000000000000000000000000000000000000000000000000" *) (* P_M_AXI_SUPPORTS_READ = "2'b11" *) 
-(* P_M_AXI_SUPPORTS_WRITE = "2'b11" *) (* P_ONES = "65'b11111111111111111111111111111111111111111111111111111111111111111" *) (* P_RANGE_CHECK = "1" *) 
-(* P_S_AXI_BASE_ID = "64'b0000000000000000000000000000000000000000000000000000000000000000" *) (* P_S_AXI_HIGH_ID = "64'b0000000000000000000000000000000000000000000000000000000000001111" *) (* P_S_AXI_SUPPORTS_READ = "1'b1" *) 
-(* P_S_AXI_SUPPORTS_WRITE = "1'b1" *) 
+(* DowngradeIPIdentifiedWarnings = "yes" *) (* ORIG_REF_NAME = "axi_crossbar_v2_1_30_axi_crossbar" *) (* P_ADDR_DECODE = "1" *) 
+(* P_AXI3 = "1" *) (* P_AXI4 = "0" *) (* P_AXILITE = "2" *) 
+(* P_AXILITE_SIZE = "3'b010" *) (* P_FAMILY = "artix7" *) (* P_INCR = "2'b01" *) 
+(* P_LEN = "4" *) (* P_LOCK = "2" *) (* P_M_AXI_ERR_MODE = "64'b0000000000000000000000000000000000000000000000000000000000000000" *) 
+(* P_M_AXI_SUPPORTS_READ = "2'b11" *) (* P_M_AXI_SUPPORTS_WRITE = "2'b11" *) (* P_ONES = "65'b11111111111111111111111111111111111111111111111111111111111111111" *) 
+(* P_RANGE_CHECK = "1" *) (* P_S_AXI_BASE_ID = "64'b0000000000000000000000000000000000000000000000000000000000000000" *) (* P_S_AXI_HIGH_ID = "64'b0000000000000000000000000000000000000000000000000000000000001111" *) 
+(* P_S_AXI_SUPPORTS_READ = "1'b1" *) (* P_S_AXI_SUPPORTS_WRITE = "1'b1" *) 
 module axi_crossbar_1x2_axi_crossbar_v2_1_30_axi_crossbar
    (aclk,
     aresetn,
@@ -3597,6 +3599,7 @@ module axi_crossbar_1x2_axi_crossbar_v2_1_30_axi_crossbar
         .s_ready_i_reg(s_axi_awready));
 endmodule
 
+(* ORIG_REF_NAME = "axi_crossbar_v2_1_30_crossbar" *) 
 module axi_crossbar_1x2_axi_crossbar_v2_1_30_crossbar
    (\gen_no_arbiter.s_ready_i_reg[0] ,
     s_ready_i_reg,
@@ -4261,6 +4264,7 @@ module axi_crossbar_1x2_axi_crossbar_v2_1_30_crossbar
         .p_1_in(p_1_in_0));
 endmodule
 
+(* ORIG_REF_NAME = "axi_crossbar_v2_1_30_decerr_slave" *) 
 module axi_crossbar_1x2_axi_crossbar_v2_1_30_decerr_slave
    (mi_rvalid_2,
     \gen_axi.s_axi_rlast_i ,
@@ -4781,6 +4785,7 @@ module axi_crossbar_1x2_axi_crossbar_v2_1_30_decerr_slave
         .O(\gen_axi.s_axi_bvalid_i_reg_0 ));
 endmodule
 
+(* ORIG_REF_NAME = "axi_crossbar_v2_1_30_si_transactor" *) 
 module axi_crossbar_1x2_axi_crossbar_v2_1_30_si_transactor
    (aresetn_d_reg,
     chosen,
@@ -6762,6 +6767,7 @@ module axi_crossbar_1x2_axi_crossbar_v2_1_30_si_transactor__parameterized0
         .O(\gen_no_arbiter.s_ready_i[0]_i_9_n_0 ));
 endmodule
 
+(* ORIG_REF_NAME = "axi_crossbar_v2_1_30_splitter" *) 
 module axi_crossbar_1x2_axi_crossbar_v2_1_30_splitter
    (s_ready_i_reg,
     m_ready_d,
@@ -6913,6 +6919,7 @@ module axi_crossbar_1x2_axi_crossbar_v2_1_30_splitter_3
         .R(1'b0));
 endmodule
 
+(* ORIG_REF_NAME = "axi_crossbar_v2_1_30_wdata_router" *) 
 module axi_crossbar_1x2_axi_crossbar_v2_1_30_wdata_router
    (ss_wr_awready,
     m_axi_wvalid,
@@ -6987,6 +6994,7 @@ module axi_crossbar_1x2_axi_crossbar_v2_1_30_wdata_router
         .\storage_data1_reg[0]_0 (\storage_data1_reg[0] ));
 endmodule
 
+(* ORIG_REF_NAME = "axi_data_fifo_v2_1_28_axic_reg_srl_fifo" *) 
 module axi_crossbar_1x2_axi_data_fifo_v2_1_28_axic_reg_srl_fifo
    (s_ready_i_reg_0,
     m_axi_wvalid,
@@ -7458,6 +7466,7 @@ module axi_crossbar_1x2_axi_data_fifo_v2_1_28_ndeep_srl__parameterized0_4
         .O(\gen_primitive_shifter.gen_srls[0].srl_inst_i_3_n_0 ));
 endmodule
 
+(* ORIG_REF_NAME = "axi_register_slice_v2_1_29_axi_register_slice" *) 
 module axi_crossbar_1x2_axi_register_slice_v2_1_29_axi_register_slice
    (m_axi_bready,
     st_mr_rvalid,

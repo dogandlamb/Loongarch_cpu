@@ -899,11 +899,6 @@ module mycpu_top(
     );
 
     wire mem_stage_is_load = mem_load_hazard;
-<<<<<<< Updated upstream
-=======
-    // Use ID/EXE register outputs for EXE load hazard to avoid comb feedback:
-    // stall -> EXEport.mem_op -> exe_stage_is_load -> stall.
->>>>>>> Stashed changes
     wire exe_stage_is_load = EXE_valid
                               & !exception_valid_2EXE
                               & (mem_op_2EXE[`MEM_OP_LD_W] | mem_op_2EXE[`MEM_OP_LD_H] | mem_op_2EXE[`MEM_OP_LD_B]
@@ -1081,11 +1076,7 @@ module mycpu_top(
         && (mwb_pc == 32'h1c00000c)
         && mwb_csr_op[`CSR_OP_CSRWR]
         && (mwb_csr_num == `CSR_CRMD);
-<<<<<<< Updated upstream
-=======
-    always @(posedge clk) begin
-    end
->>>>>>> Stashed changes
+
     wire raw_debug_commit = rf_commit_we && !suppress_boot_crmd_trace;
 
     reg [31:0] debug_wb_pc_r;
@@ -1116,53 +1107,6 @@ module mycpu_top(
     assign debug_wb_rf_we    = debug_wb_rf_we_r;
     assign debug_wb_rf_wnum  = debug_wb_rf_wnum_r;
     assign debug_wb_rf_wdata = debug_wb_rf_wdata_r;
-<<<<<<< Updated upstream
-
-    // 定点观测已知失配窗口的 load/use、取指返回与访存握手行为
-    wire mycpu_dbg_hit = 1'b0;
-
-        always @(posedge clk) begin
-            if (!reset && mycpu_dbg_hit) begin
-                        $display("IDMEMDBG pc2id=0x%8h inst=0x%8h rs1=%0d rs2=%0d rf1=0x%8h rf2=0x%8h id1=0x%8h id2=0x%8h | idmw=0x%8h i2e_mw=0x%8h e_mw=0x%8h em_mw=0x%8h em_dw=0x%8h | hitE=%0d/%0d hitM=%0d/%0d hitW=%0d/%0d stall=%0d block=%0d exLd=%0d memLd=%0d | em_pc=0x%8h em_rd=%0d em_wb=%0d em_ld=%0d em_mop=0x%2h em_raddr=0x%8h em_waddr=0x%8h slot=%0d ldreq=%0d ldmatch=%0d mvalid=%0d mready=%0d mallow=%0d mem_wb=0x%8h dcmp=%0d dr=0x%8h | wb_pc=0x%8h wb_rd=%0d wb_we=%0d wb_data=0x%8h | ifret_pc=0x%8h ifret_inst=0x%8h ifret_ok=%0d ifid_allow=%0d if_pc=0x%8h if_npc=0x%8h | v=%0d/%0d/%0d/%0d/%0d ex_pc=0x%8h",
-                                         pc_2ID, inst_2ID, rf_raddr1, rf_raddr2,
-                                         rf_rdata1, rf_rdata2, ID_src1_rdata, ID_src2_rdata,
-                                         mem_wdata_fromID, id2exe_mem_wdata, mem_wdata_2EXE, exe_mem_wdata, em_data_wdata,
-                                         hit_exe_rs1, hit_exe_rs2,
-                                         hit_mem_rs1, hit_mem_rs2,
-                                         hit_wb_rs1, hit_wb_rs2,
-                                         stall, block_sig,
-                                         exe_stage_is_load, mem_stage_is_load,
-                                         em_pc, em_wb_reg, em_wb_op, ld_in_mem, em_mem_op,
-                                         em_data_raddr, em_data_waddr, em_slot_tag, data_re_issue_ld, ld_slot_match,
-                                         MEM_valid, MEM_readyGo, MEM_allowIn, mem_wb_wdata,
-                                         data_r_complete, data_rdata_2MEM,
-                                         wb_pc, wb_waddr, rf_commit_we, wb_wdata,
-                                         pc_2ID_from_bram, inst_rdata_2IF, inst_r_complete, IF_ID_reg_allowIn,
-                                         pc, nextpc,
-                                         IF_valid, ID_valid, EXE_valid, MEM_valid, WB_valid, exe_pc_2MEM);
-                end
-        end
-
-        wire mycpu_br_dbg_hit = 1'b0;
-
-        always @(posedge clk) begin
-            if (!reset && mycpu_br_dbg_hit) begin
-                $display("BRDBG t=%0t pc=0x%08h next=0x%08h pc_exe=0x%08h pc_id=0x%08h br_taken=%0d cancel=%0d block=%0d stall=%0d ifid_allow=%0d br_op=0x%0h br_imm=0x%08h src1=0x%08h ifret_pc=0x%08h ifret_ok=%0d wb_pc=0x%08h wb_we=%0d wb_rd=%0d wb_data=0x%08h v=%0d/%0d/%0d/%0d/%0d",
-                         $time, pc, nextpc, pc_exe, pc_2ID, br_taken_q, cancel_sig, block_sig, stall, IF_ID_reg_allowIn,
-                         br_op_2EXE, br_imm_2EXE, alu_src1_2EXE,
-                         pc_2ID_from_bram, inst_r_complete, wb_pc, rf_commit_we, wb_waddr, wb_wdata,
-                         IF_valid, ID_valid, EXE_valid, MEM_valid, WB_valid);
-            end
-        end
-
-        always @(posedge clk) begin
-            if (!reset && 1'b0 && raw_debug_commit && (wb_waddr == 5'd14) && (wb_wdata[31:16] == 16'hb4f0)) begin
-                $display("R14WDBG wb_pc=0x%8h wb_data=0x%8h em_pc=0x%8h em_rd=%0d em_wb=%0d em_memwb=0x%8h",
-                         wb_pc, wb_wdata, em_pc, em_wb_reg, em_wb_op, mem_wb_wdata);
-            end
-        end
-=======
->>>>>>> Stashed changes
 
     // Spyglass：读未参与 BRAM 控制逻辑的观测/调试用 wire
     wire mycpu_lint_sink;
