@@ -1,3 +1,5 @@
+`include "../../common/cpu_defs.vh"
+
 // ============================================================
 // IFport：取指级。处理 BRAM 返回与 IF/ID 反压。
 // - 下游不能收（IF_ID_reg_allowIn=0）时：若本拍仍有有效返回，先打入 hold_*，避免丢返回。
@@ -17,7 +19,8 @@ module IFport (
     input  wire        inst_valid_in,      // 本拍返回是否有效
     input  wire        cancel_in,          // 本拍是否因分支丢弃返回
     input  wire        downstream_allowIn, // IF/ID 是否可接收
-    input  wire        adef_valid_in,      //地址未对齐异常信号
+    input  wire        adef_valid_in,      // 地址未对齐异常信号
+    input  wire [`TLB_EX_NUM-1:0] tlb_ex_valid_in, // tlb异常信号，由top tlb manager给入
 
     output wire        readyGo,            // 本级可向下游提交
     output wire        allowIn,            // 对上游允许（当前常 1）
@@ -28,6 +31,8 @@ module IFport (
     output wire        adef_valid_req_out, // 送 BRAM 的地址未对齐异常请求信号
     output wire        adef_valid_out,     // 送 IF/ID 的指令地址未对齐异常信号
     output wire        exception_valid     // 向下传的异常有效信号（目前仅 adef_valid_out）
+    output wire [`TLB_EX_NUM-1:0] tlb_ex_valid_out, // 送 IF/ID 的 tlb异常信号，注意驱动exception_valid=|tlb_ex_valid_out
+    output wire [31:0] tlb_vaddr_out      // 送IF/ID,其驱动与pc_inst_out有关
 );
 wire        adef_valid_req;
 assign      adef_valid_req = (pc_req_in[1:0] != 2'b00);
@@ -90,16 +95,6 @@ always @(posedge clk) begin
             hold_pc    <= pc_inst_in;
             hold_adef  <= adef_valid_in;
         end
-    end
-end
-
-wire ifport_dbg_hit = 1'b0;
-
-always @(posedge clk) begin
-    if (!reset && ifport_dbg_hit) begin
-        $display("IFPDBG t=%0t cancel=%0d drop=%0d redir=0x%08h pc_req=0x%08h pc_inst=0x%08h inst_v=%0d resp_ok=%0d stale=%0d hold_v=%0d out_v=%0d down_allow=%0d",
-                 $time, cancel_in, drop_next_resp, redirect_pc_in, pc_req_in, pc_inst_in,
-                 inst_valid_in, resp_ok, stale_redirect_resp, hold_valid, out_valid, downstream_allowIn);
     end
 end
 

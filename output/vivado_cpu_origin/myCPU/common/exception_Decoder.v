@@ -9,6 +9,7 @@
 module exception_Decoder (
     input wire INT_valid,           // 中断是否触发，高电平即为有中断异常
     input wire ADEF_valid,          // 取指地址错位异常，特指pc
+    input wire [`TLB_EX_NUM-1:0] TLB_EX_valid,
     input wire ALE_valid,           // 地址非对齐异常，特指MEM的访存
     input wire SYS_valid,           // 系统调用异常，与指令syscall相关
     input wire BRK_valid,           // 断点异常，与指令break相关
@@ -21,6 +22,12 @@ module exception_Decoder (
 // 有优先级，INT中断最大>IF检测出的异常>ID>EXE>MEM>WB
 assign Ecode = INT_valid ? `INT_ECODE :
                ADEF_valid ? `ADEF_ECODE :
+               TLB_EX_valid[`TLB_EX_TLBR] ? `TLBR_ECODE :
+               TLB_EX_valid[`TLB_EX_PIF] ? `PIF_ECODE :
+               TLB_EX_valid[`TLB_EX_PPI] ? `PPI_ECODE :
+               TLB_EX_valid[`TLB_EX_PIL] ? `PIL_ECODE :
+               TLB_EX_valid[`TLB_EX_PIS] ? `PIS_ECODE :
+               TLB_EX_valid[`TLB_EX_PME] ? `PME_ECODE :
                INE_valid ? `INE_ECODE :
                ALE_valid ? `ALE_ECODE :
                SYS_valid ? `SYS_ECODE :
@@ -29,6 +36,12 @@ assign Ecode = INT_valid ? `INT_ECODE :
 
 assign Esubcode = INT_valid ? `INT_ESUBCODE :
                ADEF_valid ? `ADEF_ESUBCODE :
+               TLB_EX_valid[`TLB_EX_TLBR] ? `TLBR_ESUBCODE :
+               TLB_EX_valid[`TLB_EX_PIF] ? `PIF_ESUBCODE :
+               TLB_EX_valid[`TLB_EX_PPI] ? `PPI_ESUBCODE :
+               TLB_EX_valid[`TLB_EX_PIL] ? `PIL_ESUBCODE :
+               TLB_EX_valid[`TLB_EX_PIS] ? `PIS_ESUBCODE :
+               TLB_EX_valid[`TLB_EX_PME] ? `PME_ESUBCODE :
                INE_valid ? `INE_ESUBCODE :
                ALE_valid ? `ALE_ESUBCODE :
                SYS_valid ? `SYS_ESUBCODE :

@@ -19,6 +19,8 @@ module pipeline_controller(
     input wire        ID_allowIn,
     input wire        EXE_allowIn,
     input wire        MEM_allowIn,
+    input wire        refetch_req,
+    input wire [31:0] refetch_pc,
 
     output reg        IF_ID_reg_allowIn,
     output reg        ID_EXE_reg_allowIn,
@@ -36,6 +38,8 @@ module pipeline_controller(
     output reg        MEM_valid,
     output reg        WB_valid
 );
+
+reg        refetch_state;
 
 always @(*) begin
     MEM_WB_reg_allowIn  = (!reset) && (!WB_valid  || WB_allowIn);
@@ -59,15 +63,22 @@ always @(posedge clk) begin
         EXE_valid <= 1'b0;
         MEM_valid <= 1'b0;
         WB_valid  <= 1'b0;
+        refetch_state <= 1'b0;
     end else begin
         IF_valid <= 1'b1;
 
-        if (cancel_sig) begin
+        if (refetch_req) begin
+            refetch_state <= 1'b1;
+        end else begin
+            refetch_state <= 1'b0;
+        end
+
+        if (cancel_sig || refetch_req || refetch_state) begin
             ID_valid  <= 1'b0;
             EXE_valid <= 1'b0;
 
             // On exception/ERTN flush, squash younger MEM/WB flow to keep precise traps.
-            if (csr_flush) begin
+            if (csr_flush || refetch_req || refetch_state) begin
                 MEM_valid <= 1'b0;
             end else if (EXE_MEM_reg_allowIn) begin
                 MEM_valid <= EXE_valid && EXE_readyGo;

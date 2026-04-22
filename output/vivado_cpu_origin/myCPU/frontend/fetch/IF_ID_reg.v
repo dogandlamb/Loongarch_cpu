@@ -1,3 +1,5 @@
+`include "../../common/cpu_defs.vh"
+
 // ============================================================
 // IF_ID_reg：IF 与 ID 之间的流水寄存器。
 // ============================================================
@@ -11,12 +13,16 @@ module IF_ID_reg(
     input  wire [31:0] pc_in,              // IF 输出 PC
     input  wire [31:0] inst_in,            // IF 输出指令
     input  wire        adef_valid_in,      // IF 输出指令地址未对齐异常信号
-    input  wire        exception_valid_in, // IF 输出异常有效信号（目前仅 adef_valid_in）
+    input  wire        exception_valid_in, // IF 输出异常有效信号（有adef_valid_in与tlb异常）
+    input  wire [`TLB_EX_NUM-1:0] tlb_ex_valid_in, // IF 输出tlb异常
+    input  wire [31:0] tlb_vaddr_in, // IF 输出tlb虚拟地址
 
     output reg  [31:0] inst_out,           // 送 ID 指令
     output reg  [31:0] pc_out,             // 送 ID PC
     output reg         adef_valid_out,      // 送 ID 指令地址未对齐异常信号
-    output reg         exception_valid_out  // 送 ID 异常有效信号（目前仅 adef_valid_out）
+    output reg         exception_valid_out, // 送 ID 异常有效信号（有adef_valid_in与tlb异常）
+    output reg  [`TLB_EX_NUM-1:0] tlb_ex_valid_out, // 送 ID tlb异常
+    output reg  [31:0] tlb_vaddr_out // 送 ID tlb虚拟地址
 );
 
 always @(posedge clk) begin

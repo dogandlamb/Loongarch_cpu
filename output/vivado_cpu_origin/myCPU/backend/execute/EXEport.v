@@ -29,6 +29,9 @@ module EXEport (
     input wire  [31:0]            csr_rvalue_from_csr,
     input wire  [31:0]            csr_tid_from_csr, // 从CSR模块读出的tid值
     input wire  [`WB_SRC_NUM-1:0] wb_src_op_in, // 写回数据来源选择
+    input wire  [`TLB_OP_NUM-1:0] tlb_op_in,
+    input wire  [9:0]             invtlb_asid_in,
+    input wire  [18:0]            invtlb_vpn_in,
     
     input wire                    ertn_op_in,
     input wire                    sys_valid_in,
@@ -38,6 +41,8 @@ module EXEport (
     input wire                    int_valid_in,  // 送 ID_EXE_reg 的中断有效信号
     input wire                    exception_valid_in, // 送 ID_EXE_reg 的指令异常
     input wire  [31:0]            if_vaddr_in,   // 送 ID_EXE_reg 的访存虚地址（目前仅 adef_valid 时有效，用于数据异常处理模块）
+    input wire  [`TLB_EX_NUM-1:0] tlb_ex_valid_in,
+    input wire  [31:0]            tlb_vaddr_in,
 
     output wire                   readyGo,
     output wire                   allowIn,
@@ -63,6 +68,9 @@ module EXEport (
     output wire [31:0]            csr_wmask_out,
     output wire [31:0]            csr_wvalue_out,
     output wire [`WB_SRC_NUM-1:0] wb_src_op_out,
+    output wire [`TLB_OP_NUM-1:0] tlb_op_out,
+    output wire [9:0]             invtlb_asid_out,
+    output wire [18:0]            invtlb_vpn_out,
     output wire                   ertn_op_out,
     output wire                   sys_valid_out,
     output wire                   brk_valid_out,
@@ -72,7 +80,9 @@ module EXEport (
     output wire                   int_valid_out,     // 送 MEM 的中断有效信号
     output wire                   exception_valid_out, // 送 MEM 的指令异常有效信号（非法指令、系统调用、断点等）
     output wire [31:0]            if_vaddr_out, // 送往MEM的访存虚地址（目前仅 adef_valid_out 时有效，用于数据异常处理模块）
-    output wire [31:0]            ale_vaddr_out // ALE的虚地址，区分于ADEF
+    output wire [31:0]            ale_vaddr_out, // ALE的虚地址，区分于ADEF
+    output wire [`TLB_EX_NUM-1:0] tlb_ex_valid_out,
+    output wire [31:0]            tlb_vaddr_out
 );
 
 wire [31:0] alu_result_w;           // ALU 组合结果

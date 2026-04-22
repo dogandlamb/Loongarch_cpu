@@ -76,6 +76,30 @@
 `define WB_SRC_TID        5 // rdcntid 返回值
 
 
+/* TLB操作码宏定义 */
+`define TLB_OP_NUM        11
+`define TLB_OP_TLBSRCH    0
+`define TLB_OP_TLBRD      1
+`define TLB_OP_TLBWR      2
+`define TLB_OP_TLBFILL    3
+`define TLB_OP_INVTLB_0   4
+`define TLB_OP_INVTLB_1   5
+`define TLB_OP_INVTLB_2   6
+`define TLB_OP_INVTLB_3   7
+`define TLB_OP_INVTLB_4   8
+`define TLB_OP_INVTLB_5   9
+`define TLB_OP_INVTLB_6   10
+
+
+/* TLB异常宏定义 */
+`define TLB_EX_NUM   6
+`define TLB_EX_TLBR  5
+`define TLB_EX_PIF   4
+`define TLB_EX_PPI   3
+`define TLB_EX_PIL   2
+`define TLB_EX_PIS   1
+`define TLB_EX_PME   0
+
 /* 异常Ecode、Esubcode宏定义 */
 // 有些异常我还没加上
 `define INT_ECODE  8'h00 //中断
@@ -85,6 +109,12 @@
 `define ALE_ECODE  8'h09 //地址非对齐异常
 `define SYS_ECODE  8'h0b //系统调用异常
 `define BRK_ECODE  8'h0c //断点异常
+`define PIL_ECODE  8'h01 //load页无效例外，与TLB有关
+`define PIS_ECODE  8'h02 //store页无效例外，与TLB有关
+`define PIF_ECODE  8'h03 //取指页无效例外，与TLB有关
+`define PME_ECODE  8'h04 //页修改例外，与TLB有关
+`define PPI_ECODE  8'h07 //页特权等级不合规例外，与TLB有关
+`define TLBR_ECODE 8'h3f //TLB重填例外，与TLB有关
 
 `define INT_ESUBCODE   1'b0
 `define ADEF_ESUBCODE  1'b0
@@ -92,6 +122,12 @@
 `define ALE_ESUBCODE   1'b0
 `define SYS_ESUBCODE   1'b0
 `define BRK_ESUBCODE   1'b0
+`define PIL_ESUBCODE   1'b0
+`define PIS_ESUBCODE   1'b0
+`define PIF_ESUBCODE   1'b0
+`define PME_ESUBCODE   1'b0
+`define PPI_ESUBCODE   1'b0
+`define TLBR_ESUBCODE  1'b0
 
 `define Ecode_other_exception 8'hFF
 `define Esubcode_other_exception 1'b0

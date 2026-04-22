@@ -33,22 +33,42 @@ module csr_exception_commit_handler (
     input  wire        wb_is_ertn,    // ERTN指令要冲刷流水线
     input  wire [31:0] wb_vaddr,      // 用给BADV
     input  wire        wb_ex,         // 异常处理触发信号，在WB由那几个valid相或驱动
+    input  wire [`TLB_OP_NUM-1:0] wb_tlb_op,
+    input  wire                   tlbsrch_found,
+    input  wire [3:0]             tlbsrch_index,
+    input  wire [31:0]            tlbrd_tlbidx,
+    input  wire [31:0]            tlbrd_tlbehi,
+    input  wire [31:0]            tlbrd_tlbelo0,
+    input  wire [31:0]            tlbrd_tlbelo1,
+    input  wire [9:0]             tlbrd_asid,
     // 注意：有优先级，INT中断最大>IF检测出的异常>ID>EXE>MEM>WB
     input  wire        INT_valid,     // 中断是否触发，高电平即为有中断异常
     input  wire        ADEF_valid,    // 取指地址错位异常，特指pc
+    input  wire [`TLB_EX_NUM-1:0] TLB_EX_valid,
     input  wire        ALE_valid,     // 地址非对齐异常，特指MEM的访存
     input  wire        SYS_valid,     // 系统调用异常，与指令syscall相关
     input  wire        BRK_valid,     // 断点异常，与指令break相关
     input  wire        INE_valid,     // 指令不存在异常，特指ID
 
 
-    // ---------------- 输出：冲刷、pc重定向、csr读返回、给ID的中断有效 ----------------
+    // ---------------- 输出：冲刷、pc重定向、ID中断、csr读返回与域输出 ----------------
     output wire        flush_pipeline,  // 异常或 ERTN 提交时冲刷
     output wire [31:0] csr_next_pc,     // 异常的EENTRY 或 ERTN的返回地址，判断是这两个的哪个，看csr_redirect
     output wire [1:0]  csr_redirect,    // 区分csr_next_pc类型的标志位信号，给npc仲裁，类型有`CSR_REDIRECT_EX、`CSR_REDIRECT_ERTN、`CSR_REDIRECT_NONE，具体看宏定义
     output wire        has_int,         // 送往ID的中断有效信号，将中断附着在ID指令上
     output wire [31:0] csr_rvalue,      // CSR寄存器读返回值
-    output wire [31:0] csr_tid_out      // csr的tid值，用于RDCNTID指令读取计时器ID号
+    output wire [31:0] csr_tid_out,     // csr的tid值，用于RDCNTID指令读取计时器ID号
+    output wire        csr_crmd_da_out,
+    output wire        csr_crmd_pg_out,
+    output wire [1:0]  csr_crmd_plv_out,
+    output wire [9:0]  csr_asid_out,
+    output wire [31:0] csr_tlbidx_out,
+    output wire [31:0] csr_tlbehi_out,
+    output wire [31:0] csr_tlbelo0_out,
+    output wire [31:0] csr_tlbelo1_out,
+    output wire [31:0] csr_dmw0_out,
+    output wire [31:0] csr_dmw1_out,
+    output wire [7:0]  csr_estat_ecode_out
 );
 
     // 默认异常入口为 0x1c000000，避免在软件初始化前中断/异常重定向到 0x00000000。
@@ -60,6 +80,7 @@ module csr_exception_commit_handler (
     exception_Decoder u_exception_Decoder (
         .INT_valid(INT_valid),          
         .ADEF_valid(ADEF_valid),         
+        .TLB_EX_valid(TLB_EX_valid),
         .ALE_valid(ALE_valid),          
         .SYS_valid(SYS_valid),          
         .BRK_valid(BRK_valid),          
@@ -67,6 +88,9 @@ module csr_exception_commit_handler (
         .Ecode(Ecode),        
         .Esubcode(Esubcode)     
     );
+
+
+    reg [7:0] csr_estat_ecode; // 提前定义ESTAT 的 ECODE 域
     
 
     // CRMD 的 PLV 域
@@ -123,6 +147,14 @@ module csr_exception_commit_handler (
             csr_crmd_pg   <= 1'b0;
             csr_crmd_datf <= 2'b00;
             csr_crmd_datm <= 2'b00;
+        end
+        else if (wb_valid && wb_ex && (Ecode == `TLBR_ECODE)) begin
+            csr_crmd_da <= 1'b1;
+            csr_crmd_pg <= 1'b0;
+        end
+        else if (wb_valid && wb_is_ertn && (csr_estat_ecode == `TLBR_ECODE)) begin
+            csr_crmd_da <= 1'b0;
+            csr_crmd_pg <= 1'b1;
         end
         else if (csr_we && csr_num == `CSR_CRMD) begin
             csr_crmd_da <= csr_wmask[`CSR_CRMD_DA] & csr_wvalue[`CSR_CRMD_DA]
@@ -195,7 +227,7 @@ module csr_exception_commit_handler (
 
 
     // ESTAT 的 ECODE、ESUBCODE 域
-    reg [7:0] csr_estat_ecode;
+    // ESTAT 的 ECODE 已提前定义
     reg csr_estat_esubcode;
     always @(posedge clk) begin
         if (reset) begin
@@ -226,7 +258,9 @@ module csr_exception_commit_handler (
 
     // BADV 的 VADDR 域
     reg [31:0] csr_badv_vaddr;
-    wire wb_ex_addr_err = (Ecode == `ADEF_ECODE || Ecode == `ADEM_ECODE || Ecode == `ALE_ECODE);
+    wire wb_ex_addr_err = (Ecode == `ADEF_ECODE || Ecode == `ADEM_ECODE || Ecode == `ALE_ECODE
+                        || Ecode == `TLBR_ECODE || Ecode == `PIF_ECODE || Ecode == `PIL_ECODE
+                        || Ecode == `PIS_ECODE || Ecode == `PPI_ECODE || Ecode == `PME_ECODE);
 
     always @(posedge clk) begin
         if (wb_valid && wb_ex && wb_ex_addr_err) begin
@@ -245,6 +279,64 @@ module csr_exception_commit_handler (
         else if (csr_we && csr_num == `CSR_EENTRY) begin
             csr_eentry_va <= csr_wmask[`CSR_EENTRY_VA] & csr_wvalue[`CSR_EENTRY_VA] 
                             | ~csr_wmask[`CSR_EENTRY_VA] & csr_eentry_va;
+        end
+    end
+
+
+    // TLB 的 TLBIDX、TLBEHI、TLBELO0、TLBELO1、ASID、TLBRENTRY、DMW0、DMW1 域
+    reg [31:0] csr_tlbidx;
+    reg [31:0] csr_tlbehi;
+    reg [31:0] csr_tlbelo0;
+    reg [31:0] csr_tlbelo1;
+    reg [31:0] csr_asid;
+    reg [31:0] csr_tlbrentry;
+    reg [31:0] csr_dmw0;
+    reg [31:0] csr_dmw1;
+
+    always @(posedge clk) begin
+        if (reset) begin
+            csr_tlbidx   <= 32'h0000_0000;
+            csr_tlbehi   <= 32'h0000_0000;
+            csr_tlbelo0  <= 32'h0000_0000;
+            csr_tlbelo1  <= 32'h0000_0000;
+            csr_asid     <= 32'h0000_0000;
+            csr_tlbrentry<= 32'h0000_0000;
+            csr_dmw0     <= 32'h0000_0000;
+            csr_dmw1     <= 32'h0000_0000;
+        end else begin
+            if (csr_we && csr_num == `CSR_TLBIDX)
+                csr_tlbidx <= (csr_wmask & csr_wvalue) | (~csr_wmask & csr_tlbidx);
+            if (csr_we && csr_num == `CSR_TLBEHI)
+                csr_tlbehi <= (csr_wmask & csr_wvalue) | (~csr_wmask & csr_tlbehi);
+            if (csr_we && csr_num == `CSR_TLBELO0)
+                csr_tlbelo0 <= (csr_wmask & csr_wvalue) | (~csr_wmask & csr_tlbelo0);
+            if (csr_we && csr_num == `CSR_TLBELO1)
+                csr_tlbelo1 <= (csr_wmask & csr_wvalue) | (~csr_wmask & csr_tlbelo1);
+            if (csr_we && csr_num == `CSR_ASID)
+                csr_asid <= (csr_wmask & csr_wvalue) | (~csr_wmask & csr_asid);
+            if (csr_we && csr_num == `CSR_TLBRENTRY)
+                csr_tlbrentry <= (csr_wmask & csr_wvalue) | (~csr_wmask & csr_tlbrentry);
+            if (csr_we && csr_num == `CSR_DMW0)
+                csr_dmw0 <= (csr_wmask & csr_wvalue) | (~csr_wmask & csr_dmw0);
+            if (csr_we && csr_num == `CSR_DMW1)
+                csr_dmw1 <= (csr_wmask & csr_wvalue) | (~csr_wmask & csr_dmw1);
+
+            if (wb_valid && wb_tlb_op[`TLB_OP_TLBSRCH]) begin
+                if (tlbsrch_found) begin
+                    csr_tlbidx[3:0] <= tlbsrch_index;
+                    csr_tlbidx[31]  <= 1'b0;
+                end else begin
+                    csr_tlbidx[31]  <= 1'b1;
+                end
+            end
+
+            if (wb_valid && wb_tlb_op[`TLB_OP_TLBRD]) begin
+                csr_tlbidx  <= tlbrd_tlbidx;
+                csr_tlbehi  <= tlbrd_tlbehi;
+                csr_tlbelo0 <= tlbrd_tlbelo0;
+                csr_tlbelo1 <= tlbrd_tlbelo1;
+                csr_asid[9:0] <= tlbrd_asid;
+            end
         end
     end
 
@@ -363,6 +455,14 @@ module csr_exception_commit_handler (
     wire [31:0] csr_tcfg_rvalue = {csr_tcfg_initval, csr_tcfg_periodic, csr_tcfg_en};
     wire [31:0] csr_tval_rvalue = csr_tval;
     wire [31:0] csr_ticlr_rvalue = 32'b0;
+    wire [31:0] csr_tlbidx_rvalue = csr_tlbidx;
+    wire [31:0] csr_tlbehi_rvalue = csr_tlbehi;
+    wire [31:0] csr_tlbelo0_rvalue = csr_tlbelo0;
+    wire [31:0] csr_tlbelo1_rvalue = csr_tlbelo1;
+    wire [31:0] csr_asid_rvalue = csr_asid;
+    wire [31:0] csr_tlbrentry_rvalue = csr_tlbrentry;
+    wire [31:0] csr_dmw0_rvalue = csr_dmw0;
+    wire [31:0] csr_dmw1_rvalue = csr_dmw1;
     
     assign csr_rvalue = {32{csr_rnum == `CSR_CRMD}} & csr_crmd_rvalue
                        | {32{csr_rnum == `CSR_PRMD}} & csr_prmd_rvalue
@@ -379,6 +479,14 @@ module csr_exception_commit_handler (
                        | {32{csr_rnum == `CSR_TCFG}} & csr_tcfg_rvalue
                        | {32{csr_rnum == `CSR_TVAL}} & csr_tval_rvalue
                        | {32{csr_rnum == `CSR_TICLR}} & csr_ticlr_rvalue
+                       | {32{csr_rnum == `CSR_TLBIDX}} & csr_tlbidx_rvalue
+                       | {32{csr_rnum == `CSR_TLBEHI}} & csr_tlbehi_rvalue
+                       | {32{csr_rnum == `CSR_TLBELO0}} & csr_tlbelo0_rvalue
+                       | {32{csr_rnum == `CSR_TLBELO1}} & csr_tlbelo1_rvalue
+                       | {32{csr_rnum == `CSR_ASID}} & csr_asid_rvalue
+                       | {32{csr_rnum == `CSR_TLBRENTRY}} & csr_tlbrentry_rvalue
+                       | {32{csr_rnum == `CSR_DMW0}} & csr_dmw0_rvalue
+                       | {32{csr_rnum == `CSR_DMW1}} & csr_dmw1_rvalue
                        | 32'b0;
     
 
@@ -394,11 +502,22 @@ module csr_exception_commit_handler (
                         : `CSR_REDIRECT_NONE;
 
     // csr_next_pc
-    assign csr_next_pc = csr_take_ex   ? csr_eentry_rvalue
+    assign csr_next_pc = csr_take_ex   ? ((csr_estat_ecode == `TLBR_ECODE) ? csr_tlbrentry_rvalue : csr_eentry_rvalue)
                         : csr_take_ertn ? csr_era_rvalue
                         : 32'b0;
 
-    // csr_tid
+    // csr相关域读出逻辑，供外部使用
     assign csr_tid_out = csr_tid_rvalue;
+    assign csr_crmd_da_out = csr_crmd_da;
+    assign csr_crmd_pg_out = csr_crmd_pg;
+    assign csr_crmd_plv_out = csr_crmd_plv;
+    assign csr_asid_out = csr_asid[9:0];
+    assign csr_tlbidx_out = csr_tlbidx;
+    assign csr_tlbehi_out = csr_tlbehi;
+    assign csr_tlbelo0_out = csr_tlbelo0;
+    assign csr_tlbelo1_out = csr_tlbelo1;
+    assign csr_dmw0_out = csr_dmw0;
+    assign csr_dmw1_out = csr_dmw1;
+    assign csr_estat_ecode_out = csr_estat_ecode;
     
 endmodule

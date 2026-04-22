@@ -29,6 +29,9 @@ module MEMport (
     input wire  [31:0]            csr_wmask_in,
     input wire  [31:0]            csr_wvalue_in,
     input wire  [`WB_SRC_NUM-1:0] wb_src_op_in,
+    input wire  [`TLB_OP_NUM-1:0] tlb_op_in,
+    input wire  [9:0]             invtlb_asid_in,
+    input wire  [18:0]            invtlb_vpn_in,
 
     input wire                    ertn_op_in,
     input wire                    sys_valid_in,
@@ -40,12 +43,17 @@ module MEMport (
     input wire                    exception_valid_in,
     input wire  [31:0]            if_vaddr_in,
     input wire  [31:0]            ale_vaddr_in,
+    input wire  [`TLB_EX_NUM-1:0] tlb_ex_valid_in,
+    input wire  [31:0]            tlb_vaddr_in,
 
     output wire [`CSR_OP_NUM-1:0] csr_op_out,
     output wire [11:0]            csr_num_out,
     output wire [31:0]            csr_wmask_out,
     output wire [31:0]            csr_wvalue_out,
     output wire [`WB_SRC_NUM-1:0] wb_src_op_out,
+    output wire [`TLB_OP_NUM-1:0] tlb_op_out,
+    output wire [9:0]             invtlb_asid_out,
+    output wire [18:0]            invtlb_vpn_out,
 
     output wire                   readyGo,
     output wire                   allowIn,
@@ -65,7 +73,9 @@ module MEMport (
     output wire                   int_valid_out,
     output wire                   exception_valid_out,
     output wire [31:0]            if_vaddr_out,
-    output wire [31:0]            ale_vaddr_out
+    output wire [31:0]            ale_vaddr_out,
+    output wire [`TLB_EX_NUM-1:0] tlb_ex_valid_out,
+    output wire [31:0]            tlb_vaddr_out
 );
 
 wire   bram_re;

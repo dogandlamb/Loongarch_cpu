@@ -17,6 +17,8 @@ module IDport (
     input  wire        adef_valid_in,      // IF/ID 传输过来的指令地址未对齐异常信号
     input  wire        has_int,            // 中断信号
     input  wire        exception_valid_in, // IF/ID 传输过来的异常有效信号
+    input  wire [`TLB_EX_NUM-1:0] tlb_ex_valid_in,
+    input  wire [31:0] tlb_vaddr_in,
 
     output reg         allowIn,            // 对 IF/ID 寄存器级，目前是常 1
     output reg         readyGo,            // 也是常 1
@@ -38,9 +40,14 @@ module IDport (
     output reg         sys_valid,//是不是 syscall
     output reg         brk_valid,//是不是 break
     output reg         ine_valid,//是不是非法指令
+    output reg  [`TLB_EX_NUM-1:0] tlb_ex_valid,
+    output reg  [31:0] tlb_vaddr,
     output reg  [31:0] mem_wdata,          // store 数据
     output reg         wb_op,              // 是否需要写回寄存器
     output reg  [`WB_SRC_NUM-1:0] wb_src_op,//最后写回值来自哪里
+    output reg  [`TLB_OP_NUM-1:0] tlb_op,
+    output reg  [9:0]             invtlb_asid,
+    output reg  [18:0]            invtlb_vpn,
     output reg  [31:0] pc_out,              // 透传 pc_in
     output reg         adef_valid,       // 送 ID_EXE_reg 的指令地址未对齐异常信号
     output reg  [31:0] if_vaddr,         // 送 EXE 的访存虚地址（目前仅 adef_valid 时有效，用于数据异常处理模块）这里改名为 if_vaddr 更合适，因为是IF阶段就知道了

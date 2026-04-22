@@ -17,6 +17,9 @@ module WBport (
     input  wire  [31:0]            csr_wvalue_in,
      
     input  wire  [`WB_SRC_NUM-1:0] wb_src_op_in, // 写回数据来源选择
+    input  wire  [`TLB_OP_NUM-1:0] tlb_op_in,
+    input  wire  [9:0]             invtlb_asid_in,
+    input  wire  [18:0]            invtlb_vpn_in,
     input  wire                    ertn_op_in,
     input  wire                    sys_valid_in,
     input  wire                    brk_valid_in,
@@ -27,6 +30,8 @@ module WBport (
     input  wire                    exception_valid_in,
     input  wire  [31:0]            if_vaddr_in,   
     input  wire  [31:0]            ale_vaddr_in,   // 地址错误异常的虚地址
+    input  wire  [`TLB_EX_NUM-1:0] tlb_ex_valid_in,
+    input  wire  [31:0]            tlb_vaddr_in,
 
 
     output wire        allowIn,          // 对上游允许写入（一直为1）
@@ -41,6 +46,9 @@ module WBport (
     output wire  [11:0]            csr_num_out,
     output wire  [31:0]            csr_wmask_out,
     output wire  [31:0]            csr_wvalue_out,
+    output wire  [`TLB_OP_NUM-1:0] tlb_op_out,
+    output wire  [9:0]             invtlb_asid_out,
+    output wire  [18:0]            invtlb_vpn_out,
     output wire                    wb_ex_2csr,           // 写回阶段指令是否发生异常（送 CSR 模块用于记录异常类型）
     output wire                    wb_valid_2csr,        // 写回阶段指令是否有效（送 CSR 模块用于记录异常发生时的 PC 和指令地址）
     output wire                    wb_is_ertn_2csr,      // 写回阶段指令是否是 ERTN（送 CSR 模块用于判断是否需要从 EPC 恢复 PC）
@@ -50,7 +58,8 @@ module WBport (
     output wire                    ale_valid_out_2csr,     // 写回阶段指令是否是有效的地址错误异常（送 CSR 模块用于记录地址错误异常发生时的 PC 和指令地址）
     output wire                    sys_valid_out_2csr,     // 写回阶段指令是否是有效的系统调用（送 CSR 模块用于记录系统调用发生时的 PC 和指令地址）
     output wire                    brk_valid_out_2csr,     // 写回阶段指令是否是有效的断点（送 CSR 模块用于记录断点发生时的 PC 和指令地址）
-    output wire                    ine_valid_out_2csr      // 写回阶段指令是否是有效的非法指令（送 CSR 模块用于记录非法指令发生时的 PC 和指令地址）
+    output wire                    ine_valid_out_2csr,     // 写回阶段指令是否是有效的非法指令（送 CSR 模块用于记录非法指令发生时的 PC 和指令地址）
+    output wire  [`TLB_EX_NUM-1:0] tlb_ex_valid_out_2csr
 );
 wire exception_valid_w;
 assign exception_valid_w = exception_valid_in;
