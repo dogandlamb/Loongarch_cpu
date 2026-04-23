@@ -59,7 +59,18 @@ module inst_dec(
     output wire        inst_rdcntid,
     output wire        inst_csrrd,
     output wire        inst_csrwr,
-    output wire        inst_csrxchg
+    output wire        inst_csrxchg,
+    output wire        inst_tlbsrch,
+    output wire        inst_tlbrd,
+    output wire        inst_tlbwr,
+    output wire        inst_tlbfill,
+    output wire        inst_invtlb_0,
+    output wire        inst_invtlb_1,
+    output wire        inst_invtlb_2,
+    output wire        inst_invtlb_3,
+    output wire        inst_invtlb_4,
+    output wire        inst_invtlb_5,
+    output wire        inst_invtlb_6
 );
 
 wire [ 5:0] op_31_26;//若干位操作码，来自inst
@@ -69,7 +80,6 @@ wire [ 4:0] op_19_15;
 wire [ 4:0] rj;
 wire [ 4:0] rd;
 wire [ 4:0] rk;
-
 
 assign op_31_26 = inst[31:26];
 assign op_25_22 = inst[25:22];
@@ -86,6 +96,7 @@ wire [31:0] op_19_15_d;
 wire [31:0] rj_d;
 wire [31:0] rd_d;
 wire [31:0] rk_d;
+
 
 decoder_6_64 u_dec0(.in(op_31_26 ), .co(op_31_26_d ));
 decoder_4_16 u_dec1(.in(op_25_22 ), .co(op_25_22_d ));
@@ -167,5 +178,19 @@ assign inst_rdcntvh_w = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h0] 
 assign inst_csrrd    = op_31_26_d[6'h01] & ~inst[25] & ~inst[24] & rj_d[5'h00];
 assign inst_csrwr    = op_31_26_d[6'h01] & ~inst[25] & ~inst[24] & rj_d[5'h01];
 assign inst_csrxchg  = op_31_26_d[6'h01] & ~inst[25] & ~inst[24] & ~rj_d[5'h00] & ~rj_d[5'h01];
+
+//tlb
+assign inst_tlbsrch  = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h10] & rk_d[5'h0a] & rj_d[5'h00] & rd_d[5'h00];
+assign inst_tlbrd    = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h10] & rk_d[5'h0b] & rj_d[5'h00] & rd_d[5'h00];
+assign inst_tlbwr    = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h10] & rk_d[5'h0c] & rj_d[5'h00] & rd_d[5'h00];
+assign inst_tlbfill  = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h10] & rk_d[5'h0d] & rj_d[5'h00] & rd_d[5'h00];
+
+assign inst_invtlb_0 = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h13] & rd_d[5'h00];
+assign inst_invtlb_1 = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h13] & rd_d[5'h01];
+assign inst_invtlb_2 = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h13] & rd_d[5'h02];
+assign inst_invtlb_3 = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h13] & rd_d[5'h03];
+assign inst_invtlb_4 = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h13] & rd_d[5'h04];
+assign inst_invtlb_5 = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h13] & rd_d[5'h05];
+assign inst_invtlb_6 = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h13] & rd_d[5'h06];
 
 endmodule

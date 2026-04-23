@@ -56,7 +56,6 @@ module ID_EXE_reg (
     output reg  [31:0]            csr_wvalue_out,
     output reg  [`WB_SRC_NUM-1:0] wb_src_op_out,
     output reg  [`TLB_OP_NUM-1:0] tlb_op_out,
-    output reg  [4:0]             invtlb_op_out,
     output reg  [9:0]             invtlb_asid_out,
     output reg  [18:0]            invtlb_vpn_out,
     output reg                    ertn_op_out,
@@ -97,6 +96,11 @@ always @(posedge clk) begin
         int_valid_out    <= 1'b0;
         exception_valid_out <= 1'b0;
         if_vaddr_out     <= 32'b0;
+        tlb_op_out       <= {`TLB_OP_NUM{1'b0}};
+        invtlb_asid_out  <= 10'b0;
+        invtlb_vpn_out   <= 19'b0;
+        tlb_ex_valid_out <= {`TLB_EX_NUM{1'b0}};
+        tlb_vaddr_out    <= 32'b0;
     end
 
     // 握手成功：在流水级寄存器锁存 ID 输出，推进到 EXE
@@ -124,6 +128,11 @@ always @(posedge clk) begin
         int_valid_out    <= int_valid_in;
         exception_valid_out <= exception_valid_in;
         if_vaddr_out     <= if_vaddr_in;
+        tlb_op_out       <= tlb_op_in;
+        invtlb_asid_out  <= invtlb_asid_in;
+        invtlb_vpn_out   <= invtlb_vpn_in;
+        tlb_ex_valid_out <= tlb_ex_valid_in;
+        tlb_vaddr_out    <= tlb_vaddr_in;
     end
 
     // 上游无效且本级可接收新槽：清空。
@@ -152,6 +161,11 @@ always @(posedge clk) begin
         int_valid_out    <= 1'b0;
         exception_valid_out <= 1'b0;
         if_vaddr_out     <= 32'b0;
+        tlb_op_out       <= {`TLB_OP_NUM{1'b0}};
+        invtlb_asid_out  <= 10'b0;
+        invtlb_vpn_out   <= 19'b0;
+        tlb_ex_valid_out <= {`TLB_EX_NUM{1'b0}};
+        tlb_vaddr_out    <= 32'b0;
     end
 
     // 下游反压（即readyGo为0）或ID未就绪（即allowIn为0）：保持当前值
@@ -179,6 +193,11 @@ always @(posedge clk) begin
         int_valid_out    <= int_valid_out;
         exception_valid_out <= exception_valid_out;
         if_vaddr_out     <= if_vaddr_out;
+        tlb_op_out       <= tlb_op_out;
+        invtlb_asid_out  <= invtlb_asid_out;
+        invtlb_vpn_out   <= invtlb_vpn_out;
+        tlb_ex_valid_out <= tlb_ex_valid_out;
+        tlb_vaddr_out    <= tlb_vaddr_out;
     end
 
     // 兜底分支：就是else，没啥
@@ -206,6 +225,11 @@ always @(posedge clk) begin
         int_valid_out    <= 1'b0;
         exception_valid_out <= 1'b0;
         if_vaddr_out     <= 32'b0;
+        tlb_op_out       <= {`TLB_OP_NUM{1'b0}};
+        invtlb_asid_out  <= 10'b0;
+        invtlb_vpn_out   <= 19'b0;
+        tlb_ex_valid_out <= {`TLB_EX_NUM{1'b0}};
+        tlb_vaddr_out    <= 32'b0;
     end
 end
 

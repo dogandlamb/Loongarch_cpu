@@ -68,6 +68,8 @@ wire inst_mul_w, inst_mulh_w, inst_mulh_wu, inst_div_w, inst_div_wu, inst_mod_w,
 wire inst_ertn, inst_syscall, inst_break;
 wire inst_rdcntvl_w, inst_rdcntvh_w, inst_rdcntid;
 wire inst_csrrd, inst_csrwr, inst_csrxchg;
+wire inst_tlbsrch, inst_tlbrd, inst_tlbwr, inst_tlbfill;
+wire inst_invtlb_0, inst_invtlb_1, inst_invtlb_2, inst_invtlb_3, inst_invtlb_4, inst_invtlb_5, inst_invtlb_6;
 
 wire [`ALU_OP_NUM-1:0] alu_op_inner; //内部ALU操作码，后续看条件赋值给output alu_op
 wire [`BR_OP_NUM-1:0]  br_op_inner;  //内部分支跳转操作码，后续看条件赋值给output br_op
@@ -75,6 +77,7 @@ wire [`MEM_OP_NUM-1:0] mem_op_inner; //内部访存操作码，后续看条件�
 wire [`CSR_OP_NUM-1:0] csr_op_inner; //内部CSR操作码，后续看条件赋值给output csr_op
 //wire [`RDCNT_OP_NUM-1:0] rdcnt_op_inner;//内部读时间戳计数器操作码，后续看条件赋值给output rdcnt_op
 wire [`WB_SRC_NUM-1:0] wb_src_op_inner;//内部写回数据来源操作码，后续看条件赋值给output wb_src_op_inner
+wire [`TLB_OP_NUM-1:0] tlb_op_inner;//内部TLB操作码，后续看条件赋值给output tlb_op
 wire [31:0]            alu_imm_w;
 wire [31:0]            br_imm_w;
 wire [31:0]            alu_src1_w;
@@ -106,7 +109,14 @@ wire   inst_known;//指令识别信号，输入的指令在指令集内为 1，�
 wire   has_int_attach;// 对本条指令是否附着中断异常（ERTN 不附着，先返回再处理中断）
 wire   exception_valid_w;//译码阶段的异常有效信号，指令异常或中断时为 1，用于送到 ID_EXE_reg 再传到 EXE 级的异常处理模块
 assign has_int_attach = has_int && !inst_ertn;
-assign exception_valid_w = inst_syscall | inst_break | !inst_known | has_int_attach | exception_valid_in;
+wire   inst_tlb_all;
+assign inst_tlb_all = inst_tlbsrch | inst_tlbrd | inst_tlbwr | inst_tlbfill 
+                    | inst_invtlb_0 | inst_invtlb_1 | inst_invtlb_2 | inst_invtlb_3 | inst_invtlb_4 | inst_invtlb_5 | inst_invtlb_6;
+wire fetch_exception;//IF 阶段已经发现的异常
+wire decode_exception;//ID 阶段自己译码发现的异常
+assign fetch_exception  = exception_valid_in ;
+assign decode_exception = inst_syscall | inst_break | (!inst_known) | has_int_attach;
+assign exception_valid_w = fetch_exception | decode_exception;
 
 
 inst_dec u_inst_dec(
@@ -165,7 +175,18 @@ inst_dec u_inst_dec(
     .inst_rdcntid   (inst_rdcntid),
     .inst_csrrd    (inst_csrrd),
     .inst_csrwr    (inst_csrwr),
-    .inst_csrxchg  (inst_csrxchg)
+    .inst_csrxchg  (inst_csrxchg),
+    .inst_tlbsrch  (inst_tlbsrch),
+    .inst_tlbrd    (inst_tlbrd),
+    .inst_tlbwr    (inst_tlbwr),
+    .inst_tlbfill  (inst_tlbfill),
+    .inst_invtlb_0 (inst_invtlb_0),
+    .inst_invtlb_1 (inst_invtlb_1),
+    .inst_invtlb_2 (inst_invtlb_2),
+    .inst_invtlb_3 (inst_invtlb_3),
+    .inst_invtlb_4 (inst_invtlb_4),
+    .inst_invtlb_5 (inst_invtlb_5),
+    .inst_invtlb_6 (inst_invtlb_6)
 );
 
 op_dec u_op_dec(
@@ -224,11 +245,23 @@ op_dec u_op_dec(
     .inst_ertn      	(inst_ertn       ),
     .inst_syscall   	(inst_syscall    ),
     .inst_break     	(inst_break      ),
+    .inst_tlbsrch       (inst_tlbsrch),
+    .inst_tlbrd         (inst_tlbrd),
+    .inst_tlbwr         (inst_tlbwr),
+    .inst_tlbfill       (inst_tlbfill),
+    .inst_invtlb_0      (inst_invtlb_0),
+    .inst_invtlb_1      (inst_invtlb_1),
+    .inst_invtlb_2      (inst_invtlb_2),
+    .inst_invtlb_3      (inst_invtlb_3),
+    .inst_invtlb_4      (inst_invtlb_4),
+    .inst_invtlb_5      (inst_invtlb_5),
+    .inst_invtlb_6      (inst_invtlb_6),
     .alu_op           	(alu_op_inner    ),
     .br_op          	(br_op_inner     ),
     .mem_op         	(mem_op_inner    ),
     .csr_op     	    (csr_op_inner    ),
     .wb_src_op    	    (wb_src_op_inner ),
+    .tlb_op             (tlb_op_inner    ),
     .inst_known          (inst_known       )
 );
 
@@ -392,6 +425,17 @@ get_reg_read_addr u_get_reg_read_addr(
     .inst_csrrd     	(inst_csrrd      ),
     .inst_csrwr     	(inst_csrwr      ),
     .inst_csrxchg   	(inst_csrxchg    ),
+    .inst_tlbsrch       (inst_tlbsrch),
+    .inst_tlbrd         (inst_tlbrd),
+    .inst_tlbwr         (inst_tlbwr),
+    .inst_tlbfill       (inst_tlbfill),
+    .inst_invtlb_0      (inst_invtlb_0),
+    .inst_invtlb_1      (inst_invtlb_1),
+    .inst_invtlb_2      (inst_invtlb_2),
+    .inst_invtlb_3      (inst_invtlb_3),
+    .inst_invtlb_4      (inst_invtlb_4),
+    .inst_invtlb_5      (inst_invtlb_5),
+    .inst_invtlb_6      (inst_invtlb_6),
     .rf_raddr1      	(rf_raddr1_w     ),
     .rf_raddr2      	(rf_raddr2_w     )
 );
@@ -414,6 +458,11 @@ always @(*) begin
     csr_wmask   = 32'b0;
     csr_wvalue  = 32'b0;
     wb_src_op   = {`WB_SRC_NUM{1'b0}};
+    tlb_op      = {`TLB_OP_NUM{1'b0}};
+    tlb_ex_valid = {`TLB_EX_NUM{1'b0}};
+    tlb_vaddr    = 32'b0;
+    invtlb_asid  = 10'b0;
+    invtlb_vpn   = 19'b0;
     ertn_op     = 1'b0;
     sys_valid      = 1'b0;
     brk_valid      = 1'b0;
@@ -427,7 +476,7 @@ always @(*) begin
     if_vaddr    = 32'b0;
 
     if (!reset && valid && !exception_valid_w
-        && !inst_csr_all && !inst_rdcnt_all && !inst_ertn) begin
+        && !inst_csr_all && !inst_rdcnt_all && !inst_ertn && !inst_tlb_all) begin
         src1_addr   = rf_raddr1_w;
         src2_addr   = rf_raddr2_w;
         // 注意：stall 只对送 EXE 的控制/数据插泡，不影响读寄存器地址。
@@ -483,10 +532,12 @@ always @(*) begin
         if_vaddr    = adef_valid_in && !stall ? pc_in : 32'b0;
         sys_valid   = inst_syscall && !stall;
         brk_valid   = inst_break   && !stall;
-        ine_valid   = (!inst_known) && !stall;
+        ine_valid   = !fetch_exception && !inst_known && !stall;
         int_valid   = has_int_attach && !stall;
+        tlb_ex_valid = stall ? {`TLB_EX_NUM{1'b0}} : tlb_ex_valid_in;
+        tlb_vaddr    = stall ? 32'b0 : ((|tlb_ex_valid_in) ? tlb_vaddr_in : 32'b0);
         exception_valid = exception_valid_w && !stall;
-    end
+    end 
     else if (inst_csr_all) begin
         src1_addr   = rf_raddr1_w;
         src2_addr   = rf_raddr2_w;
@@ -553,6 +604,26 @@ always @(*) begin
         pc_out      = stall ? 32'b0 : pc_in;
         ertn_op     = !stall;
     end
+    else if (inst_tlb_all) begin
+        src1_addr   = rf_raddr1_w;
+        src2_addr   = rf_raddr2_w;
+        wb_reg_addr = 5'b0;
+        alu_src1    = 32'b0;
+        alu_src2    = 32'b0;
+        br_imm      = 32'b0;
+        alu_op      = {`ALU_OP_NUM{1'b0}};
+        br_op       = {`BR_OP_NUM{1'b0}};
+        mem_op      = {`MEM_OP_NUM{1'b0}};
+        csr_op      = {`CSR_OP_NUM{1'b0}};
+        mem_wdata   = 32'b0;
+        wb_op       = 1'b0;
+        wb_src_op   = {`WB_SRC_NUM{1'b0}};
+        pc_out      = stall ? 32'b0 : pc_in;
+        tlb_op      = stall ? {`TLB_OP_NUM{1'b0}} : tlb_op_inner;
+        invtlb_asid = stall ? 10'b0 : src1_rdata[9:0];
+        invtlb_vpn  = stall ? 19'b0 : src2_rdata[31:13];
+    end
+
 
 end
 

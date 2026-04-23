@@ -59,11 +59,23 @@ module op_dec(
     input  wire        inst_ertn,
     input  wire        inst_syscall,
     input  wire        inst_break,
+    input  wire        inst_tlbsrch,
+    input  wire        inst_tlbrd,
+    input  wire        inst_tlbwr,
+    input  wire        inst_tlbfill,
+    input  wire        inst_invtlb_0,
+    input  wire        inst_invtlb_1,
+    input  wire        inst_invtlb_2,
+    input  wire        inst_invtlb_3,
+    input  wire        inst_invtlb_4,
+    input  wire        inst_invtlb_5,
+    input  wire        inst_invtlb_6,
     output wire [`ALU_OP_NUM-1:0] alu_op,
     output wire [`BR_OP_NUM-1:0]  br_op,
     output wire [`MEM_OP_NUM-1:0] mem_op,
     output wire [`CSR_OP_NUM-1:0] csr_op,
     output wire [`WB_SRC_NUM-1:0] wb_src_op,
+    output wire [`TLB_OP_NUM-1:0] tlb_op,
     output wire        inst_known
 );
 
@@ -144,8 +156,20 @@ module op_dec(
     assign wb_src_op[`WB_SRC_CNTVL] = inst_rdcntvl_w;
     assign wb_src_op[`WB_SRC_CNTVH] = inst_rdcntvh_w;
     assign wb_src_op[`WB_SRC_TID] = inst_rdcntid;
+// tlb_op操作码生成
+    assign tlb_op[`TLB_OP_TLBSRCH] = inst_tlbsrch;
+    assign tlb_op[`TLB_OP_TLBRD] = inst_tlbrd;
+    assign tlb_op[`TLB_OP_TLBWR] = inst_tlbwr;
+    assign tlb_op[`TLB_OP_TLBFILL] = inst_tlbfill;
+    assign tlb_op[`TLB_OP_INVTLB_0] = inst_invtlb_0;
+    assign tlb_op[`TLB_OP_INVTLB_1] = inst_invtlb_1;
+    assign tlb_op[`TLB_OP_INVTLB_2] = inst_invtlb_2;
+    assign tlb_op[`TLB_OP_INVTLB_3] = inst_invtlb_3;
+    assign tlb_op[`TLB_OP_INVTLB_4] = inst_invtlb_4;
+    assign tlb_op[`TLB_OP_INVTLB_5] = inst_invtlb_5;
+    assign tlb_op[`TLB_OP_INVTLB_6] = inst_invtlb_6;
 //inst_known：指令识别信号，输入的指令在指令集内为 1，否则为 0。用于异常处理模块识别非法指令
-    assign inst_known = (|alu_op) | (|br_op) | (|mem_op) | (|csr_op)
+    assign inst_known = (|alu_op) | (|br_op) | (|mem_op) | (|csr_op) | (|tlb_op)
                      | inst_rdcntvl_w |inst_rdcntvh_w | inst_rdcntid 
                      | inst_ertn | inst_syscall | inst_break;
 

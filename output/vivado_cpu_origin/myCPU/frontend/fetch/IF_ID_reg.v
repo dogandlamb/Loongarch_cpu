@@ -32,6 +32,8 @@ always @(posedge clk) begin
         pc_out   <= 32'h0;
         adef_valid_out <= 1'b0;
         exception_valid_out <= 1'b0;
+        tlb_ex_valid_out <= 0;
+        tlb_vaddr_out    <= 0;
     end 
     
     // 握手成功：锁存来自 IF 的新指令与 PC
@@ -40,6 +42,8 @@ always @(posedge clk) begin
         pc_out   <= pc_in;
         adef_valid_out <= adef_valid_in;
         exception_valid_out <= exception_valid_in;
+        tlb_ex_valid_out <= tlb_ex_valid_in;
+        tlb_vaddr_out    <= tlb_vaddr_in;
     end 
     
     // 上游（IF级）无效：输出清空，避免错误的值向下传递
@@ -48,6 +52,8 @@ always @(posedge clk) begin
         pc_out   <= 32'b0;
         adef_valid_out <= 1'b0;
         exception_valid_out <= 1'b0;
+        tlb_ex_valid_out <= 0;
+        tlb_vaddr_out    <= 0;
     end 
     
     // 下游反压（allowIn为0）或本级未就绪（IF的readyGo为0）：保持
@@ -56,6 +62,8 @@ always @(posedge clk) begin
         pc_out   <= pc_out;
         adef_valid_out <= adef_valid_out;
         exception_valid_out <= exception_valid_out;
+        tlb_ex_valid_out <= tlb_ex_valid_out;
+        tlb_vaddr_out    <= tlb_vaddr_out;
     end
 end
 

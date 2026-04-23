@@ -25,7 +25,7 @@ module tlb_manager #(
     input  wire [7:0]                   csr_estat_ecode,
 
     input  wire [`TLB_OP_NUM-1:0]       tlb_op,
-    input  wire [4:0]                   invtlb_op,
+
     input  wire [9:0]                   invtlb_asid,
     input  wire [18:0]                  invtlb_vpn,
 

@@ -63,6 +63,17 @@ module get_reg_read_addr(
     input  wire        inst_csrrd,
     input  wire        inst_csrwr,
     input  wire        inst_csrxchg,
+    input  wire        inst_tlbsrch,
+    input  wire        inst_tlbrd,
+    input  wire        inst_tlbwr,
+    input  wire        inst_tlbfill,
+    input  wire        inst_invtlb_0,
+    input  wire        inst_invtlb_1,
+    input  wire        inst_invtlb_2,
+    input  wire        inst_invtlb_3,
+    input  wire        inst_invtlb_4,
+    input  wire        inst_invtlb_5,
+    input  wire        inst_invtlb_6,
     output wire [ 4:0] rf_raddr1,
     output wire [ 4:0] rf_raddr2
 );
@@ -93,12 +104,14 @@ assign need_rj = inst_add_w  | inst_addi_w | inst_slti | inst_sltui
                | inst_blt    | inst_bge    | inst_bltu | inst_bgeu
                | inst_mul_w  | inst_mulh_w | inst_mulh_wu
                | inst_div_w  | inst_div_wu | inst_mod_w | inst_mod_wu
+               | inst_invtlb_4 | inst_invtlb_5 | inst_invtlb_6
                | inst_csrxchg | inst_rdcntid;
 
 assign need_rk = inst_add_w | inst_sub_w | inst_slt | inst_sltu
                | inst_and   | inst_or    | inst_nor | inst_xor
                | inst_sll_w | inst_srl_w | inst_sra_w
                | inst_mul_w | inst_mulh_w | inst_mulh_wu
+               | inst_invtlb_5 | inst_invtlb_6
                | inst_div_w | inst_div_wu | inst_mod_w | inst_mod_wu;
 
 assign src1_reg_is_rd = inst_csrwr;
