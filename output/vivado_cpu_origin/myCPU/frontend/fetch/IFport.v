@@ -30,7 +30,7 @@ module IFport (
     output wire [31:0] pc_inst_out,        // 送 IF/ID 的 PC（与 inst_out 对齐）
     output wire        adef_valid_req_out, // 送 BRAM 的地址未对齐异常请求信号
     output wire        adef_valid_out,     // 送 IF/ID 的指令地址未对齐异常信号
-    output wire        exception_valid,     // 向下传的异常有效信号（目前仅 adef_valid_out）
+    output wire        exception_valid,     // 向下传的异常有效信号（adef_valid_out//tlb）
     output wire [`TLB_EX_NUM-1:0] tlb_ex_valid_out, // 送 IF/ID 的 tlb异常信号，注意驱动exception_valid=|tlb_ex_valid_out
     output wire [31:0] tlb_vaddr_out      // 送IF/ID,其驱动与pc_inst_out有关
 );
