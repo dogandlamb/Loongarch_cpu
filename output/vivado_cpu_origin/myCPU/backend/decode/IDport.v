@@ -24,11 +24,11 @@ module IDport (
     output reg refetch_tag_out,//其实可以当异常看，不过不影响csr
     // output reg inst_cacop_out,这两个可以写在内部，不作为输出
     // output reg         inst_ibar_out,ibar可以仅作译码，不用多管，但多管好像也没事-^-
-    output wire  [1:0]             cache_cacop_op_out,
-    output wire  [31:0]            cache_cacop_addr_out,
-    output wire  [1:0]             cache_cacop_mat_out,
-    output wire  [4:0]             cache_cacop_cd_out,
-    output wire id_is_cacop, //id有cacop指令
+    output reg  [1:0]             cacop_op,
+    output reg  [31:0]            cacop_addr,
+    output reg  [1:0]             cacop_mat,
+    output reg  [4:0]             cacop_cd,
+    output reg  [`CACHE_OP_NUM-1:0] cache_op_valid,//这是不是 cache 指令，具体是哪种
 
     output reg         allowIn,            // 对 IF/ID 寄存器级，目前是常 1
     output reg         readyGo,            // 也是常 1
@@ -80,6 +80,7 @@ wire inst_rdcntvl_w, inst_rdcntvh_w, inst_rdcntid;
 wire inst_csrrd, inst_csrwr, inst_csrxchg;
 wire inst_tlbsrch, inst_tlbrd, inst_tlbwr, inst_tlbfill;
 wire inst_invtlb_0, inst_invtlb_1, inst_invtlb_2, inst_invtlb_3, inst_invtlb_4, inst_invtlb_5, inst_invtlb_6;
+wire inst_cacop, inst_ibar;
 
 wire [`ALU_OP_NUM-1:0] alu_op_inner; //内部ALU操作码，后续看条件赋值给output alu_op
 wire [`BR_OP_NUM-1:0]  br_op_inner;  //内部分支跳转操作码，后续看条件赋值给output br_op
@@ -88,6 +89,7 @@ wire [`CSR_OP_NUM-1:0] csr_op_inner; //内部CSR操作码，后续看条件赋�
 //wire [`RDCNT_OP_NUM-1:0] rdcnt_op_inner;//内部读时间戳计数器操作码，后续看条件赋值给output rdcnt_op
 wire [`WB_SRC_NUM-1:0] wb_src_op_inner;//内部写回数据来源操作码，后续看条件赋值给output wb_src_op_inner
 wire [`TLB_OP_NUM-1:0] tlb_op_inner;//内部TLB操作码，后续看条件赋值给output tlb_op
+wire [`CACHE_OP_NUM-1:0] cache_op_inner;//cache_op,后续看条件赋值给
 wire [31:0]            alu_imm_w;
 wire [31:0]            br_imm_w;
 wire [31:0]            alu_src1_w;
@@ -122,10 +124,12 @@ assign has_int_attach = has_int && !inst_ertn;
 wire   inst_tlb_all;
 assign inst_tlb_all = inst_tlbsrch | inst_tlbrd | inst_tlbwr | inst_tlbfill 
                     | inst_invtlb_0 | inst_invtlb_1 | inst_invtlb_2 | inst_invtlb_3 | inst_invtlb_4 | inst_invtlb_5 | inst_invtlb_6;
-wire fetch_exception;//IF 阶段已经发现的异常
-wire decode_exception;//ID 阶段自己译码发现的异常
+wire   fetch_exception;//IF 阶段已经发现的异常
+wire   decode_exception;//ID 阶段自己译码发现的异常
 assign fetch_exception  = exception_valid_in ;
-assign decode_exception = inst_syscall | inst_break | (!inst_known) | has_int_attach;
+assign decode_exception = !refetch_tag_in && (inst_syscall | inst_break | (!inst_known) | has_int_attach);
+wire   inst_cache_all;
+assign inst_cache_all = inst_cacop | inst_ibar;
 assign exception_valid_w = fetch_exception | decode_exception;
 
 
@@ -196,7 +200,9 @@ inst_dec u_inst_dec(
     .inst_invtlb_3 (inst_invtlb_3),
     .inst_invtlb_4 (inst_invtlb_4),
     .inst_invtlb_5 (inst_invtlb_5),
-    .inst_invtlb_6 (inst_invtlb_6)
+    .inst_invtlb_6 (inst_invtlb_6),
+    .inst_cacop    (inst_cacop),
+    .inst_ibar     (inst_ibar)
 );
 
 op_dec u_op_dec(
@@ -272,9 +278,11 @@ op_dec u_op_dec(
     .csr_op     	    (csr_op_inner    ),
     .wb_src_op    	    (wb_src_op_inner ),
     .tlb_op             (tlb_op_inner    ),
-    .inst_known          (inst_known       )
+    .inst_cacop         (inst_cacop      ),
+    .inst_ibar          (inst_ibar       ),
+    .cache_op           (cache_op_inner  ),
+    .inst_known         (inst_known      )
 );
-
 
 imm_generator u_imm_generator(
     .inst         (inst),
@@ -446,10 +454,10 @@ get_reg_read_addr u_get_reg_read_addr(
     .inst_invtlb_4      (inst_invtlb_4),
     .inst_invtlb_5      (inst_invtlb_5),
     .inst_invtlb_6      (inst_invtlb_6),
+    .inst_cacop         (inst_cacop),
     .rf_raddr1      	(rf_raddr1_w     ),
     .rf_raddr2      	(rf_raddr2_w     )
 );
-
 
 always @(*) begin
     allowIn     = 1'b1; 
@@ -484,9 +492,15 @@ always @(*) begin
     wb_op       = 1'b0;
     pc_out      = 32'b0;
     if_vaddr    = 32'b0;
-
+    cache_op_valid = {`CACHE_OP_NUM{1'b0}};
+    refetch_tag_out = 1'b0;
+    cacop_op   = 2'b0;
+    cacop_addr = 32'b0;
+    cacop_mat  = 2'b0;
+    cacop_cd   = 5'b0;
     if (!reset && valid && !exception_valid_w
-        && !inst_csr_all && !inst_rdcnt_all && !inst_ertn && !inst_tlb_all) begin
+        && !inst_csr_all && !inst_rdcnt_all && !inst_ertn 
+        && !inst_tlb_all && !inst_cache_all && !refetch_tag_in) begin
         src1_addr   = rf_raddr1_w;
         src2_addr   = rf_raddr2_w;
         // 注意：stall 只对送 EXE 的控制/数据插泡，不影响读寄存器地址。
@@ -530,12 +544,14 @@ always @(*) begin
         br_op       = {`BR_OP_NUM{1'b0}};
         mem_op      = {`MEM_OP_NUM{1'b0}};
         csr_op      = {`CSR_OP_NUM{1'b0}};
+        tlb_op      = {`TLB_OP_NUM{1'b0}};
         csr_num     = 12'b0;
         csr_wmask   = 32'b0;
         csr_wvalue  = 32'b0;
         mem_wdata   = 32'b0;
         wb_op       = 1'b0;
         wb_src_op   = {`WB_SRC_NUM{1'b0}};
+        cache_op_valid = {`CACHE_OP_NUM{1'b0}};
         pc_out      = stall ? 32'b0 : pc_in;
         ertn_op     = 1'b0;
         adef_valid  = adef_valid_in && !stall;
@@ -633,8 +649,47 @@ always @(*) begin
         invtlb_asid = stall ? 10'b0 : src1_rdata[9:0];
         invtlb_vpn  = stall ? 19'b0 : src2_rdata[31:13];
     end
-
-
+    else if (inst_cache_all) begin
+        src1_addr   = rf_raddr1_w;
+        src2_addr   = rf_raddr2_w;
+        wb_reg_addr = 5'b0;
+        alu_src1    = 32'b0;
+        alu_src2    = 32'b0;
+        br_imm      = 32'b0;
+        alu_op      = {`ALU_OP_NUM{1'b0}};
+        br_op       = {`BR_OP_NUM{1'b0}};
+        mem_op      = {`MEM_OP_NUM{1'b0}};
+        csr_op      = {`CSR_OP_NUM{1'b0}};
+        mem_wdata   = 32'b0;
+        wb_op       = 1'b0;
+        wb_src_op   = {`WB_SRC_NUM{1'b0}};
+        pc_out      = stall ? 32'b0 : pc_in;
+        cache_op_valid = stall ? {`CACHE_OP_NUM{1'b0}} : cache_op_inner;
+        refetch_tag_out = stall ? 1'b0 : refetch_tag_in;
+        cacop_op    = (!stall && inst_cacop) ? inst[4:3] : 2'b0;
+        cacop_addr  = (!stall && inst_cacop) ? (src1_rdata + {{20{inst[21]}}, inst[21:10]}) : 32'b0;
+        cacop_mat   = 2'b0;
+        cacop_cd    = (!stall && inst_cacop) ? inst[4:0] : 5'b0;
+    end
+    else if (refetch_tag_in) begin
+        src1_addr = 5'b0;
+        src2_addr = 5'b0;
+        wb_reg_addr = 5'b0;
+        alu_src1 = 32'b0;
+        alu_src2 = 32'b0;
+        br_imm = 32'b0;
+        alu_op = {`ALU_OP_NUM{1'b0}};
+        br_op = {`BR_OP_NUM{1'b0}};
+        mem_op = {`MEM_OP_NUM{1'b0}};
+        csr_op = {`CSR_OP_NUM{1'b0}};
+        tlb_op = {`TLB_OP_NUM{1'b0}};
+        cache_op_valid = {`CACHE_OP_NUM{1'b0}};
+        wb_op = 1'b0;
+        wb_src_op = {`WB_SRC_NUM{1'b0}};
+        exception_valid = 1'b0;
+        pc_out = stall ? 32'b0 : pc_in;
+        refetch_tag_out = stall ? 1'b0 : 1'b1;
+    end
 end
 
 endmodule

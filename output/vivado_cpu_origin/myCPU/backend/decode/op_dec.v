@@ -70,12 +70,15 @@ module op_dec(
     input  wire        inst_invtlb_4,
     input  wire        inst_invtlb_5,
     input  wire        inst_invtlb_6,
+    input  wire        inst_cacop,
+    input  wire        inst_ibar,
     output wire [`ALU_OP_NUM-1:0] alu_op,
     output wire [`BR_OP_NUM-1:0]  br_op,
     output wire [`MEM_OP_NUM-1:0] mem_op,
     output wire [`CSR_OP_NUM-1:0] csr_op,
     output wire [`WB_SRC_NUM-1:0] wb_src_op,
     output wire [`TLB_OP_NUM-1:0] tlb_op,
+    output wire [`CACHE_OP_NUM-1:0] cache_op,
     output wire        inst_known
 );
 
@@ -168,8 +171,11 @@ module op_dec(
     assign tlb_op[`TLB_OP_INVTLB_4] = inst_invtlb_4;
     assign tlb_op[`TLB_OP_INVTLB_5] = inst_invtlb_5;
     assign tlb_op[`TLB_OP_INVTLB_6] = inst_invtlb_6;
+//cache_op
+    assign cache_op[`CACHE_OP_CACOP] = inst_cacop;
+    assign cache_op[`CACHE_OP_IBAR] = inst_ibar;
 //inst_known：指令识别信号，输入的指令在指令集内为 1，否则为 0。用于异常处理模块识别非法指令
-    assign inst_known = (|alu_op) | (|br_op) | (|mem_op) | (|csr_op) | (|tlb_op)
+    assign inst_known = (|alu_op) | (|br_op) | (|mem_op) | (|csr_op) | (|tlb_op) | (|cache_op)
                      | inst_rdcntvl_w |inst_rdcntvh_w | inst_rdcntid 
                      | inst_ertn | inst_syscall | inst_break;
 

@@ -16,13 +16,15 @@ module IF_ID_reg(
     input  wire        exception_valid_in, // IF 输出异常有效信号（有adef_valid_in与tlb异常）
     input  wire [`TLB_EX_NUM-1:0] tlb_ex_valid_in, // IF 输出tlb异常
     input  wire [31:0] tlb_vaddr_in, // IF 输出tlb虚拟地址
+    input  wire        refetch_tag_in,
 
     output reg  [31:0] inst_out,           // 送 ID 指令
     output reg  [31:0] pc_out,             // 送 ID PC
     output reg         adef_valid_out,      // 送 ID 指令地址未对齐异常信号
     output reg         exception_valid_out, // 送 ID 异常有效信号（有adef_valid_in与tlb异常）
     output reg  [`TLB_EX_NUM-1:0] tlb_ex_valid_out, // 送 ID tlb异常
-    output reg  [31:0] tlb_vaddr_out // 送 ID tlb虚拟地址
+    output reg  [31:0] tlb_vaddr_out,      // 送 ID tlb虚拟地址
+    output reg         refetch_tag_out
 );
 
 always @(posedge clk) begin
@@ -34,6 +36,7 @@ always @(posedge clk) begin
         exception_valid_out <= 1'b0;
         tlb_ex_valid_out <= 0;
         tlb_vaddr_out    <= 0;
+        refetch_tag_out  <= 1'b0;
     end 
     
     // 握手成功：锁存来自 IF 的新指令与 PC
@@ -44,6 +47,7 @@ always @(posedge clk) begin
         exception_valid_out <= exception_valid_in;
         tlb_ex_valid_out <= tlb_ex_valid_in;
         tlb_vaddr_out    <= tlb_vaddr_in;
+        refetch_tag_out  <= refetch_tag_in;
     end 
     
     // 上游（IF级）无效：输出清空，避免错误的值向下传递
@@ -54,6 +58,7 @@ always @(posedge clk) begin
         exception_valid_out <= 1'b0;
         tlb_ex_valid_out <= 0;
         tlb_vaddr_out    <= 0;
+        refetch_tag_out  <= 1'b0;
     end 
     
     // 下游反压（allowIn为0）或本级未就绪（IF的readyGo为0）：保持
@@ -64,6 +69,7 @@ always @(posedge clk) begin
         exception_valid_out <= exception_valid_out;
         tlb_ex_valid_out <= tlb_ex_valid_out;
         tlb_vaddr_out    <= tlb_vaddr_out;
+        refetch_tag_out  <= refetch_tag_out;
     end
 end
 

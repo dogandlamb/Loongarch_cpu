@@ -70,7 +70,9 @@ module inst_dec(
     output wire        inst_invtlb_3,
     output wire        inst_invtlb_4,
     output wire        inst_invtlb_5,
-    output wire        inst_invtlb_6
+    output wire        inst_invtlb_6,
+    output wire        inst_cacop,
+    output wire        inst_ibar
 );
 
 wire [ 5:0] op_31_26;//若干位操作码，来自inst
@@ -192,5 +194,8 @@ assign inst_invtlb_3 = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] &
 assign inst_invtlb_4 = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h13] & rd_d[5'h04];
 assign inst_invtlb_5 = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h13] & rd_d[5'h05];
 assign inst_invtlb_6 = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h13] & rd_d[5'h06];
+
+assign inst_cacop = op_31_26_d[6'h01] & op_25_22_d[4'h8];
+assign inst_ibar  = op_31_26_d[6'h0e] & op_25_22_d[4'h1] & op_21_20_d[2'h3] & op_19_15_d[5'h05];
 
 endmodule

@@ -40,7 +40,6 @@ module imm_generator (
     input wire inst_jirl,
     input wire inst_lu12i_w,
     input wire inst_pcaddu12i,
-
     output wire [31:0] alu_imm,            // 送 ALU 第二源用的立即数（扩展后的）
     output wire [31:0] br_imm              // 分支偏移（已对齐、扩展）
 );

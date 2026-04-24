@@ -197,6 +197,10 @@
 
 
 /* CACOP操作码宏定义 */
+`define CACHE_OP_NUM    2
+`define CACHE_OP_CACOP  0
+`define CACHE_OP_IBAR   1
+
 `define CACOP_OP_IDX_INV  2'b00
 `define CACOP_OP_HIT_INV  2'b01
 `define CACOP_OP_HIT_WB   2'b10

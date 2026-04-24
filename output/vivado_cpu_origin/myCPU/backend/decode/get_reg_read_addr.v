@@ -74,6 +74,7 @@ module get_reg_read_addr(
     input  wire        inst_invtlb_4,
     input  wire        inst_invtlb_5,
     input  wire        inst_invtlb_6,
+    input  wire        inst_cacop,
     output wire [ 4:0] rf_raddr1,
     output wire [ 4:0] rf_raddr2
 );
@@ -105,7 +106,7 @@ assign need_rj = inst_add_w  | inst_addi_w | inst_slti | inst_sltui
                | inst_mul_w  | inst_mulh_w | inst_mulh_wu
                | inst_div_w  | inst_div_wu | inst_mod_w | inst_mod_wu
                | inst_invtlb_4 | inst_invtlb_5 | inst_invtlb_6
-               | inst_csrxchg | inst_rdcntid;
+               | inst_csrxchg | inst_rdcntid | inst_cacop;
 
 assign need_rk = inst_add_w | inst_sub_w | inst_slt | inst_sltu
                | inst_and   | inst_or    | inst_nor | inst_xor

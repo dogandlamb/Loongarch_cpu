@@ -22,8 +22,8 @@ module IFport (
     input  wire        adef_valid_in,      // 地址未对齐异常信号
     input  wire [`TLB_EX_NUM-1:0] tlb_ex_valid_in, // tlb异常信号，由top tlb manager给入
 
-    input wire refetch_tag_in,
-    output wire refetch_tag_out,//其实可以当异常看，不过不影响csr
+    input wire         refetch_tag_in,
+    output wire        refetch_tag_out,//其实可以当异常看，不过不影响csr
 
     output wire        readyGo,            // 本级可向下游提交
     output wire        allowIn,            // 对上游允许（当前常 1）
@@ -51,6 +51,8 @@ reg         drop_next_resp;                // 重定向后丢弃直到 pc_inst_i
 reg  [31:0] redirect_pc_pending;           // 分支重定向目标（用于丢弃陈旧返回）
 reg  [`TLB_EX_NUM-1:0] hold_tlb_ex_valid;
 reg  [31:0] hold_tlb_vaddr;
+reg         hold_refetch_tag;
+
 
 wire        stale_redirect_resp;
 wire        if_tlb_ex;
@@ -69,6 +71,9 @@ wire [31:0] out_pc;
 wire        out_adef_valid;
 wire [`TLB_EX_NUM-1:0] out_tlb_ex_valid;
 wire [31:0] out_tlb_vaddr;
+wire        new_refetch_tag;
+wire        out_refetch_tag;
+
 
 // For locally completed ADEF fetches, allow the response through even if
 // redirect drop window is active, otherwise IF can livelock at TP51.
@@ -77,7 +82,7 @@ assign resp_ok   = valid && inst_valid_in && !cancel_in && !stale_redirect_resp;
 // 异常返回：ADEF/TLB 取指异常不一定会有 inst_valid_in，
 // 所以要允许 IF 直接构造一个异常槽位往下传。
 assign if_tlb_ex = |tlb_ex_valid_in;
-assign if_ex_ok  = valid && (adef_valid_in || if_tlb_ex) && !cancel_in;
+assign if_ex_ok  = valid && (adef_valid_in || if_tlb_ex || refetch_tag_in) && !cancel_in;
 // 新槽位内容。
 // 异常槽位没有真实指令，inst 给 0 只是占位。
 // pc/tlb_vaddr 用 pc_req_in，表示本次取指出错的虚地址。
@@ -87,6 +92,7 @@ assign new_pc   = if_ex_ok ? pc_req_in : pc_inst_in;
 assign new_adef_valid = if_ex_ok ? adef_valid_in : 1'b0;
 assign new_tlb_ex_valid = if_ex_ok ? tlb_ex_valid_in: {`TLB_EX_NUM{1'b0}};
 assign new_tlb_vaddr = if_ex_ok ? pc_req_in : 32'b0;
+assign new_refetch_tag = if_ex_ok ? refetch_tag_in : 1'b0;
 // 输出优先发之前 hold 的槽位；没有 hold 才发本拍新槽位。
 assign out_valid = hold_valid | new_slot_ok;
 assign out_inst = hold_valid ? hold_inst : new_inst;
@@ -94,6 +100,7 @@ assign out_pc   = hold_valid ? hold_pc   : new_pc;
 assign out_adef_valid = hold_valid ? hold_adef : new_adef_valid;
 assign out_tlb_ex_valid = hold_valid ? hold_tlb_ex_valid : new_tlb_ex_valid;
 assign out_tlb_vaddr = hold_valid ? hold_tlb_vaddr : new_tlb_vaddr;
+assign out_refetch_tag = hold_valid ? hold_refetch_tag : new_refetch_tag;
 
 always @(posedge clk) begin
     if (reset) begin
@@ -105,6 +112,7 @@ always @(posedge clk) begin
         redirect_pc_pending <= 32'b0;
         hold_tlb_ex_valid <= {`TLB_EX_NUM{1'b0}};
         hold_tlb_vaddr    <= 32'b0;
+        hold_refetch_tag  <= 1'b0;
     end else if (cancel_in) begin
         hold_valid <= 1'b0;
         hold_inst  <= 32'b0;
@@ -114,6 +122,7 @@ always @(posedge clk) begin
         redirect_pc_pending <= redirect_pc_in;
         hold_tlb_ex_valid <= {`TLB_EX_NUM{1'b0}};
         hold_tlb_vaddr    <= 32'b0;
+        hold_refetch_tag  <= 1'b0;
     end else begin
         if (drop_next_resp && inst_valid_in && ((pc_inst_in == redirect_pc_pending) || adef_valid_in))
             drop_next_resp <= 1'b0;
@@ -127,6 +136,7 @@ always @(posedge clk) begin
                 hold_adef         <= new_adef_valid;
                 hold_tlb_ex_valid <= new_tlb_ex_valid;
                 hold_tlb_vaddr    <= new_tlb_vaddr;
+                hold_refetch_tag  <= new_refetch_tag;
             end else begin
                 hold_valid        <= 1'b0;
                 hold_inst         <= 32'b0;
@@ -134,6 +144,7 @@ always @(posedge clk) begin
                 hold_adef         <= 1'b0;
                 hold_tlb_ex_valid <= {`TLB_EX_NUM{1'b0}};
                 hold_tlb_vaddr    <= 32'b0;
+                hold_refetch_tag  <= 1'b0;
             end
         end
         // 情况 2：当前没有 hold，但下游不接收，而本拍来了新槽位。
@@ -145,6 +156,7 @@ always @(posedge clk) begin
             hold_adef         <= new_adef_valid;
             hold_tlb_ex_valid <= new_tlb_ex_valid;
             hold_tlb_vaddr    <= new_tlb_vaddr;
+            hold_refetch_tag  <= new_refetch_tag;
         end
     end
 end
@@ -158,5 +170,6 @@ assign adef_valid_out = out_valid ? out_adef_valid : 1'b0;
 assign tlb_ex_valid_out = out_valid ? out_tlb_ex_valid: {`TLB_EX_NUM{1'b0}};
 assign tlb_vaddr_out = out_valid ? out_tlb_vaddr : 32'b0;
 assign exception_valid = out_valid? (out_adef_valid | (|out_tlb_ex_valid)): 1'b0;
+assign refetch_tag_out = out_valid ? out_refetch_tag : 1'b0;
 
 endmodule

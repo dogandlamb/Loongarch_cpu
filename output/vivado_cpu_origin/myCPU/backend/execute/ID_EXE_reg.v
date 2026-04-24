@@ -39,7 +39,19 @@ module ID_EXE_reg (
     input wire  [`TLB_EX_NUM-1:0] tlb_ex_valid_in,
     input wire  [31:0]            if_vaddr_in,
     input wire  [31:0]            tlb_vaddr_in,
+    input wire  [`CACHE_OP_NUM-1:0] cache_op_valid_in,
+    input wire  [1:0]             cache_cacop_op_in,
+    input wire  [31:0]            cache_cacop_addr_in,
+    input wire  [1:0]             cache_cacop_mat_in,
+    input wire  [4:0]             cache_cacop_cd_in,
+    input wire                    refetch_tag_in,
 
+    output reg  [`CACHE_OP_NUM-1:0] cache_op_valid_out,
+    output reg  [1:0]             cache_cacop_op_out,
+    output reg  [31:0]            cache_cacop_addr_out,
+    output reg  [1:0]             cache_cacop_mat_out,
+    output reg  [4:0]             cache_cacop_cd_out,
+    output reg                    refetch_tag_out,
     output reg  [4:0]             wb_reg_addr_out,
     output reg  [31:0]            alu_src1_out,
     output reg  [31:0]            alu_src2_out,
@@ -101,6 +113,12 @@ always @(posedge clk) begin
         invtlb_vpn_out   <= 19'b0;
         tlb_ex_valid_out <= {`TLB_EX_NUM{1'b0}};
         tlb_vaddr_out    <= 32'b0;
+        cache_op_valid_out    <= {`CACHE_OP_NUM{1'b0}};
+        cache_cacop_op_out    <= 2'b0;
+        cache_cacop_addr_out  <= 32'b0;
+        cache_cacop_mat_out   <= 2'b0;
+        cache_cacop_cd_out    <= 5'b0;
+        refetch_tag_out       <= 1'b0;
     end
 
     // 握手成功：在流水级寄存器锁存 ID 输出，推进到 EXE
@@ -133,6 +151,12 @@ always @(posedge clk) begin
         invtlb_vpn_out   <= invtlb_vpn_in;
         tlb_ex_valid_out <= tlb_ex_valid_in;
         tlb_vaddr_out    <= tlb_vaddr_in;
+        cache_op_valid_out    <= cache_op_valid_in;
+        cache_cacop_op_out    <= cache_cacop_op_in;
+        cache_cacop_addr_out  <= cache_cacop_addr_in;
+        cache_cacop_mat_out   <= cache_cacop_mat_in;
+        cache_cacop_cd_out    <= cache_cacop_cd_in;
+        refetch_tag_out       <= refetch_tag_in;
     end
 
     // 上游无效且本级可接收新槽：清空。
@@ -166,6 +190,12 @@ always @(posedge clk) begin
         invtlb_vpn_out   <= 19'b0;
         tlb_ex_valid_out <= {`TLB_EX_NUM{1'b0}};
         tlb_vaddr_out    <= 32'b0;
+        cache_op_valid_out    <= {`CACHE_OP_NUM{1'b0}};
+        cache_cacop_op_out    <= 2'b0;
+        cache_cacop_addr_out  <= 32'b0;
+        cache_cacop_mat_out   <= 2'b0;
+        cache_cacop_cd_out    <= 5'b0;
+        refetch_tag_out       <= 1'b0;
     end
 
     // 下游反压（即readyGo为0）或ID未就绪（即allowIn为0）：保持当前值
@@ -198,6 +228,12 @@ always @(posedge clk) begin
         invtlb_vpn_out   <= invtlb_vpn_out;
         tlb_ex_valid_out <= tlb_ex_valid_out;
         tlb_vaddr_out    <= tlb_vaddr_out;
+        cache_op_valid_out    <= cache_op_valid_out;
+        cache_cacop_op_out    <= cache_cacop_op_out;
+        cache_cacop_addr_out  <= cache_cacop_addr_out;
+        cache_cacop_mat_out   <= cache_cacop_mat_out;
+        cache_cacop_cd_out    <= cache_cacop_cd_out;
+        refetch_tag_out       <= refetch_tag_out;
     end
 
     // 兜底分支：就是else，没啥
@@ -230,6 +266,12 @@ always @(posedge clk) begin
         invtlb_vpn_out   <= 19'b0;
         tlb_ex_valid_out <= {`TLB_EX_NUM{1'b0}};
         tlb_vaddr_out    <= 32'b0;
+        cache_op_valid_out    <= {`CACHE_OP_NUM{1'b0}};
+        cache_cacop_op_out    <= 2'b0;
+        cache_cacop_addr_out  <= 32'b0;
+        cache_cacop_mat_out   <= 2'b0;
+        cache_cacop_cd_out    <= 5'b0;
+        refetch_tag_out       <= 1'b0;
     end
 end
 
