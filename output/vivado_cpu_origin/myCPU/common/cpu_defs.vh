@@ -100,6 +100,7 @@
 `define TLB_EX_PIS   1
 `define TLB_EX_PME   0
 
+
 /* 异常Ecode、Esubcode宏定义 */
 // 有些异常我还没加上
 `define INT_ECODE  8'h00 //中断
@@ -193,6 +194,13 @@
 `define CSR_REDIRECT_NONE  2'b00   // 不重定向
 `define CSR_REDIRECT_EX    2'b01   // 该pc是用于异常/中断的EENTRY
 `define CSR_REDIRECT_ERTN  2'b10   // 该pc是用于ERTN的返回地址
+
+
+/* CACOP操作码宏定义 */
+`define CACOP_OP_IDX_INV  2'b00
+`define CACOP_OP_HIT_INV  2'b01
+`define CACOP_OP_HIT_WB   2'b10
+
 
 
 `endif

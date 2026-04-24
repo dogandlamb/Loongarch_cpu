@@ -12,6 +12,7 @@ module conflict_handle(
     input  wire mem_stage_is_load,       // MEM 槽为 load 且读未完成
     input  wire br_taken_comb,           // EXE 组合分支成立
     input  wire csr_flush,               // CSR：异常 / ERTN 等提交时冲刷流水
+    input  wire refetch_req_in,
     output wire RAW_hazard,
     output wire block_sig,
     output wire stall,
@@ -21,7 +22,8 @@ module conflict_handle(
     output wire FD_WB_2rs1_sig,
     output wire FD_EXE_2rs2_sig,
     output wire FD_MEM_2rs2_sig,
-    output wire FD_WB_2rs2_sig
+    output wire FD_WB_2rs2_sig,
+    output wire refetch_req_out
 );
 
 parameter BLOCK_MODE_ENABLE = 1'b1;
@@ -49,5 +51,6 @@ assign FD_WB_2rs2_sig  = FD_MODE_ENABLE ? hit_wb_rs2  : 1'b0;
 
 wire br_cancel = (br_taken_comb == 1'b1);
 assign cancel_sig = br_cancel | csr_flush;//cancel_sig = 分支命中 | csr_flush。
+assign refetch_req_out = refetch_req_in;
 
 endmodule

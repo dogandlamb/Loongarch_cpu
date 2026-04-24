@@ -87,16 +87,21 @@ module mycpu_top(
         else       valid <= 1'b1;
     end
 
-    // sram_AXI_bridge：IF/MEM ↔ sram-AXI
-    wire [31:0] inst_rdata_2IF;
-    wire [31:0] data_rdata_2MEM;
+    // IF/MEM ↔ mmu
+    wire [31:0] inst_rdata_2IF; //?
+    wire [31:0] data_rdata_2MEM;//?
     wire        inst_r_complete;
-    wire [31:0] pc_2ID_from_bram;
-    wire        adef_valid_2IF;
+    wire        cache_inst_r_complete;
+    wire        cache_data_r_complete;
+    wire        cache_data_w_complete;
+    wire        mmu_data_tlb_excp_cancel;
+    wire [31:0] pc_2ID_from_bram; // pc_2ID_from_bram 不应该经过 mmu。它是 icache 返回的“与指令对齐的 PC”，语义在 IF/cache 通路。
+    wire        adef_valid_2IF; // axi_if_busy 也不属于 mmu，它是 cache/axi 忙信号聚合（icache_stall_if 与 dcache_stall_mem）。
     wire        data_w_wrong;
     wire        data_r_wrong;
     wire        inst_r_wrong;
     wire        axi_if_busy;
+
     // 前递选择信号（来自 conflict_handle -> forward_deliver）
     wire FD_EXE_2rs1_sig;
     wire FD_MEM_2rs1_sig;
@@ -118,7 +123,7 @@ module mycpu_top(
     wire        block_sig;       // 送入 pipeline_controller/npc 的阻塞主信号
     wire        cancel_sig;      // 冲刷：分支命中或 csr_flush（conflict_handle 内相或）
 
-    // CSR相关信号
+    // CSR相关输出信号
     wire        csr_flush_pipeline;   // 异常或 ERTN（csr_exception_commit_handler → conflict_handle.csr_flush）
     wire [31:0] csr_next_pc;          // CSR → npc：EENTRY 或 ERTN的返回地址
     wire [1:0]  csr_redirect;         // CSR → npc：区分csr_next_pc类型的标志位信号，给npc仲裁，类型有`CSR_REDIRECT_EX、`CSR_REDIRECT_ERTN、`CSR_REDIRECT_NONE，具体看宏定义
@@ -127,6 +132,8 @@ module mycpu_top(
     wire [31:0] csr_tid_to_exe;       // RDCNTID 等：CSR 模块输出的 TID
     wire        csr_crmd_da;
     wire        csr_crmd_pg;
+    wire [1:0]  csr_crmd_datf;
+    wire [1:0]  csr_crmd_datm;
     wire [1:0]  csr_crmd_plv;
     wire [9:0]  csr_asid;
     wire [31:0] csr_tlbidx;
@@ -137,6 +144,8 @@ module mycpu_top(
     wire [31:0] csr_dmw1;
     wire [7:0]  csr_estat_ecode;
 
+    // 输入CSR的相关信号
+    // TLB -> CSR
     wire [31:0] tlbrd_tlbidx;
     wire [31:0] tlbrd_tlbehi;
     wire [31:0] tlbrd_tlbelo0;
@@ -145,25 +154,108 @@ module mycpu_top(
     wire        tlbsrch_found;
     wire [3:0]  tlbsrch_index;
 
-    wire        mmu_inst_req;
-    wire [31:0] mmu_inst_paddr;
-    wire        mmu_inst_adef;
-    wire        mmu_inst_tlbr;
-    wire        mmu_inst_pif;
-    wire        mmu_inst_ppi;
+    // (WB提交cacop->) cache_control_unit->cache
+    wire        icache_cacop_en;
+    wire [1:0]  icache_cacop_op;
+    wire [31:0] icache_cacop_addr;
+    wire [1:0]  icache_cacop_mat;
+    wire        dcache_cacop_en;
+    wire [1:0]  dcache_cacop_op;
+    wire [31:0] dcache_cacop_addr;
+    wire [1:0]  dcache_cacop_mat;
+    wire        wb_cache_cacop_valid;
+    wire        wb_cache_ibar_valid;
+    wire [1:0]  wb_cache_cacop_op;
+    wire [31:0] wb_cache_cacop_addr;
+    wire [1:0]  wb_cache_cacop_mat;
+    wire [4:0]  wb_cache_cacop_cd;
+
+
+    wire        mmu_inst_req; // mmu -> icache
+    wire [31:0] mmu_inst_paddr; // if_pc 和 tlb_paddr 都接 mmu_inst_paddr,语义上是重复输入但不冲突。当前 tlb_valid 固定 1，tlb_paddr 等价于 if_pc。这是接口保留型设计，便于未来切换到 cache 内部再做地址选择时不改接口。
+
+    wire        mmu_inst_adef; // 接入 IF 异常输入链路
+
+    wire        mmu_inst_tlbr; // ?
+    wire        mmu_inst_pif; // ?
+    wire        mmu_inst_ppi; // ?
+
     wire        mmu_data_re;
     wire        mmu_data_we;
-    wire [31:0] mmu_data_paddr_r;
-    wire [31:0] mmu_data_paddr_w;
-    wire [31:0] mmu_data_wdata;
+    wire [31:0] mmu_data_paddr_r; // mmu_data_paddr_r 与 mmu_data_paddr_w 在 dcache 里都等于同一个 tlbm_data_paddr,为后续扩展保留接口
+    wire [31:0] mmu_data_paddr_w; 
+    wire [31:0] mmu_data_wdata; // mmu -> dcache
     wire [3:0]  mmu_data_wstrb;
-    wire        mmu_data_tlbr;
+
+    wire        mmu_data_tlbr;// mmu_data_tlbr/pil/pis/ppi/pme通过 data_tlb_ex_vec 并入 exe_tlb_ex_valid_to_mem
     wire        mmu_data_pil;
     wire        mmu_data_pis;
     wire        mmu_data_ppi;
     wire        mmu_data_pme;
+    wire [1:0]  mmu_inst_mat; // mmu -> icache
+    wire [1:0]  mmu_data_mat; // mmu -> dcache
+
+    // cache -> if/mem
+    wire        icache_if_addr_ok; // 没用到，保留接口
+    wire        icache_if_data_ok; // 没用到，保留接口
+    wire [31:0] icache_if_pc;
+    wire [31:0] icache_if_data;
+    wire        icache_stall_if;
+    wire        dcache_mem_addr_ok; // ?
+    wire        dcache_mem_data_ok;
+    wire [31:0] dcache_mem_rdata;
+    wire        dcache_stall_mem;
+    wire        icache_tlb_excp_cancel_req;
+    wire        dcache_tlb_excp_cancel_req;
+    wire        dcache_sc_cancel_req; // 暂时还没用到，赋给常值
+    wire [4:0]  dcache_preld_hint; // 暂时还没用到，赋给常值
+    wire        dcache_preld_en; // 暂时还没用到，赋给常值
+
+    // cache <-> axi转接桥
+    wire        axi_ic_rd_req;
+    wire [2:0]  axi_ic_rd_type;
+    wire [31:0] axi_ic_rd_addr;
+    wire        axi_ic_rd_rdy;
+    wire        axi_ic_ret_valid;
+    wire        axi_ic_ret_last;
+    wire [127:0] axi_ic_ret_data;
+    wire        axi_dc_rd_req;
+    wire [2:0]  axi_dc_rd_type;
+    wire [31:0] axi_dc_rd_addr;
+    wire        axi_dc_rd_rdy;
+    wire        axi_dc_ret_valid;
+    wire        axi_dc_ret_last;
+    wire [127:0] axi_dc_ret_data;
+    wire        axi_dc_wr_req;
+    wire [2:0]  axi_dc_wr_type;
+    wire [31:0] axi_dc_wr_addr;
+    wire [15:0] axi_dc_wr_strb;
+    wire [127:0] axi_dc_wr_data;
+    wire        axi_dc_wr_rdy;
+
+    // axi转接桥 <-> top的顶层接口
+    wire        axi_awvalid_line;
+    wire [31:0] axi_awaddr_line;
+    wire [2:0]  axi_awburst_line;
+    wire [3:0]  axi_awlen_line;
+    wire [2:0]  axi_awsize_line;
+    wire        axi_wvalid_line;
+    wire [31:0] axi_wdata_line;
+    wire [3:0]  axi_wstrb_line;
+    wire        axi_wlast_line;
+    wire        axi_bready_line;
+    wire        axi_arvalid_line;
+    wire [31:0] axi_araddr_line;
+    wire [2:0]  axi_arburst_line;
+    wire [3:0]  axi_arlen_line;
+    wire [2:0]  axi_arsize_line;
+    wire        axi_rready_line;
+
+    // tlb与mmu的交互信号
     wire [31:0] tlbm_inst_paddr;
     wire [31:0] tlbm_data_paddr;
+    wire [1:0]  tlbm_inst_mat;
+    wire [1:0]  tlbm_data_mat;
     wire        tlbm_inst_ex_tlbr;
     wire        tlbm_inst_ex_pif;
     wire        tlbm_inst_ex_ppi;
@@ -196,12 +288,15 @@ module mycpu_top(
     wire [31:0] inst_fromIF;              // IF 输出指令（对齐PC）
     wire [31:0] pc_fromIF;                // IF 输出 PC（对齐inst）
     wire        adef_valid_req_fromIF;
+    wire        if_is_CACOP;
     wire        if_adef_to_ifid;          // IF输出到IF_ID_reg的地址未对齐异常信号ADEF
     wire        if_exception_to_ifid;     // IF输出到IF_ID_reg的异常有效信号EXCEPTION
     wire [`TLB_EX_NUM-1:0] if_tlb_ex_valid_to_ifid;
     wire [31:0]            if_tlb_vaddr_to_ifid;
     wire        adef_ifid_to_id;          // IF_ID_reg输出到ID的地址未对齐异常信号ADEF
     wire        exception_ifid_to_id;     // IF_ID_reg输出到ID的异常有效信号EXCEPTION
+    wire        IF_refetch_tag;           // pipeline controller 输出给 IF/ID 的重取标志
+    wire        refetch_tag_ifid_to_id;
     wire [`TLB_EX_NUM-1:0] ifid_tlb_ex_valid_to_id;
     wire [31:0]            ifid_tlb_vaddr_to_id;
 
@@ -228,10 +323,11 @@ module mycpu_top(
         .tlb_ex_valid_out   (if_tlb_ex_valid_to_ifid),
         .tlb_vaddr_out      (if_tlb_vaddr_to_ifid),
         .adef_valid_req_out (adef_valid_req_fromIF),
-        .adef_valid_in      (adef_valid_2IF | mmu_inst_tlbr | mmu_inst_pif | mmu_inst_ppi),
-        .tlb_ex_valid_in    ({tlbm_inst_ex_tlbr, tlbm_inst_ex_pif, tlbm_inst_ex_ppi, 3'b0}),
+        .adef_valid_in      (adef_valid_2IF | mmu_inst_adef),
+        .tlb_ex_valid_in    ({mmu_inst_tlbr, mmu_inst_pif, mmu_inst_ppi, 3'b0}),
         .adef_valid_out     (if_adef_to_ifid),
-        .exception_valid    (if_exception_to_ifid)
+        .exception_valid    (if_exception_to_ifid),
+        .if_is_CACOP        (if_is_CACOP)
     );
 
     wire [31:0] inst_2ID;        // IF_ID_reg 输出到 ID 的指令
@@ -248,12 +344,14 @@ module mycpu_top(
         .inst_in               (inst_fromIF),
         .adef_valid_in         (if_adef_to_ifid),
         .exception_valid_in    (if_exception_to_ifid),
+        .refetch_tag_in        (IF_refetch_tag),
         .tlb_ex_valid_in       (if_tlb_ex_valid_to_ifid),
         .tlb_vaddr_in          (if_tlb_vaddr_to_ifid),
         .inst_out              (inst_2ID),
         .pc_out                (pc_2ID),
         .adef_valid_out        (adef_ifid_to_id),
         .exception_valid_out   (exception_ifid_to_id),
+        .refetch_tag_out       (refetch_tag_ifid_to_id),
         .tlb_ex_valid_out      (ifid_tlb_ex_valid_to_id),
         .tlb_vaddr_out         (ifid_tlb_vaddr_to_id)
     );
@@ -300,6 +398,14 @@ module mycpu_top(
     wire                   exception_valid_fromID;
     wire [`TLB_EX_NUM-1:0] tlb_ex_valid_fromID;
     wire [31:0]            tlb_vaddr_fromID;
+    wire                   id_is_CACOP;
+
+    wire        id_inst_cacop;
+    wire        id_inst_ibar;
+    wire [1:0]  id_cacop_op;
+    wire [31:0] id_cacop_addr;
+    wire [1:0]  id_cacop_mat;
+    wire [4:0]  id_cacop_cd;
 
     //由前递模块返回的读取数据，可能为寄存器读取或者前递的数据
     wire [31:0] ID_src1_rdata;
@@ -340,6 +446,12 @@ module mycpu_top(
         .tlb_op     (tlb_op_fromID),
         .invtlb_asid(invtlb_asid_fromID),
         .invtlb_vpn (invtlb_vpn_fromID),
+        .inst_cacop (id_inst_cacop),
+        .inst_ibar  (id_inst_ibar),
+        .cacop_op   (id_cacop_op),
+        .cacop_addr (id_cacop_addr),
+        .cacop_mat  (id_cacop_mat),
+        .cacop_cd   (id_cacop_cd),
         .sys_valid  (sys_valid_fromID),
         .brk_valid  (brk_valid_fromID),
         .ine_valid  (ine_valid_fromID),
@@ -349,12 +461,34 @@ module mycpu_top(
         .int_valid  (int_valid_fromID),
         .exception_valid (exception_valid_fromID),
         .tlb_ex_valid (tlb_ex_valid_fromID),
-        .tlb_vaddr   (tlb_vaddr_fromID)
+        .tlb_vaddr   (tlb_vaddr_fromID),
+        .id_is_CACOP  (id_is_CACOP)
     );
 
     // IDport 内部通过 get_reg_read_addr 生成读地址，直接驱动 regfile 读端口
     assign rf_raddr1 = id_src1_addr;
     assign rf_raddr2 = id_src2_addr;
+
+    // cache_control_unit：仅由WB阶段已提交的维护指令统一驱动ICache/DCache
+    cache_control_unit u_cache_control_unit(
+        .clk            (clk),
+        .resetn         (resetn),
+        .wb_valid       (WB_valid),
+        .wb_inst_cacop  (wb_cache_cacop_valid),
+        .wb_inst_ibar   (wb_cache_ibar_valid),
+        .wb_cacop_op    (wb_cache_cacop_op),
+        .wb_cacop_addr  (wb_cache_cacop_addr),
+        .wb_cacop_mat   (wb_cache_cacop_mat),
+        .wb_cacop_cd    (wb_cache_cacop_cd),
+        .icache_cacop_en (icache_cacop_en),
+        .icache_cacop_op (icache_cacop_op),
+        .icache_cacop_addr (icache_cacop_addr),
+        .icache_cacop_mat (icache_cacop_mat),
+        .dcache_cacop_en (dcache_cacop_en),
+        .dcache_cacop_op (dcache_cacop_op),
+        .dcache_cacop_addr (dcache_cacop_addr),
+        .dcache_cacop_mat (dcache_cacop_mat)
+    );
 
     wire        ID_EXE_reg_valid;       // ID_EXE_reg 输入 valid
     wire        ID_EXE_reg_allowIn;     // ID_EXE_reg 允许写入
@@ -385,8 +519,18 @@ module mycpu_top(
     wire                   exception_valid_2EXE;
     wire [`TLB_EX_NUM-1:0] tlb_ex_valid_2EXE;
     wire [31:0]            tlb_vaddr_2EXE;
+    wire                   cache_cacop_valid_2EXE;
+    wire                   cache_ibar_valid_2EXE;
+    wire [1:0]             cache_cacop_op_2EXE;
+    wire [31:0]            cache_cacop_addr_2EXE;
+    wire [1:0]             cache_cacop_mat_2EXE;
+    wire [4:0]             cache_cacop_cd_2EXE;
+    wire                   refetch_tag_2EXE;
 
     // 阻塞时在 ID/EXE 边界注入气泡（气泡就是置为0）
+    // id2exe_* 这些是不是应由 ID_EXE_reg 驱动
+    // 现在这种写法是标准写法。id2exe_* 是“送进 ID_EXE_reg 的预处理输入”（用于 block 注气泡），真正寄存后的输出是 *_2EXE。
+    // 所以不是反了，而是前后级信号命名分层。
     wire [4:0]               id2exe_wb_reg_addr = block_sig ? 5'b0 : wb_reg_addr_fromID;
     wire [31:0]              id2exe_alu_src1    = block_sig ? 32'b0 : alu_src1_fromID;
     wire [31:0]              id2exe_alu_src2    = block_sig ? 32'b0 : alu_src2_fromID;
@@ -415,6 +559,13 @@ module mycpu_top(
     wire                     id2exe_exception_valid = block_sig ? 1'b0 : exception_valid_fromID;
     wire [`TLB_EX_NUM-1:0]   id2exe_tlb_ex_valid = block_sig ? {`TLB_EX_NUM{1'b0}} : tlb_ex_valid_fromID;
     wire [31:0]              id2exe_tlb_vaddr   = block_sig ? 32'b0 : tlb_vaddr_fromID;
+    wire                     id2exe_cache_cacop_valid = block_sig ? 1'b0 : id_inst_cacop;
+    wire                     id2exe_cache_ibar_valid  = block_sig ? 1'b0 : id_inst_ibar;
+    wire [1:0]               id2exe_cache_cacop_op    = block_sig ? 2'b0 : id_cacop_op;
+    wire [31:0]              id2exe_cache_cacop_addr  = block_sig ? 32'b0 : id_cacop_addr;
+    wire [1:0]               id2exe_cache_cacop_mat   = block_sig ? 2'b0 : id_cacop_mat;
+    wire [4:0]               id2exe_cache_cacop_cd    = block_sig ? 5'b0 : id_cacop_cd;
+    wire                     id2exe_refetch_tag = block_sig ? 1'b0 : refetch_tag_ifid_to_id;
 
     ID_EXE_reg u_ID_EXE_reg(
         .clk             (clk),
@@ -448,6 +599,13 @@ module mycpu_top(
         .adef_valid_in   (id2exe_adef_valid),
         .int_valid_in    (id2exe_int_valid),
         .exception_valid_in (id2exe_exception_valid),
+        .cache_cacop_valid_in (id2exe_cache_cacop_valid),
+        .cache_ibar_valid_in  (id2exe_cache_ibar_valid),
+        .cache_cacop_op_in    (id2exe_cache_cacop_op),
+        .cache_cacop_addr_in  (id2exe_cache_cacop_addr),
+        .cache_cacop_mat_in   (id2exe_cache_cacop_mat),
+        .cache_cacop_cd_in    (id2exe_cache_cacop_cd),
+        .refetch_tag_in    (id2exe_refetch_tag),
         .if_vaddr_in     (id2exe_if_vaddr),
         .tlb_ex_valid_in (id2exe_tlb_ex_valid),
         .tlb_vaddr_in    (id2exe_tlb_vaddr),
@@ -477,13 +635,20 @@ module mycpu_top(
         .if_vaddr_out    (if_vaddr_2EXE),
         .int_valid_out   (int_valid_2EXE),
         .exception_valid_out (exception_valid_2EXE),
+        .cache_cacop_valid_out (cache_cacop_valid_2EXE),
+        .cache_ibar_valid_out  (cache_ibar_valid_2EXE),
+        .cache_cacop_op_out    (cache_cacop_op_2EXE),
+        .cache_cacop_addr_out  (cache_cacop_addr_2EXE),
+        .cache_cacop_mat_out   (cache_cacop_mat_2EXE),
+        .cache_cacop_cd_out    (cache_cacop_cd_2EXE),
+        .refetch_tag_out (refetch_tag_2EXE),
         .tlb_ex_valid_out (tlb_ex_valid_2EXE),
         .tlb_vaddr_out   (tlb_vaddr_2EXE)
     );
 
     wire br_taken_q;             // EXE 组合分支命中（要冲刷 IF/ID 、要重定向 npc）
     wire wb_is_invtlb;
-    wire tlb_refetch_req;
+    wire refetch_req_2conflict_handler;
     wire [31:0] tlb_refetch_pc;
     wire [31:0] csr_next_pc_mux;
     wire [1:0]  csr_redirect_mux;
@@ -517,6 +682,7 @@ module mycpu_top(
     wire [`MEM_OP_NUM-1:0]  exe_mem_op;       // EXE 输出访存控制
     wire [31:0] exe_mem_wdata;    // EXE 输出 store 写数据
     wire        exe_wb_op;        // EXE 输出写回使能
+    wire        exe_is_CACOP;
     
     // EXE 对 BRAM 控制器的访存请求输出
     wire        data_we_from_EXE;
@@ -614,7 +780,8 @@ module mycpu_top(
         .int_valid_out   (exe_int_valid_to_mem),
         .exception_valid_out (exe_exception_valid_to_mem),
         .if_vaddr_out    (exe_if_vaddr_to_mem),
-        .ale_vaddr_out   (exe_ale_vaddr_to_mem)
+        .ale_vaddr_out   (exe_ale_vaddr_to_mem),
+        .exe_is_CACOP    (exe_is_CACOP)
     );
 
     //------------------------------------------------------------------
@@ -634,6 +801,7 @@ module mycpu_top(
     wire [31:0] em_data_waddr;     // EXE/MEM 锁存的写地址
     wire [ 3:0] em_data_wbyte_en;  // EXE/MEM 锁存的写字节使能
     wire        em_slot_tag;       // EXE/MEM 槽位标签，供 WB 去重
+    wire        mem_is_CACOP;
 
     wire [31:0] em_data_wdata;
 
@@ -657,6 +825,7 @@ module mycpu_top(
     wire [31:0]            em_ale_vaddr;
     wire [`TLB_EX_NUM-1:0] em_tlb_ex_valid;
     wire [31:0]            em_tlb_vaddr;
+    wire                   refetch_tag_em;
 
     EXE_MEM_reg u_EXE_MEM_reg(
         .clk             (clk),
@@ -689,6 +858,7 @@ module mycpu_top(
         .ale_valid_in    (exe_ale_valid_to_mem),
         .int_valid_in    (exe_int_valid_to_mem),
         .exception_valid_in (exe_exception_valid_to_mem),
+        .refetch_tag_in  (refetch_tag_2EXE),
         .if_vaddr_in     (exe_if_vaddr_to_mem),
         .ale_vaddr_in    (exe_ale_vaddr_to_mem),
         .tlb_ex_valid_in (exe_tlb_ex_valid_to_mem),
@@ -721,6 +891,7 @@ module mycpu_top(
         .ale_valid_out   (em_ale_valid),
         .int_valid_out   (em_int_valid),
         .exception_valid_out (em_exception_valid),
+        .refetch_tag_out (refetch_tag_em),
         .if_vaddr_out    (em_if_vaddr),
         .ale_vaddr_out   (em_ale_vaddr),
         .tlb_ex_valid_out (em_tlb_ex_valid),
@@ -736,6 +907,7 @@ module mycpu_top(
 
     wire data_w_complete;   // 数据写完成脉冲
     wire data_r_complete;   // 数据读完成脉冲
+    reg  dcache_req_is_store;
 
     reg        ld_req_issued; //记录「本 MEM 槽是否已发过 data_re」
     reg [31:0] ld_req_pc;     //记录「本 MEM 槽的 PC」
@@ -757,7 +929,7 @@ module mycpu_top(
 
     // 有效 store 槽 → 发写请求。
     wire       data_we_issue_st = (em_mem_op[`MEM_OP_ST_W] | em_mem_op[`MEM_OP_ST_B] | em_mem_op[`MEM_OP_ST_H]) & MEM_valid;
-    assign data_tlb_ex_vec = {tlbm_data_ex_tlbr, 1'b0, tlbm_data_ex_ppi, tlbm_data_ex_pil, tlbm_data_ex_pis, tlbm_data_ex_pme};
+    assign data_tlb_ex_vec = {mmu_data_tlbr, 1'b0, mmu_data_ppi, mmu_data_pil, mmu_data_pis, mmu_data_pme};
     assign data_tlb_ex_vaddr = data_we_issue_st ? em_data_waddr : em_data_raddr;
     assign exe_tlb_ex_valid_to_mem = tlb_ex_valid_2EXE | data_tlb_ex_vec;
     assign exe_tlb_vaddr_to_mem = (|data_tlb_ex_vec) ? data_tlb_ex_vaddr : tlb_vaddr_2EXE;
@@ -795,7 +967,6 @@ module mycpu_top(
         .mem_op         (em_mem_op),
         .wb_op_in       (em_wb_op),
         .mem_wdata_in   (em_mem_wdata),
-        .data_rdata_2MEM(data_rdata_2MEM),
         .data_raddr_from_EXE(em_data_raddr),
         .data_waddr_from_EXE(em_data_waddr),
         .data_w_complete(data_w_complete),
@@ -846,7 +1017,8 @@ module mycpu_top(
         .if_vaddr_out   (mem_if_vaddr),
         .ale_vaddr_out  (mem_ale_vaddr),
         .tlb_ex_valid_out (mem_tlb_ex_valid),
-        .tlb_vaddr_out  (mem_tlb_vaddr)
+        .tlb_vaddr_out  (mem_tlb_vaddr),
+        .mem_is_CACOP   (mem_is_CACOP)
     );
 
     // load 请求跟踪：同一 MEM 槽位只发一次 data_re，直到槽位离开 MEM 才允许新槽位再发
@@ -868,7 +1040,6 @@ module mycpu_top(
     //------------------------------------------------------------------
     wire        MEM_WB_reg_valid;  // MEM_WB_reg 输入 valid
     wire        MEM_WB_reg_allowIn;// MEM_WB_reg 允许写入
-    wire        WB_valid;          // WB 阶段有效位
     wire [31:0] mwb_wdata;         // MEM_WB_reg 输出写回数据
     wire [4:0]  mwb_waddr;         // MEM_WB_reg 输出写回寄存器号
     wire        mwb_we;            // MEM_WB_reg 输出写回使能
@@ -893,6 +1064,7 @@ module mycpu_top(
     wire [31:0]            mwb_ale_vaddr;
     wire [`TLB_EX_NUM-1:0] mwb_tlb_ex_valid;
     wire [31:0]            mwb_tlb_vaddr;
+    wire                   mwb_refetch_tag;
 
     MEM_WB_reg u_MEM_WB_reg(
         .clk             (clk),
@@ -920,6 +1092,7 @@ module mycpu_top(
         .int_valid_in    (mem_int_valid),
         .ale_valid_in    (mem_ale_valid),
         .exception_valid_in (mem_exception_valid),
+        .refetch_tag_in  (refetch_tag_em),
         .if_vaddr_in     (mem_if_vaddr),
         .ale_vaddr_in    (mem_ale_vaddr),
         .tlb_ex_valid_in (mem_tlb_ex_valid),
@@ -944,6 +1117,13 @@ module mycpu_top(
         .ale_valid_out   (mwb_ale_valid),
         .int_valid_out   (mwb_int_valid),
         .exception_valid_out (mwb_exception_valid),
+        .cache_cacop_valid_out (mwb_cache_cacop_valid),
+        .cache_ibar_valid_out  (mwb_cache_ibar_valid),
+        .cache_cacop_op_out    (mwb_cache_cacop_op),
+        .cache_cacop_addr_out  (mwb_cache_cacop_addr),
+        .cache_cacop_mat_out   (mwb_cache_cacop_mat),
+        .cache_cacop_cd_out    (mwb_cache_cacop_cd),
+        .refetch_tag_out (mwb_refetch_tag),
         .if_vaddr_out    (mwb_if_vaddr),
         .ale_vaddr_out   (mwb_ale_vaddr),
         .tlb_ex_valid_out (mwb_tlb_ex_valid),
@@ -974,14 +1154,18 @@ module mycpu_top(
     wire                   wb_sys_valid_2csr;
     wire                   wb_brk_valid_2csr;
     wire                   wb_ine_valid_2csr;
+    wire                   wb_is_CACOP;
+    wire                   wb_refetch_tag_to_npc;
 
+    assign wb_is_CACOP = wb_cache_cacop_valid | wb_cache_ibar_valid;
+
+    // WB 提交时才让 TLB 维护类指令“落地”；refetch_req 由 conflict_detector 统一检测。
     assign wb_is_invtlb = wb_tlb_op[`TLB_OP_INVTLB_0] | wb_tlb_op[`TLB_OP_INVTLB_1] | wb_tlb_op[`TLB_OP_INVTLB_2]
                         | wb_tlb_op[`TLB_OP_INVTLB_3] | wb_tlb_op[`TLB_OP_INVTLB_4] | wb_tlb_op[`TLB_OP_INVTLB_5]
                         | wb_tlb_op[`TLB_OP_INVTLB_6];
-    assign tlb_refetch_req = WB_valid && (wb_tlb_op[`TLB_OP_TLBWR] | wb_tlb_op[`TLB_OP_TLBFILL] | wb_is_invtlb);
-    assign tlb_refetch_pc = wb_pc + 32'd4;
-    assign csr_next_pc_mux = tlb_refetch_req ? tlb_refetch_pc : csr_next_pc;
-    assign csr_redirect_mux = tlb_refetch_req ? `CSR_REDIRECT_EX : csr_redirect;
+    assign wb_refetch_tag_to_npc = WB_valid & mwb_refetch_tag;
+    assign csr_next_pc_mux = wb_refetch_tag_to_npc ? (wb_pc + 32'd4) : csr_next_pc;
+    assign csr_redirect_mux = wb_refetch_tag_to_npc ? `CSR_REDIRECT_EX : csr_redirect;
 
     wire csr_commit_we = WB_valid
         & (wb_csr_op_csr[`CSR_OP_CSRWR] | wb_csr_op_csr[`CSR_OP_CSRXCHG]);
@@ -1013,6 +1197,12 @@ module mycpu_top(
         .ale_vaddr_in  (mwb_ale_vaddr),
         .tlb_ex_valid_in (mwb_tlb_ex_valid),
         .tlb_vaddr_in  (mwb_tlb_vaddr),
+        .cache_cacop_valid_in (mwb_cache_cacop_valid),
+        .cache_ibar_valid_in  (mwb_cache_ibar_valid),
+        .cache_cacop_op_in    (mwb_cache_cacop_op),
+        .cache_cacop_addr_in  (mwb_cache_cacop_addr),
+        .cache_cacop_mat_in   (mwb_cache_cacop_mat),
+        .cache_cacop_cd_in    (mwb_cache_cacop_cd),
         .allowIn       (wb_allowIn),
         .wb_wdata_out  (wb_wdata),
         .pc_out        (wb_pc),
@@ -1035,7 +1225,13 @@ module mycpu_top(
         .sys_valid_out_2csr (wb_sys_valid_2csr),
         .brk_valid_out_2csr (wb_brk_valid_2csr),
         .ine_valid_out_2csr (wb_ine_valid_2csr),
-        .tlb_ex_valid_out_2csr(wb_tlb_ex_valid)
+        .tlb_ex_valid_out_2csr(wb_tlb_ex_valid),
+        .cache_cacop_valid_out (wb_cache_cacop_valid),
+        .cache_ibar_valid_out  (wb_cache_ibar_valid),
+        .cache_cacop_op_out    (wb_cache_cacop_op),
+        .cache_cacop_addr_out  (wb_cache_cacop_addr),
+        .cache_cacop_mat_out   (wb_cache_cacop_mat),
+        .cache_cacop_cd_out    (wb_cache_cacop_cd)
     );
 
     wire rf_we = wb_we
@@ -1068,12 +1264,25 @@ module mycpu_top(
         .mem_wb        (em_wb_op),
         .wb_rd         (wb_waddr),
         .wb_wb         (rf_we),
+        .id_valid      (ID_valid),
+        .id_tlb_op     (tlb_op_fromID),
+        .id_is_CACOP   (id_is_CACOP),
+        .exe_valid     (EXE_valid),
+        .exe_tlb_op    (tlb_op_2EXE),
+        .exe_is_CACOP  (exe_is_CACOP),
+        .mem_valid     (MEM_valid),
+        .mem_tlb_op    (em_tlb_op),
+        .mem_is_CACOP  (mem_is_CACOP),
+        .wb_valid      (WB_valid),
+        .wb_tlb_op     (wb_tlb_op),
+        .wb_is_CACOP   (wb_is_CACOP),
         .hit_exe_rs1   (hit_exe_rs1),
         .hit_mem_rs1   (hit_mem_rs1),
         .hit_wb_rs1    (hit_wb_rs1),
         .hit_exe_rs2   (hit_exe_rs2),
         .hit_mem_rs2   (hit_mem_rs2),
-        .hit_wb_rs2    (hit_wb_rs2)
+        .hit_wb_rs2    (hit_wb_rs2),
+        .refetch_req   (refetch_req_2conflict_handler)
     );
 
     wire mem_stage_is_load = mem_load_hazard;
@@ -1081,7 +1290,8 @@ module mycpu_top(
                               & !exception_valid_2EXE
                               & (mem_op_2EXE[`MEM_OP_LD_W] | mem_op_2EXE[`MEM_OP_LD_H] | mem_op_2EXE[`MEM_OP_LD_B]
                               |  mem_op_2EXE[`MEM_OP_LD_HU] | mem_op_2EXE[`MEM_OP_LD_BU]);
-                              
+    wire refetch_req_2pipeline_controller;
+
     conflict_handle u_conflict_handle(
         .hit_exe_rs1   (hit_exe_rs1),
         .hit_mem_rs1   (hit_mem_rs1),
@@ -1093,6 +1303,7 @@ module mycpu_top(
         .mem_stage_is_load(mem_stage_is_load),
         .br_taken_comb(br_taken_q),
         .csr_flush   (csr_flush_pipeline),
+        .refetch_req_in (refetch_req_2conflict_handler),
         .RAW_hazard  (RAW_hazard),
         .block_sig   (block_sig),
         .stall       (stall),
@@ -1102,7 +1313,8 @@ module mycpu_top(
         .FD_WB_2rs1_sig   (FD_WB_2rs1_sig),
         .FD_EXE_2rs2_sig  (FD_EXE_2rs2_sig),
         .FD_MEM_2rs2_sig  (FD_MEM_2rs2_sig),
-        .FD_WB_2rs2_sig   (FD_WB_2rs2_sig)
+        .FD_WB_2rs2_sig   (FD_WB_2rs2_sig),
+        .refetch_req_out  (refetch_req_2pipeline_controller)
     );
 
     forward_deliver u_forward_deliver(
@@ -1135,8 +1347,9 @@ module mycpu_top(
         .ID_allowIn         (ID_allowIn),
         .EXE_allowIn        (EXE_allowIn),
         .MEM_allowIn        (MEM_allowIn),
-        .refetch_req        (tlb_refetch_req),
-        .refetch_pc         (tlb_refetch_pc),
+        .refetch_req        (refetch_req_2pipeline_controller),
+        .wb_refetch_tag     (mwb_refetch_tag),
+        .refetch_tag        (IF_refetch_tag),
         .IF_ID_reg_allowIn  (IF_ID_reg_allowIn),
         .ID_EXE_reg_allowIn (ID_EXE_reg_allowIn),
         .EXE_MEM_reg_allowIn(EXE_MEM_reg_allowIn),
@@ -1152,6 +1365,7 @@ module mycpu_top(
         .WB_valid           (WB_valid)
     );
 
+    // tlb_manager：组合产生 TLB 翻译结果、页表异常、TLBSRCH/TLBRD 回读结果。
     tlb_manager #(.TLBNUM(16)) u_tlb_manager (
         .clk            (clk),
         .reset          (reset),
@@ -1163,6 +1377,8 @@ module mycpu_top(
         .csr_crmd_da    (csr_crmd_da),
         .csr_crmd_pg    (csr_crmd_pg),
         .csr_crmd_plv   (csr_crmd_plv),
+        .csr_crmd_datf  (csr_crmd_datf),
+        .csr_crmd_datm  (csr_crmd_datm),
         .csr_asid       (csr_asid),
         .csr_tlbidx     (csr_tlbidx),
         .csr_tlbehi     (csr_tlbehi),
@@ -1175,10 +1391,12 @@ module mycpu_top(
         .invtlb_asid    (wb_invtlb_asid),
         .invtlb_vpn     (wb_invtlb_vpn),
         .inst_paddr     (tlbm_inst_paddr),
+        .inst_mat       (tlbm_inst_mat),
         .inst_ex_tlbr   (tlbm_inst_ex_tlbr),
         .inst_ex_pif    (tlbm_inst_ex_pif),
         .inst_ex_ppi    (tlbm_inst_ex_ppi),
         .data_paddr     (tlbm_data_paddr),
+        .data_mat       (tlbm_data_mat),
         .data_ex_tlbr   (tlbm_data_ex_tlbr),
         .data_ex_pil    (tlbm_data_ex_pil),
         .data_ex_pis    (tlbm_data_ex_pis),
@@ -1205,18 +1423,19 @@ module mycpu_top(
         .data_vaddr_w_in        (em_data_waddr),
         .data_wdata_in          (em_data_wdata),
         .data_wstrb_in          (em_data_wbyte_en),
-        .bridge_inst_rdata_in   (inst_rdata_2IF),
-        .bridge_data_rdata_in   (data_rdata_2MEM),
-        .bridge_inst_complete_in(inst_r_complete),
-        .bridge_data_r_complete_in(data_r_complete),
-        .bridge_data_w_complete_in(data_w_complete),
-        .tlbm_inst_req          (),
-        .tlbm_inst_vaddr        (),
-        .tlbm_data_req          (),
-        .tlbm_data_is_store     (),
-        .tlbm_data_vaddr        (),
+        .bridge_inst_rdata_in   (icache_if_data),
+        .bridge_data_rdata_in   (dcache_mem_rdata),
+        .bridge_inst_complete_in(cache_inst_r_complete),
+        .bridge_data_r_complete_in(cache_data_r_complete),
+        .bridge_data_w_complete_in(cache_data_w_complete),
+        .csr_crmd_datf_in       (csr_crmd_datf),
+        .csr_crmd_datm_in       (csr_crmd_datm),
+        .csr_dmw0_in            (csr_dmw0),
+        .csr_dmw1_in            (csr_dmw1),
         .tlbm_inst_paddr        (tlbm_inst_paddr),
+        .tlbm_inst_mat          (tlbm_inst_mat),
         .tlbm_data_paddr        (tlbm_data_paddr),
+        .tlbm_data_mat          (tlbm_data_mat),
         .tlbm_inst_ex_tlbr      (tlbm_inst_ex_tlbr),
         .tlbm_inst_ex_pif       (tlbm_inst_ex_pif),
         .tlbm_inst_ex_ppi       (tlbm_inst_ex_ppi),
@@ -1242,77 +1461,181 @@ module mycpu_top(
         .data_pis_out           (mmu_data_pis),
         .data_ppi_out           (mmu_data_ppi),
         .data_pme_out           (mmu_data_pme),
-        .inst_rdata_out         (),
-        .data_rdata_out         (),
-        .inst_complete_out      (),
-        .data_r_complete_out    (),
-        .data_w_complete_out    ()
+        .data_tlb_excp_cancel_out(mmu_data_tlb_excp_cancel),
+        .inst_mat_out           (mmu_inst_mat),
+        .data_mat_out           (mmu_data_mat),
+        .inst_rdata_out         (inst_rdata_2IF),
+        .data_rdata_out         (data_rdata_2MEM),
+        .inst_complete_out      (inst_r_complete),
+        .data_r_complete_out    (data_r_complete),
+        .data_w_complete_out    (data_w_complete)
     );
 
-    // sram_AXI_bridge：IF 发起取指 / MEM 访存 → AXI；指令与 PC 在 AR/R 完成后交回（多拍延迟）
-    sram_AXI_bridge u_sram_AXI_bridge (
-        .clk                  (clk),
-        .reset                (reset),
-        .inst_re_in_from_IF   (mmu_inst_req),
-        .data_we_in_from_EXE  (mmu_data_we),
-        .data_re_in_from_EXE  (mmu_data_re),
-        .pc_in_from_IF        (mmu_inst_paddr),
-        .data_raddr_from_EXE  (mmu_data_paddr_r),
-        .data_waddr_from_EXE  (mmu_data_paddr_w),
-        .data_wdata_from_EXE  (mmu_data_wdata),
-        .data_byte_en_from_EXE(mmu_data_wstrb),
-        .adef_valid_in_from_IF(mmu_inst_adef),
-        .cancel_sig           (cancel_sig),
-        .inst_rdata_2IF       (inst_rdata_2IF),
-        .adef_valid_2IF       (adef_valid_2IF),
-        .data_rdata_2MEM      (data_rdata_2MEM),
-        .data_w_wrong         (data_w_wrong),
-        .data_r_wrong         (data_r_wrong),
-        .inst_r_wrong         (inst_r_wrong),
-        .axi_if_busy          (axi_if_busy),
-        .data_w_complete      (data_w_complete),
-        .data_r_complete      (data_r_complete),
-        .inst_r_complete      (inst_r_complete),
-        .pc_out_2ID           (pc_2ID_from_bram),
-        .arid                 (arid),
-        .araddr               (araddr),
-        .arlen                (arlen),
-        .arsize               (arsize),
-        .arburst              (arburst),
-        .arlock               (arlock),
-        .arcache              (arcache),
-        .arprot               (arprot),
-        .arvalid              (arvalid),
-        .arready              (arready),
-        .rid                  (rid),
-        .rdata                (rdata),
-        .rresp                (rresp),
-        .rlast                (rlast),
-        .rvalid               (rvalid),
-        .rready               (rready),
-        .awid                 (awid),
-        .awaddr               (awaddr),
-        .awlen                (awlen),
-        .awsize               (awsize),
-        .awburst              (awburst),
-        .awlock               (awlock),
-        .awcache              (awcache),
-        .awprot               (awprot),
-        .awvalid              (awvalid),
-        .awready              (awready),
-        .wid                  (wid),
-        .wdata                (wdata),
-        .wstrb                (wstrb),
-        .wlast                (wlast),
-        .wvalid               (wvalid),
-        .wready               (wready),
-        .bid                  (bid),
-        .bresp                (bresp),
-        .bvalid               (bvalid),
-        .bready               (bready)
+    icache u_icache (
+        .clk        (clk),
+        .resetn     (resetn),
+        .if_valid   (mmu_inst_req),
+        .if_pc      (mmu_inst_paddr),
+        .if_mat     (mmu_inst_mat),
+        .if_addr_ok (icache_if_addr_ok),
+        .if_data_ok (icache_if_data_ok),
+        .if_data    (icache_if_data),
+        .cacop_en   (icache_cacop_en),
+        .cacop_op   (icache_cacop_op),
+        .cacop_addr (icache_cacop_addr),
+        .cacop_mat  (icache_cacop_mat),
+        .tlb_excp_cancel_req(icache_tlb_excp_cancel_req),
+        .tlb_valid  (1'b1),
+        .tlb_paddr  (mmu_inst_paddr),
+        .axi_rd_req (axi_ic_rd_req),
+        .axi_rd_type(axi_ic_rd_type),
+        .axi_rd_addr(axi_ic_rd_addr),
+        .axi_rd_rdy  (axi_ic_rd_rdy),
+        .axi_ret_valid (axi_ic_ret_valid),
+        .axi_ret_last  (axi_ic_ret_last),
+        .axi_ret_data  (axi_ic_ret_data),
+        .if_pc_out   (icache_if_pc),
+        .stall_if    (icache_stall_if)
     );
 
+    dcache u_dcache (
+        .clk        (clk),
+        .resetn     (resetn),
+        .mem_valid  (mmu_data_re | mmu_data_we),
+        .mem_op     (mmu_data_we),
+        .mem_addr   (mmu_data_we ? mmu_data_paddr_w : mmu_data_paddr_r),
+        .mem_mat    (mmu_data_mat),
+        .mem_wstrb  (mmu_data_wstrb),
+        .mem_wdata  (mmu_data_wdata),
+        .mem_addr_ok(dcache_mem_addr_ok),
+        .mem_data_ok(dcache_mem_data_ok),
+        .mem_rdata  (dcache_mem_rdata),
+        .cacop_en   (dcache_cacop_en),
+        .cacop_op   (dcache_cacop_op),
+        .cacop_addr (dcache_cacop_addr),
+        .cacop_mat  (dcache_cacop_mat),
+        .preld_hint (dcache_preld_hint),
+        .preld_en   (dcache_preld_en),
+        .tlb_excp_cancel_req(dcache_tlb_excp_cancel_req),
+        .sc_cancel_req(dcache_sc_cancel_req),
+        .tlb_valid  (1'b1),
+        .tlb_paddr  (mmu_data_we ? mmu_data_paddr_w : mmu_data_paddr_r),
+        .axi_rd_req (axi_dc_rd_req),
+        .axi_rd_type(axi_dc_rd_type),
+        .axi_rd_addr(axi_dc_rd_addr),
+        .axi_rd_rdy (axi_dc_rd_rdy),
+        .axi_ret_valid(axi_dc_ret_valid),
+        .axi_ret_last (axi_dc_ret_last),
+        .axi_ret_data (axi_dc_ret_data),
+        .axi_wr_req (axi_dc_wr_req),
+        .axi_wr_type(axi_dc_wr_type),
+        .axi_wr_addr(axi_dc_wr_addr),
+        .axi_wr_strb(axi_dc_wr_strb),
+        .axi_wr_data(axi_dc_wr_data),
+        .axi_wr_rdy (axi_dc_wr_rdy),
+        .stall_mem  (dcache_stall_mem)
+    );
 
+    assign cache_inst_r_complete  = icache_if_data_ok;
+    assign pc_2ID_from_bram = icache_if_pc;
+    always @(posedge clk) begin
+        if (reset) begin
+            dcache_req_is_store <= 1'b0;
+        end else if (mmu_data_re | mmu_data_we) begin
+            dcache_req_is_store <= mmu_data_we;
+        end
+    end
+
+    assign cache_data_r_complete  = dcache_mem_data_ok & ~dcache_req_is_store;
+    assign cache_data_w_complete  = dcache_mem_data_ok &  dcache_req_is_store;
+    assign axi_if_busy      = icache_stall_if | dcache_stall_mem;
+    assign icache_tlb_excp_cancel_req = mmu_inst_tlbr | mmu_inst_pif | mmu_inst_ppi | cancel_sig;
+    assign dcache_tlb_excp_cancel_req = mmu_data_tlb_excp_cancel | cancel_sig;
+    assign dcache_sc_cancel_req = 1'b0;
+    assign dcache_preld_hint = 5'b0;
+    assign dcache_preld_en = 1'b0;
+
+    axi_line_bridge u_axi_line_bridge (
+        .clk           (clk),
+        .resetn        (resetn),
+        .ic_rd_req     (axi_ic_rd_req),
+        .ic_rd_type    (axi_ic_rd_type),
+        .ic_rd_addr    (axi_ic_rd_addr),
+        .ic_rd_rdy     (axi_ic_rd_rdy),
+        .ic_ret_valid  (axi_ic_ret_valid),
+        .ic_ret_last   (axi_ic_ret_last),
+        .ic_ret_data   (axi_ic_ret_data),
+        .dc_rd_req     (axi_dc_rd_req),
+        .dc_rd_type    (axi_dc_rd_type),
+        .dc_rd_addr    (axi_dc_rd_addr),
+        .dc_rd_rdy     (axi_dc_rd_rdy),
+        .dc_ret_valid  (axi_dc_ret_valid),
+        .dc_ret_last   (axi_dc_ret_last),
+        .dc_ret_data   (axi_dc_ret_data),
+        .dc_wr_req     (axi_dc_wr_req),
+        .dc_wr_type    (axi_dc_wr_type),
+        .dc_wr_addr    (axi_dc_wr_addr),
+        .dc_wr_strb    (axi_dc_wr_strb),
+        .dc_wr_data    (axi_dc_wr_data),
+        .dc_wr_rdy     (axi_dc_wr_rdy),
+        .axi_awvalid   (axi_awvalid_line),
+        .axi_awaddr    (axi_awaddr_line),
+        .axi_awburst   (axi_awburst_line),
+        .axi_awlen     (axi_awlen_line),
+        .axi_awsize    (axi_awsize_line),
+        .axi_awready   (awready),
+        .axi_wvalid    (axi_wvalid_line),
+        .axi_wdata     (axi_wdata_line),
+        .axi_wstrb     (axi_wstrb_line),
+        .axi_wlast     (axi_wlast_line),
+        .axi_wready    (wready),
+        .axi_bvalid    (bvalid),
+        .axi_bresp     (bresp),
+        .axi_bready    (axi_bready_line),
+        .axi_arvalid   (axi_arvalid_line),
+        .axi_araddr    (axi_araddr_line),
+        .axi_arburst   (axi_arburst_line),
+        .axi_arlen     (axi_arlen_line),
+        .axi_arsize    (axi_arsize_line),
+        .axi_arready   (arready),
+        .axi_rvalid    (rvalid),
+        .axi_rdata     (rdata),
+        .axi_rresp     (rresp),
+        .axi_rlast     (rlast),
+        .axi_rready    (axi_rready_line)
+    );
+
+    assign arid    = 4'b0000;
+    assign araddr  = axi_araddr_line;
+    assign arlen   = {4'b0000, axi_arlen_line};
+    assign arsize  = axi_arsize_line;
+    assign arburst = 2'b01;
+    assign arlock  = 2'b00;
+    assign arcache = 4'b0011;
+    assign arprot  = 3'b000;
+    assign arvalid = axi_arvalid_line;
+    assign rready  = axi_rready_line;
+
+    assign awid    = 4'b0000;
+    assign awaddr  = axi_awaddr_line;
+    assign awlen   = {4'b0000, axi_awlen_line};
+    assign awsize  = axi_awsize_line;
+    assign awburst = 2'b01;
+    assign awlock  = 2'b00;
+    assign awcache = 4'b0011;
+    assign awprot  = 3'b000;
+    assign awvalid = axi_awvalid_line;
+
+    assign wid     = 4'b0000;
+    assign wdata   = axi_wdata_line;
+    assign wstrb   = axi_wstrb_line;
+    assign wlast   = axi_wlast_line;
+    assign wvalid  = axi_wvalid_line;
+
+    assign bready  = axi_bready_line;
+
+
+    // CSR 异常/提交路径在 WB 同拍采样 tlb_manager 的查询结果，并在同拍更新 TLB 相关 CSR 域。
     csr_exception_commit_handler u_csr_exception_commit_handler (
         .clk           (clk),
         .reset         (reset),
@@ -1359,6 +1682,8 @@ module mycpu_top(
         .csr_tlbelo1_out(csr_tlbelo1),
         .csr_dmw0_out  (csr_dmw0),
         .csr_dmw1_out  (csr_dmw1),
+        .csr_crmd_datf_out(csr_crmd_datf),
+        .csr_crmd_datm_out(csr_crmd_datm),
         .csr_estat_ecode_out(csr_estat_ecode)
     );
 

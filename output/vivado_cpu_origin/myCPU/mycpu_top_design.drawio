@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net" pages="4">
   <diagram name="TensorCore Architecture" id="JJzva-Sbx6ekTnhd97Zh">
-    <mxGraphModel dx="136474" dy="84434" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
+    <mxGraphModel dx="114317" dy="70837" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -11,13 +11,13 @@
           <mxGeometry height="180" width="140" x="520" y="-270" as="geometry" />
         </mxCell>
         <mxCell id="layer_prog" parent="1" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12" value="编程抽象层&#xa;WMMA指令" vertex="1">
-          <mxGeometry height="60" width="180" x="40" y="40" as="geometry" />
+          <mxGeometry height="60" width="180" x="-370" y="-330" as="geometry" />
         </mxCell>
         <mxCell id="layer_ctrl" parent="1" style="rounded=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12" value="控制与配置层&#xa;config_registers.v" vertex="1">
-          <mxGeometry height="60" width="200" x="240" y="40" as="geometry" />
+          <mxGeometry height="60" width="200" x="-210" y="-250" as="geometry" />
         </mxCell>
         <mxCell id="layer_sched" parent="1" style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12" value="调度与数据流层&#xa;tensor_core_exe.v" vertex="1">
-          <mxGeometry height="60" width="220" x="470" y="40" as="geometry" />
+          <mxGeometry height="60" width="220" x="-190" y="-340" as="geometry" />
         </mxCell>
         <mxCell id="layer_compute" parent="1" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12" value="计算阵列层&#xa;tensor_core.v -&gt; MxN tc_dot_product" vertex="1">
           <mxGeometry height="60" width="260" x="470" y="140" as="geometry" />
@@ -32,13 +32,13 @@
           <mxGeometry height="60" width="300" x="260" y="-370" as="geometry" />
         </mxCell>
         <mxCell id="mem_sram" parent="1" style="rounded=1;fillColor=#f4f4f4;strokeColor=#666666;fontSize=12" value="片上SRAM层次&#xa;Tile Buffer / Accumulator" vertex="1">
-          <mxGeometry height="50" width="220" x="350" y="340" as="geometry" />
+          <mxGeometry height="50" width="220" x="590" y="-170" as="geometry" />
         </mxCell>
         <mxCell id="io_axi" parent="1" style="rounded=1;fillColor=#f4f4f4;strokeColor=#666666;fontSize=12" value="AXI-Stream入口&#xa;A/B数据 &amp; 控制" vertex="1">
-          <mxGeometry height="50" width="200" x="100" y="310" as="geometry" />
+          <mxGeometry height="50" width="200" x="-150" y="-150" as="geometry" />
         </mxCell>
         <mxCell id="io_writeback" parent="1" style="rounded=1;fillColor=#f4f4f4;strokeColor=#666666;fontSize=12" value="结果写回 / 压缩输出&#xa;C/D矩阵" vertex="1">
-          <mxGeometry height="50" width="260" x="600" y="340" as="geometry" />
+          <mxGeometry height="50" width="260" x="675" y="-120" as="geometry" />
         </mxCell>
         <mxCell id="e1" edge="1" parent="1" source="layer_prog" style="endArrow=block;strokeColor=#6c8ebf" target="layer_ctrl" />
         <mxCell id="e2" edge="1" parent="1" source="layer_ctrl" style="endArrow=block;strokeColor=#9673a6" target="layer_sched" />
@@ -90,7 +90,7 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="1VDR5MmloBFUYI5eoNik-1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
-          <mxGeometry height="480" width="1630" x="-400" y="40" as="geometry" />
+          <mxGeometry height="480" width="1630" x="800" y="890" as="geometry" />
         </mxCell>
         <mxCell id="1VDR5MmloBFUYI5eoNik-2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;dashed=1;" value="" vertex="1">
           <mxGeometry height="130" width="1500" x="-307.5" y="70" as="geometry" />
@@ -163,7 +163,7 @@
           <mxGeometry height="65" width="162" x="726" y="360" as="geometry" />
         </mxCell>
         <mxCell id="1VDR5MmloBFUYI5eoNik-23" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="bram_data_stream_controller.v&#xa;(inst/data request-response timing)" vertex="1">
-          <mxGeometry height="90" width="300" x="-360" y="390" as="geometry" />
+          <mxGeometry height="90" width="300" x="-30" y="-490" as="geometry" />
         </mxCell>
         <mxCell id="1VDR5MmloBFUYI5eoNik-24" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" value="inst_sram_* / data_sram_*" vertex="1">
           <mxGeometry height="60" width="220" x="-320" y="630" as="geometry" />
@@ -261,7 +261,7 @@
           <mxGeometry height="20" width="20" x="-170" y="380" as="geometry" />
         </mxCell>
         <mxCell id="1VDR5MmloBFUYI5eoNik-40" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
-          <mxGeometry height="480" width="1630" x="-400" y="40" as="geometry" />
+          <mxGeometry height="480" width="1630" x="1270" y="-630" as="geometry" />
         </mxCell>
         <mxCell id="1VDR5MmloBFUYI5eoNik-41" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;dashed=1;" value="" vertex="1">
           <mxGeometry height="130" width="1500" x="-307.5" y="70" as="geometry" />
@@ -334,7 +334,7 @@
           <mxGeometry height="65" width="162" x="726" y="360" as="geometry" />
         </mxCell>
         <mxCell id="1VDR5MmloBFUYI5eoNik-62" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="bram_data_stream_controller.v&#xa;(inst/data request-response timing)" vertex="1">
-          <mxGeometry height="90" width="300" x="-360" y="390" as="geometry" />
+          <mxGeometry height="90" width="300" x="-620" y="510" as="geometry" />
         </mxCell>
         <mxCell id="1VDR5MmloBFUYI5eoNik-63" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" value="inst_sram_* / data_sram_*" vertex="1">
           <mxGeometry height="60" width="220" x="-320" y="630" as="geometry" />
@@ -431,8 +431,8 @@
         <mxCell id="1VDR5MmloBFUYI5eoNik-78" parent="1" style="shape=waypoint;sketch=0;size=6;pointerEvents=1;points=[];fillColor=#eaf3ff;resizable=0;rotatable=0;perimeter=centerPerimeter;snapToPoint=1;strokeColor=#6c8ebf;rounded=1;" value="" vertex="1">
           <mxGeometry height="20" width="20" x="-170" y="380" as="geometry" />
         </mxCell>
-        <mxCell id="1VDR5MmloBFUYI5eoNik-79" parent="1" style="rounded=0;whiteSpace=wrap;html=1;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;locked=1;connectable=0;" value="" vertex="1">
-          <mxGeometry height="480" width="1630" x="-400" y="40" as="geometry" />
+        <mxCell id="1VDR5MmloBFUYI5eoNik-79" parent="1" style="rounded=0;whiteSpace=wrap;html=1;movable=1;resizable=1;rotatable=1;deletable=1;editable=1;locked=0;connectable=1;" value="" vertex="1">
+          <mxGeometry height="480" width="1630" x="-970" y="1010" as="geometry" />
         </mxCell>
         <mxCell id="1VDR5MmloBFUYI5eoNik-80" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;dashed=1;" value="" vertex="1">
           <mxGeometry height="130" width="1500" x="-307.5" y="70" as="geometry" />
@@ -514,7 +514,7 @@
           <mxGeometry height="65" width="162" x="726" y="360" as="geometry" />
         </mxCell>
         <mxCell id="1VDR5MmloBFUYI5eoNik-101" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="bram_data_stream_controller.v&#xa;(inst/data request-response timing)" vertex="1">
-          <mxGeometry height="90" width="300" x="-360" y="390" as="geometry" />
+          <mxGeometry height="90" width="300" x="-150" y="510" as="geometry" />
         </mxCell>
         <mxCell id="1VDR5MmloBFUYI5eoNik-102" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" value="inst_sram_* / data_sram_*" vertex="1">
           <mxGeometry height="60" width="220" x="-320" y="630" as="geometry" />
@@ -1205,6 +1205,155 @@
         </mxCell>
         <mxCell id="1VDR5MmloBFUYI5eoNik-116" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;font style=&quot;font-size: 15px;&quot;&gt;流水线&lt;/font&gt;" vertex="1">
           <mxGeometry height="30" width="60" x="-300" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="NZhBmLgp8bgB_KCal-cy-1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;rotation=0;" value="注：当前代码实现中，仅load指令会真正发生阻塞，其余情况均以前递解决" vertex="1">
+          <mxGeometry height="30" width="210" x="700" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="mmu_container" parent="1" style="rounded=1;dashed=1;strokeColor=#9673a6;fillColor=#f5eef8;fontSize=12;fontStyle=1" value="MMU 内存管理单元" vertex="1">
+          <mxGeometry height="200" width="450" x="1250" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="tlb_manager" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" value="tlb_manager.v&#xa;(TLB查找/维护/异常生成)" vertex="1">
+          <mxGeometry height="90" width="200" x="1270" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="mmu_core" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede7f6;strokeColor=#7e57c2;" value="mmu.v&#xa;(地址翻译/异常门控/接口整形)" vertex="1">
+          <mxGeometry height="90" width="210" x="1480" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="tlb_storage" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5e6ff;strokeColor=#9673a6;" value="tlb.v&#xa;(TLB表项存储)" vertex="1">
+          <mxGeometry height="60" width="180" x="1280" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_if_to_mmu" edge="1" parent="1" source="1VDR5MmloBFUYI5eoNik-3" target="mmu_core" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#7e57c2;" value="inst vaddr/req">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1180" y="40" />
+              <mxPoint x="1180" y="95" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_mem_to_mmu" edge="1" parent="1" source="1VDR5MmloBFUYI5eoNik-10" target="mmu_core" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#7e57c2;" value="data vaddr/req">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1180" y="60" />
+              <mxPoint x="1180" y="125" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_mmu_to_tlbm" edge="1" parent="1" source="mmu_core" target="tlb_manager" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#7e57c2;" value="查表请求/控制">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1470" y="110" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_tlbm_to_mmu" edge="1" parent="1" source="tlb_manager" target="mmu_core" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#9673a6;dashed=1;" value="paddr/异常反馈">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1470" y="135" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_tlb_req_inst" edge="1" parent="1" source="1VDR5MmloBFUYI5eoNik-3" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#9673a6;" target="tlb_manager" value="inst_vaddr">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-220" y="50" />
+              <mxPoint x="1200" y="50" />
+              <mxPoint x="1200" y="100" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_tlb_req_data" edge="1" parent="1" source="1VDR5MmloBFUYI5eoNik-10" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#9673a6;" target="tlb_manager" value="data_vaddr">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="790" y="50" />
+              <mxPoint x="1200" y="50" />
+              <mxPoint x="1200" y="130" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_tlb_paddr_inst" edge="1" parent="1" source="tlb_manager" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#9673a6;" target="1VDR5MmloBFUYI5eoNik-3" value="inst_paddr">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1200" y="80" />
+              <mxPoint x="-220" y="80" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_tlb_paddr_data" edge="1" parent="1" source="tlb_manager" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#9673a6;" target="1VDR5MmloBFUYI5eoNik-10" value="data_paddr">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1200" y="110" />
+              <mxPoint x="790" y="110" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_tlb_exception" edge="1" parent="1" source="tlb_manager" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#b85450;" target="1VDR5MmloBFUYI5eoNik-36" value="TLB异常">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1370" y="200" />
+              <mxPoint x="1370" y="130" />
+              <mxPoint x="1105" y="130" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="sram_axi_bridge_box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="sram_AXI_bridge.v&#xa;(SRAM时序 ↔ AXI4协议转换)" vertex="1">
+          <mxGeometry height="90" width="300" x="-360" y="510" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_mmu_to_bridge" edge="1" parent="1" source="mmu_core" target="sram_axi_bridge_box" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#7e57c2;" value="物理地址访问请求">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1590" y="430" />
+              <mxPoint x="-170" y="430" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="axi_bus" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4f4f4;strokeColor=#666666;" value="AXI4 总线接口&#xa;(指令/数据统一访问)" vertex="1">
+          <mxGeometry height="60" width="220" x="-320" y="720" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_bridge_to_sram" edge="1" parent="1" source="sram_axi_bridge_box" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="axi_bus" value="AXI AR/AW/R/W通道">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-210" y="650" />
+              <mxPoint x="-210" y="650" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_if_to_bridge" edge="1" parent="1" source="1VDR5MmloBFUYI5eoNik-3" style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.898;exitY=0.972;exitDx=0;exitDy=0;exitPerimeter=0;" target="sram_axi_bridge_box" value="inst req (IF级)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-172" y="280" />
+              <mxPoint x="-172" y="400" />
+              <mxPoint x="-172" y="400" />
+            </Array>
+            <mxPoint x="-170" y="169" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_mem_to_bridge" edge="1" parent="1" source="1VDR5MmloBFUYI5eoNik-10" style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="sram_axi_bridge_box" value="data req (MEM级)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="790" y="278" />
+              <mxPoint x="790" y="400" />
+              <mxPoint x="-210" y="400" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_bridge_to_if" edge="1" parent="1" source="sram_axi_bridge_box" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="1VDR5MmloBFUYI5eoNik-3" value="inst resp + complete">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-260" y="230" />
+              <mxPoint x="-260" y="230" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_bridge_to_mem" edge="1" parent="1" source="sram_axi_bridge_box" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="1VDR5MmloBFUYI5eoNik-10" value="data resp + complete">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-100" y="250" />
+              <mxPoint x="600" y="250" />
+              <mxPoint x="600" y="138" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="mmu_note" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=top;rounded=0;rotation=0;fontSize=11;" value="MMU职责：&#xa;• IF级：取指地址翻译&#xa;• MEM级：访存地址翻译&#xa;• TLB异常检测与上报&#xa;• DMW/TLB模式选择" vertex="1">
+          <mxGeometry height="100" width="180" x="1510" y="60" as="geometry" />
         </mxCell>
         <mxCell id="SNGSPYjDqpNMCLYk1x1E-1" edge="1" parent="1" source="1VDR5MmloBFUYI5eoNik-88" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;fillColor=#dae8fc;strokeColor=#6c8ebf;" target="1VDR5MmloBFUYI5eoNik-101">
           <mxGeometry relative="1" as="geometry">

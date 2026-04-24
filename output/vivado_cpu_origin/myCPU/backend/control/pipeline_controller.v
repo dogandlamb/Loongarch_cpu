@@ -20,12 +20,14 @@ module pipeline_controller(
     input wire        EXE_allowIn,
     input wire        MEM_allowIn,
     input wire        refetch_req,
-    input wire [31:0] refetch_pc,
+    input wire        wb_refetch_tag, // WB级指令有重取指标志，要flush
 
     output reg        IF_ID_reg_allowIn,
     output reg        ID_EXE_reg_allowIn,
     output reg        EXE_MEM_reg_allowIn,
     output reg        MEM_WB_reg_allowIn,
+
+    output reg        refetch_tag, // 如果有refetch_req，则此tag给到IF级
 
     output reg        IF_ID_reg_valid,
     output reg        ID_EXE_reg_valid,
@@ -39,7 +41,7 @@ module pipeline_controller(
     output reg        WB_valid
 );
 
-reg        refetch_state;
+reg        refetch_pending;
 
 always @(*) begin
     MEM_WB_reg_allowIn  = (!reset) && (!WB_valid  || WB_allowIn);
@@ -54,6 +56,7 @@ always @(*) begin
     ID_EXE_reg_valid  = ID_valid;
     EXE_MEM_reg_valid = EXE_valid;
     MEM_WB_reg_valid  = MEM_valid;
+    refetch_tag       = refetch_pending;
 end
 
 always @(posedge clk) begin
@@ -63,26 +66,30 @@ always @(posedge clk) begin
         EXE_valid <= 1'b0;
         MEM_valid <= 1'b0;
         WB_valid  <= 1'b0;
-        refetch_state <= 1'b0;
+        refetch_pending <= 1'b0;
     end else begin
         IF_valid <= 1'b1;
 
         if (refetch_req) begin
-            refetch_state <= 1'b1;
-        end else begin
-            refetch_state <= 1'b0;
+            refetch_pending <= 1'b1;
+        end else if (refetch_pending && IF_valid && IF_readyGo && IF_ID_reg_allowIn) begin
+            refetch_pending <= 1'b0;
         end
 
-        if (cancel_sig || refetch_req || refetch_state) begin
+        if (cancel_sig) begin
             ID_valid  <= 1'b0;
             EXE_valid <= 1'b0;
 
             // On exception/ERTN flush, squash younger MEM/WB flow to keep precise traps.
-            if (csr_flush || refetch_req || refetch_state) begin
+            if (csr_flush) begin
                 MEM_valid <= 1'b0;
             end else if (EXE_MEM_reg_allowIn) begin
                 MEM_valid <= EXE_valid && EXE_readyGo;
             end
+        end else if (wb_refetch_tag) begin
+            ID_valid  <= 1'b0;
+            EXE_valid <= 1'b0;
+            MEM_valid <= 1'b0;
         end else begin
             if (IF_ID_reg_allowIn)
                 ID_valid <= IF_valid && IF_readyGo;
@@ -93,7 +100,7 @@ always @(posedge clk) begin
                 MEM_valid <= EXE_valid && EXE_readyGo;
         end
 
-        if (csr_flush) begin
+        if (csr_flush || wb_refetch_tag) begin
             if (MEM_WB_reg_allowIn)
                 WB_valid <= 1'b0;
         end else if (MEM_WB_reg_allowIn) begin

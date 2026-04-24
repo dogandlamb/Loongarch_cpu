@@ -1,5 +1,10 @@
 `include "../common/cpu_defs.vh"
 
+// tlb_manager：TLB 的组合控制与查询封装。
+// 角色划分：
+// - WB 提交时根据 tlb_op/invtlb 参数触发 TLB 维护操作；
+// - 同拍根据 inst/data 虚地址给出翻译结果与页表异常；
+// - tlbsrch/tlbrd 结果直接回送 CSR 提交逻辑。
 module tlb_manager #(
     parameter TLBNUM = 16
 ) (
@@ -15,6 +20,8 @@ module tlb_manager #(
     input  wire                         csr_crmd_da,
     input  wire                         csr_crmd_pg,
     input  wire [1:0]                   csr_crmd_plv,
+    input  wire [1:0]                   csr_crmd_datf,
+    input  wire [1:0]                   csr_crmd_datm,
     input  wire [9:0]                   csr_asid,
     input  wire [31:0]                  csr_tlbidx,
     input  wire [31:0]                  csr_tlbehi,
@@ -25,16 +32,18 @@ module tlb_manager #(
     input  wire [7:0]                   csr_estat_ecode,
 
     input  wire [`TLB_OP_NUM-1:0]       tlb_op,
-
+    input  wire [4:0]                   invtlb_op,
     input  wire [9:0]                   invtlb_asid,
     input  wire [18:0]                  invtlb_vpn,
 
     output wire [31:0]                  inst_paddr,
+    output wire [1:0]                   inst_mat,
     output wire                         inst_ex_tlbr,
     output wire                         inst_ex_pif,
     output wire                         inst_ex_ppi,
 
     output wire [31:0]                  data_paddr,
+    output wire [1:0]                   data_mat,
     output wire                         data_ex_tlbr,
     output wire                         data_ex_pil,
     output wire                         data_ex_pis,
@@ -109,6 +118,7 @@ always @(posedge clk) begin
     end
 end
 
+// 这些维护类操作只在 WB 提交后才被视为“生效”，上游只是把操作码流水传到这里。
 wire do_tlbsrch = tlb_op[`TLB_OP_TLBSRCH];
 wire do_tlbrd   = tlb_op[`TLB_OP_TLBRD];
 wire do_tlbwr   = tlb_op[`TLB_OP_TLBWR];
@@ -117,6 +127,7 @@ wire do_invtlb  = tlb_op[`TLB_OP_INVTLB_0] | tlb_op[`TLB_OP_INVTLB_1] | tlb_op[`
                 | tlb_op[`TLB_OP_INVTLB_3] | tlb_op[`TLB_OP_INVTLB_4] | tlb_op[`TLB_OP_INVTLB_5]
                 | tlb_op[`TLB_OP_INVTLB_6];
 
+// TLBR 写回时强制写入有效位；否则沿用 CSR_TLBIDX.E。
 wire w_e = (csr_estat_ecode == `TLBR_ECODE) ? 1'b1 : ~csr_tlbidx[31];
 wire [5:0] w_ps = csr_tlbidx[29:24];
 wire [IDXW-1:0] w_index = do_tlbfill ? rand_idx : csr_tlbidx[IDXW-1:0];
@@ -202,6 +213,7 @@ wire [31:0] data_tlb_paddr = (s1_ps == PS_4KB) ? {s1_ppn, data_vaddr[11:0]} : {s
 wire inst_need_tlb = pg_mode && !inst_dmw0_hit && !inst_dmw1_hit;
 wire data_need_tlb = pg_mode && !data_dmw0_hit && !data_dmw1_hit;
 
+// TLB 查询结果和异常在同一拍组合给出，供后级直接使用。
 assign inst_ex_tlbr = inst_req && inst_need_tlb && !s0_found;
 assign inst_ex_pif  = inst_req && inst_need_tlb && s0_found && !s0_v;
 assign inst_ex_ppi  = inst_req && inst_need_tlb && s0_found && s0_v && (csr_crmd_plv > s0_plv);
@@ -222,6 +234,17 @@ assign data_paddr = da_mode ? data_vaddr :
                     data_dmw1_hit ? {csr_dmw1[27:25], data_vaddr[28:0]} :
                     data_tlb_paddr;
 
+assign inst_mat = da_mode ? csr_crmd_datf :
+                  inst_dmw0_hit ? csr_dmw0[5:4] :
+                  inst_dmw1_hit ? csr_dmw1[5:4] :
+                  s0_mat;
+
+assign data_mat = da_mode ? csr_crmd_datm :
+                  data_dmw0_hit ? csr_dmw0[5:4] :
+                  data_dmw1_hit ? csr_dmw1[5:4] :
+                  s1_mat;
+
+// tlbsrch/tlbrd 的结果被 CSR 提交路径在 WB 同拍采样。
 assign tlbsrch_found = s0_found;
 assign tlbsrch_index = s0_index;
 

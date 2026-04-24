@@ -21,6 +21,16 @@ module csr_exception_commit_handler (
     input  wire [31:0] csr_wvalue, // CSR寄存器写值
 
 
+    // ---------------- 来自 TLB 的相关输入  ----------------------------
+    input  wire                   tlbsrch_found,
+    input  wire [3:0]             tlbsrch_index,
+    input  wire [31:0]            tlbrd_tlbidx,
+    input  wire [31:0]            tlbrd_tlbehi,
+    input  wire [31:0]            tlbrd_tlbelo0,
+    input  wire [31:0]            tlbrd_tlbelo1,
+    input  wire [9:0]             tlbrd_asid,
+
+
     // ---------------- 外部中断输入 ----------------------------
     // hw_int_in = hardware interrupt input
     input  wire [ 7:0] hw_int_in,  // 8位硬中断，在top接线（不过实际未input在top的端口，只是在内部置零，没用到。为什么？仿真也没用好吗-_-）
@@ -34,13 +44,7 @@ module csr_exception_commit_handler (
     input  wire [31:0] wb_vaddr,      // 用给BADV
     input  wire        wb_ex,         // 异常处理触发信号，在WB由那几个valid相或驱动
     input  wire [`TLB_OP_NUM-1:0] wb_tlb_op,
-    input  wire                   tlbsrch_found,
-    input  wire [3:0]             tlbsrch_index,
-    input  wire [31:0]            tlbrd_tlbidx,
-    input  wire [31:0]            tlbrd_tlbehi,
-    input  wire [31:0]            tlbrd_tlbelo0,
-    input  wire [31:0]            tlbrd_tlbelo1,
-    input  wire [9:0]             tlbrd_asid,
+
     // 注意：有优先级，INT中断最大>IF检测出的异常>ID>EXE>MEM>WB
     input  wire        INT_valid,     // 中断是否触发，高电平即为有中断异常
     input  wire        ADEF_valid,    // 取指地址错位异常，特指pc
@@ -68,6 +72,8 @@ module csr_exception_commit_handler (
     output wire [31:0] csr_tlbelo1_out,
     output wire [31:0] csr_dmw0_out,
     output wire [31:0] csr_dmw1_out,
+    output wire [1:0]  csr_crmd_datf_out,
+    output wire [1:0]  csr_crmd_datm_out,
     output wire [7:0]  csr_estat_ecode_out
 );
 
@@ -321,6 +327,7 @@ module csr_exception_commit_handler (
             if (csr_we && csr_num == `CSR_DMW1)
                 csr_dmw1 <= (csr_wmask & csr_wvalue) | (~csr_wmask & csr_dmw1);
 
+            // 这里是 WB 提交点：tlbsrch/tlbrd 的结果在同拍被采样并写入 CSR_TLBIDX/TLBEHI/TLBELO/ASID。
             if (wb_valid && wb_tlb_op[`TLB_OP_TLBSRCH]) begin
                 if (tlbsrch_found) begin
                     csr_tlbidx[3:0] <= tlbsrch_index;
@@ -330,6 +337,7 @@ module csr_exception_commit_handler (
                 end
             end
 
+            // tlbrd 也是 WB 提交后立即把 tlb_manager 的读回结果写回 CSR 影子寄存器。
             if (wb_valid && wb_tlb_op[`TLB_OP_TLBRD]) begin
                 csr_tlbidx  <= tlbrd_tlbidx;
                 csr_tlbehi  <= tlbrd_tlbehi;
@@ -518,6 +526,8 @@ module csr_exception_commit_handler (
     assign csr_tlbelo1_out = csr_tlbelo1;
     assign csr_dmw0_out = csr_dmw0;
     assign csr_dmw1_out = csr_dmw1;
+    assign csr_crmd_datf_out = csr_crmd_datf;
+    assign csr_crmd_datm_out = csr_crmd_datm;
     assign csr_estat_ecode_out = csr_estat_ecode;
     
 endmodule

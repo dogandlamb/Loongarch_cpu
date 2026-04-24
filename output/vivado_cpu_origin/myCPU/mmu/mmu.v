@@ -19,11 +19,10 @@ module mmu (
     input  wire        bridge_data_r_complete_in,
     input  wire        bridge_data_w_complete_in,
 
-    output wire        tlbm_inst_req,
-    output wire [31:0] tlbm_inst_vaddr,
-    output wire        tlbm_data_req,
-    output wire        tlbm_data_is_store,
-    output wire [31:0] tlbm_data_vaddr,
+    input  wire [1:0]  csr_crmd_datf_in,
+    input  wire [1:0]  csr_crmd_datm_in,
+    input  wire [31:0] csr_dmw0_in,
+    input  wire [31:0] csr_dmw1_in,
 
     input  wire [31:0] tlbm_inst_paddr,
     input  wire [31:0] tlbm_data_paddr,
@@ -35,6 +34,8 @@ module mmu (
     input  wire        tlbm_data_ex_pis,
     input  wire        tlbm_data_ex_ppi,
     input  wire        tlbm_data_ex_pme,
+    input  wire [1:0]  tlbm_inst_mat,
+    input  wire [1:0]  tlbm_data_mat,
 
     output wire        inst_req_out,
     output wire [31:0] inst_paddr_out,
@@ -42,6 +43,7 @@ module mmu (
     output wire        inst_tlbr_out,
     output wire        inst_pif_out,
     output wire        inst_ppi_out,
+    output wire [1:0]  inst_mat_out,
 
     output wire        data_re_out,
     output wire        data_we_out,
@@ -54,6 +56,8 @@ module mmu (
     output wire        data_pis_out,
     output wire        data_ppi_out,
     output wire        data_pme_out,
+    output wire        data_tlb_excp_cancel_out,
+    output wire [1:0]  data_mat_out,
 
     output wire [31:0] inst_rdata_out,
     output wire [31:0] data_rdata_out,
@@ -65,12 +69,6 @@ module mmu (
 wire data_req_any = data_re_in | data_we_in;
 wire data_has_tlb_ex = tlbm_data_ex_tlbr | tlbm_data_ex_pil | tlbm_data_ex_pis | tlbm_data_ex_ppi | tlbm_data_ex_pme;
 wire inst_has_tlb_ex = tlbm_inst_ex_tlbr | tlbm_inst_ex_pif | tlbm_inst_ex_ppi;
-
-assign tlbm_inst_req      = inst_req_in;
-assign tlbm_inst_vaddr    = inst_vaddr_in;
-assign tlbm_data_req      = data_req_any;
-assign tlbm_data_is_store = data_we_in;
-assign tlbm_data_vaddr    = data_we_in ? data_vaddr_w_in : data_vaddr_r_in;
 
 assign inst_req_out   = inst_req_in & !inst_adef_in & !inst_has_tlb_ex;
 assign inst_paddr_out = tlbm_inst_paddr;
@@ -90,12 +88,15 @@ assign data_pil_out     = data_req_any & tlbm_data_ex_pil;
 assign data_pis_out     = data_req_any & tlbm_data_ex_pis;
 assign data_ppi_out     = data_req_any & tlbm_data_ex_ppi;
 assign data_pme_out     = data_req_any & tlbm_data_ex_pme;
+assign data_tlb_excp_cancel_out = data_req_any & data_has_tlb_ex;
 
 assign inst_rdata_out       = bridge_inst_rdata_in;
 assign data_rdata_out       = bridge_data_rdata_in;
 assign inst_complete_out    = bridge_inst_complete_in;
 assign data_r_complete_out  = bridge_data_r_complete_in;
 assign data_w_complete_out  = bridge_data_w_complete_in;
+assign inst_mat_out         = tlbm_inst_mat;
+assign data_mat_out         = tlbm_data_mat;
 
 wire mmu_lint_sink;
 assign mmu_lint_sink = clk ^ reset;
