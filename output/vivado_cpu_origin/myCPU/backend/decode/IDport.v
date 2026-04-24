@@ -28,7 +28,7 @@ module IDport (
     output reg  [31:0]            cacop_addr,
     output reg  [1:0]             cacop_mat,
     output reg  [4:0]             cacop_cd,
-    output reg  [`CACHE_OP_NUM-1:0] cache_op_valid,//这是不是 cache 指令，具体是哪种
+    output reg  [`CACHE_OP_NUM-1:0] cache_op_valid,//是 cache 指令，0是cacop,1是ibar
 
     output reg         allowIn,            // 对 IF/ID 寄存器级，目前是常 1
     output reg         readyGo,            // 也是常 1
@@ -89,7 +89,7 @@ wire [`CSR_OP_NUM-1:0] csr_op_inner; //内部CSR操作码，后续看条件赋�
 //wire [`RDCNT_OP_NUM-1:0] rdcnt_op_inner;//内部读时间戳计数器操作码，后续看条件赋值给output rdcnt_op
 wire [`WB_SRC_NUM-1:0] wb_src_op_inner;//内部写回数据来源操作码，后续看条件赋值给output wb_src_op_inner
 wire [`TLB_OP_NUM-1:0] tlb_op_inner;//内部TLB操作码，后续看条件赋值给output tlb_op
-wire [`CACHE_OP_NUM-1:0] cache_op_inner;//cache_op,后续看条件赋值给
+wire [`CACHE_OP_NUM-1:0] cache_op_inner;//cache_op,后续看条件赋值给cache_op_inner
 wire [31:0]            alu_imm_w;
 wire [31:0]            br_imm_w;
 wire [31:0]            alu_src1_w;
