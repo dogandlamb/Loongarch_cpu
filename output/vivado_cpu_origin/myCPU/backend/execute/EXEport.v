@@ -29,9 +29,17 @@ module EXEport (
     input wire  [31:0]            csr_rvalue_from_csr,
     input wire  [31:0]            csr_tid_from_csr, // 从CSR模块读出的tid值
     input wire  [`WB_SRC_NUM-1:0] wb_src_op_in, // 写回数据来源选择
+
     input wire  [`TLB_OP_NUM-1:0] tlb_op_in,
     input wire  [9:0]             invtlb_asid_in,
     input wire  [18:0]            invtlb_vpn_in,
+
+    input wire  [`CACHE_OP_NUM-1:0] cache_op_valid_in,
+    input wire  [1:0]             cache_cacop_op_in,
+    input wire  [31:0]            cache_cacop_addr_in,
+    input wire  [1:0]             cache_cacop_mat_in,
+    input wire  [4:0]             cache_cacop_cd_in,
+    input wire                    refetch_tag_in,
     
     input wire                    ertn_op_in,
     input wire                    sys_valid_in,
@@ -68,9 +76,11 @@ module EXEport (
     output wire [31:0]            csr_wmask_out,
     output wire [31:0]            csr_wvalue_out,
     output wire [`WB_SRC_NUM-1:0] wb_src_op_out,
+
     output wire [`TLB_OP_NUM-1:0] tlb_op_out,
     output wire [9:0]             invtlb_asid_out,
     output wire [18:0]            invtlb_vpn_out,
+
     output wire                   ertn_op_out,
     output wire                   sys_valid_out,
     output wire                   brk_valid_out,
@@ -81,9 +91,19 @@ module EXEport (
     output wire                   exception_valid_out, // 送 MEM 的指令异常有效信号（非法指令、系统调用、断点等）
     output wire [31:0]            if_vaddr_out, // 送往MEM的访存虚地址（目前仅 adef_valid_out 时有效，用于数据异常处理模块）
     output wire [31:0]            ale_vaddr_out, // ALE的虚地址，区分于ADEF
+
     output wire [`TLB_EX_NUM-1:0] tlb_ex_valid_out,
-    output wire [31:0]            tlb_vaddr_out
-);
+    output wire [31:0]            tlb_vaddr_out,
+
+    output wire  [`CACHE_OP_NUM-1:0] cache_op_valid_out,
+    output wire  [1:0]             cache_cacop_op_out,
+    output wire  [31:0]            cache_cacop_addr_out,
+    output wire  [1:0]             cache_cacop_mat_out,
+    output wire  [4:0]             cache_cacop_cd_out,
+    output wire                    refetch_tag_out
+
+    
+);  
 
 wire [31:0] alu_result_w;           // ALU 组合结果
 wire        alu_result_valid_w;     // 多周期指令完成
@@ -98,6 +118,7 @@ wire [15:0] w_half_data;
 wire [31:0] w_word_data;
 wire [31:0] wdata_2bram;            // 对齐到字宽后的写数据
 
+wire ex_valid = valid && !refetch_tag_in; // 避免指令重取时 EXE 级仍然有效，导致错误的执行
 wire addr_error;
 wire int_valid_w;
 wire exception_valid_w;
@@ -167,7 +188,7 @@ assign allowIn       = 1'b1;
 assign br_taken        = valid && !stall && br_taken_w && !br_to_seq_w;
 assign link_pc4_w      = pc_in + 32'd4;
 
-assign  exe_alu_or_addr_or_cnt = !valid ? 32'b0 :
+assign  exe_alu_or_addr_or_cnt = !ex_valid ? 32'b0 :
                                 stall ? 32'b0 :
                                 (br_op[`BR_OP_JIRL] || br_op[`BR_OP_BL]) ? link_pc4_w :
                                 (wb_src_op_in[`WB_SRC_CSR])   ? csr_rvalue_from_csr :
@@ -182,44 +203,57 @@ assign  mem_op          = valid && !exception_valid_w ? !stall ? mem_op_in : {`M
 assign  mem_wdata_out   = valid && !exception_valid_w ? !stall ? mem_wdata_in : 32'b0 : 32'b0;
 assign  wb_op           = valid && !exception_valid_w ? !stall ? wb_op_in : 1'b0 : 1'b0;
 
-assign data_we_from_EXE = (valid && !exception_valid_w) ? 
+assign data_we_from_EXE = (ex_valid && !exception_valid_w) ? 
                         (!stall ? (mem_op[`MEM_OP_ST_W] | mem_op[`MEM_OP_ST_B] | mem_op[`MEM_OP_ST_H]) : 1'b0 )
                         : 1'b0;
-assign data_re_from_EXE = (valid && !exception_valid_w) ? 
+assign data_re_from_EXE = (ex_valid && !exception_valid_w) ? 
                         (!stall ? (mem_op[`MEM_OP_LD_W] | mem_op[`MEM_OP_LD_H] | mem_op[`MEM_OP_LD_B] | mem_op[`MEM_OP_LD_HU] | mem_op[`MEM_OP_LD_BU]) : 1'b0 )
                         : 1'b0;
      
 
-assign data_raddr_from_EXE = (valid && !exception_valid_w) ?
+assign data_raddr_from_EXE = (ex_valid && !exception_valid_w) ?
                             (!stall ? alu_result_w : 32'b0)
                             : 32'b0;
-assign data_waddr_from_EXE = (valid && !exception_valid_w) ?
+assign data_waddr_from_EXE = (ex_valid && !exception_valid_w) ?
                             (!stall ? alu_result_w : 32'b0)
                              : 32'b0;
-assign data_wdata_from_EXE = (valid && !exception_valid_w) ? 
+assign data_wdata_from_EXE = (ex_valid && !exception_valid_w) ? 
                             (!stall ? wdata_2bram : 32'b0) 
                             : 32'b0;
 
-assign data_wbyte_en_from_EXE = (valid && !exception_valid_w) ? (!stall ? ((mem_op[`MEM_OP_ST_W]) ? 4'b1111 :
+assign data_wbyte_en_from_EXE = (ex_valid && !exception_valid_w) ? (!stall ? ((mem_op[`MEM_OP_ST_W]) ? 4'b1111 :
                                     (mem_op[`MEM_OP_ST_H]) ? ((alu_result_w[1] ? 4'b1100 : 4'b0011)) :
                                     (mem_op[`MEM_OP_ST_B]) ? (4'b0001 << alu_result_w[1:0]) : 4'b0000) : 4'b0000) : 4'b0000;
 
-assign csr_op_out = valid ? (!stall ? csr_op_in : {`CSR_OP_NUM{1'b0}}) : {`CSR_OP_NUM{1'b0}};
-assign csr_num_out = valid ? !stall ? csr_num_in : 12'b0 : 12'b0;
-assign csr_wmask_out = valid ? !stall ? csr_wmask_in : 32'b0 : 32'b0;
-assign csr_wvalue_out = valid ? !stall ? csr_wvalue_in : 32'b0 : 32'b0;
-assign wb_src_op_out = valid ? !stall ? wb_src_op_in : {`WB_SRC_NUM{1'b0}} : {`WB_SRC_NUM{1'b0}};
-assign ertn_op_out = valid ? !stall ? ertn_op_in : 1'b0 : 1'b0;
-assign sys_valid_out = valid ? !stall ? sys_valid_in : 1'b0 : 1'b0;
-assign brk_valid_out = valid ? !stall ? brk_valid_in : 1'b0 : 1'b0;
-assign ine_valid_out = valid ? !stall ? ine_valid_in : 1'b0 : 1'b0;
-assign adef_valid_out = valid ? !stall ? adef_valid_in : 1'b0 : 1'b0;
-assign int_valid_out = valid ? !stall ? int_valid_in : 1'b0 : 1'b0;
-assign ale_valid_out = valid ? !stall ? addr_error : 1'b0 : 1'b0;
-assign exception_valid_out = valid ? !stall ? exception_valid_w : 1'b0 : 1'b0;
-assign if_vaddr_out = valid && adef_valid_in ? !stall ? if_vaddr_in : 32'b0 : 32'b0;
-assign ale_vaddr_out = valid && ale_valid_out ? (!stall ? alu_result_w : 32'b0) : 32'b0;
+assign csr_op_out = ex_valid ? (!stall ? csr_op_in : {`CSR_OP_NUM{1'b0}}) : {`CSR_OP_NUM{1'b0}};
+assign csr_num_out = ex_valid ? !stall ? csr_num_in : 12'b0 : 12'b0;
+assign csr_wmask_out = ex_valid ? !stall ? csr_wmask_in : 32'b0 : 32'b0;
+assign csr_wvalue_out = ex_valid ? !stall ? csr_wvalue_in : 32'b0 : 32'b0;
+assign wb_src_op_out = ex_valid ? !stall ? wb_src_op_in : {`WB_SRC_NUM{1'b0}} : {`WB_SRC_NUM{1'b0}};
 
+assign ertn_op_out = ex_valid ? !stall ? ertn_op_in : 1'b0 : 1'b0;
+assign sys_valid_out = ex_valid ? !stall ? sys_valid_in : 1'b0 : 1'b0;
+assign brk_valid_out = ex_valid ? !stall ? brk_valid_in : 1'b0 : 1'b0;
+assign ine_valid_out = ex_valid ? !stall ? ine_valid_in : 1'b0 : 1'b0;
+assign adef_valid_out = ex_valid ? !stall ? adef_valid_in : 1'b0 : 1'b0;
+assign int_valid_out = ex_valid ? !stall ? int_valid_in : 1'b0 : 1'b0;
+assign ale_valid_out = ex_valid ? !stall ? addr_error : 1'b0 : 1'b0;
+assign exception_valid_out = ex_valid ? !stall ? exception_valid_w : 1'b0 : 1'b0;
+assign if_vaddr_out = ex_valid && adef_valid_in ? !stall ? if_vaddr_in : 32'b0 : 32'b0;
+assign ale_vaddr_out = ex_valid && ale_valid_out ? (!stall ? alu_result_w : 32'b0) : 32'b0;
+
+assign tlb_op_out = ex_valid ? !stall ? tlb_op_in : {`TLB_OP_NUM{1'b0}} : {`TLB_OP_NUM{1'b0}};
+assign invtlb_asid_out = ex_valid ? !stall ? invtlb_asid_in : 10'b0 : 10'b0;
+assign invtlb_vpn_out = ex_valid ? !stall ? invtlb_vpn_in : 19'b0 : 19'b0;
+assign tlb_ex_valid_out = ex_valid ? !stall ? tlb_ex_valid_in : {`TLB_EX_NUM{1'b0}} : {`TLB_EX_NUM{1'b0}};
+assign tlb_vaddr_out = ex_valid && tlb_ex_valid_in ? !stall ? tlb_vaddr_in : 32'b0 : 32'b0;
+
+assign cache_op_valid_out = valid ? !stall ? cache_op_valid_in : {`CACHE_OP_NUM{1'b0}} : {`CACHE_OP_NUM{1'b0}};
+assign cache_cacop_op_out = valid ? !stall ? cache_cacop_op_in : 2'b0 : 2'b0;
+assign cache_cacop_addr_out = valid ? !stall ? cache_cacop_addr_in : 32'b0 : 32'b0;
+assign cache_cacop_mat_out = valid ? !stall ? cache_cacop_mat_in : 2'b0 : 2'b0;
+assign cache_cacop_cd_out = valid ? !stall ? cache_cacop_cd_in : 5'b0 : 5'b0;
+assign refetch_tag_out = valid ? !stall ? refetch_tag_in : 1'b0 : 1'b0;
 
 
 

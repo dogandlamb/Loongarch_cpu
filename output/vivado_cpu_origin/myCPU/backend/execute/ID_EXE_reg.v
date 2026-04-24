@@ -26,9 +26,11 @@ module ID_EXE_reg (
     input wire  [31:0]            csr_wmask_in,
     input wire  [31:0]            csr_wvalue_in,
     input wire  [`WB_SRC_NUM-1:0] wb_src_op_in,
+    
     input wire  [`TLB_OP_NUM-1:0] tlb_op_in,
     input wire  [9:0]             invtlb_asid_in,
     input wire  [18:0]            invtlb_vpn_in,
+
     input wire                    ertn_op_in,
     input wire                    sys_valid_in,
     input wire                    brk_valid_in,
@@ -39,6 +41,7 @@ module ID_EXE_reg (
     input wire  [`TLB_EX_NUM-1:0] tlb_ex_valid_in,
     input wire  [31:0]            if_vaddr_in,
     input wire  [31:0]            tlb_vaddr_in,
+    
     input wire  [`CACHE_OP_NUM-1:0] cache_op_valid_in,
     input wire  [1:0]             cache_cacop_op_in,
     input wire  [31:0]            cache_cacop_addr_in,
@@ -52,6 +55,7 @@ module ID_EXE_reg (
     output reg  [1:0]             cache_cacop_mat_out,
     output reg  [4:0]             cache_cacop_cd_out,
     output reg                    refetch_tag_out,
+
     output reg  [4:0]             wb_reg_addr_out,
     output reg  [31:0]            alu_src1_out,
     output reg  [31:0]            alu_src2_out,
@@ -67,9 +71,11 @@ module ID_EXE_reg (
     output reg  [31:0]            csr_wmask_out,
     output reg  [31:0]            csr_wvalue_out,
     output reg  [`WB_SRC_NUM-1:0] wb_src_op_out,
+
     output reg  [`TLB_OP_NUM-1:0] tlb_op_out,
     output reg  [9:0]             invtlb_asid_out,
     output reg  [18:0]            invtlb_vpn_out,
+
     output reg                    ertn_op_out,
     output reg                    sys_valid_out,
     output reg                    brk_valid_out,
@@ -78,6 +84,7 @@ module ID_EXE_reg (
     output reg  [31:0]            if_vaddr_out,       // 送 EXE 的访存虚地址（目前仅 adef_valid 时有效，用于数据异常处理模块）
     output reg                    int_valid_out,      // 送 EXE 的中断有效信号
     output reg                    exception_valid_out, // 送 EXE 的指令异常有效信号（非法指令、系统调用、断点等）
+
     output reg  [`TLB_EX_NUM-1:0] tlb_ex_valid_out,
     output reg  [31:0]            tlb_vaddr_out
 );

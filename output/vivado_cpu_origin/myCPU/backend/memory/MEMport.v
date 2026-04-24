@@ -28,9 +28,17 @@ module MEMport (
     input wire  [31:0]            csr_wmask_in,
     input wire  [31:0]            csr_wvalue_in,
     input wire  [`WB_SRC_NUM-1:0] wb_src_op_in,
+
     input wire  [`TLB_OP_NUM-1:0] tlb_op_in,
     input wire  [9:0]             invtlb_asid_in,
     input wire  [18:0]            invtlb_vpn_in,
+
+    input wire  [`CACHE_OP_NUM-1:0] cache_op_valid_in,
+    input wire  [1:0]             cache_cacop_op_in,
+    input wire  [31:0]            cache_cacop_addr_in,
+    input wire  [1:0]             cache_cacop_mat_in,
+    input wire  [4:0]             cache_cacop_cd_in,
+    input wire                    refetch_tag_in,
 
     input wire                    ertn_op_in,
     input wire                    sys_valid_in,
@@ -42,6 +50,7 @@ module MEMport (
     input wire                    exception_valid_in,
     input wire  [31:0]            if_vaddr_in,
     input wire  [31:0]            ale_vaddr_in,
+
     input wire  [`TLB_EX_NUM-1:0] tlb_ex_valid_in,
     input wire  [31:0]            tlb_vaddr_in,
 
@@ -50,6 +59,7 @@ module MEMport (
     output wire [31:0]            csr_wmask_out,
     output wire [31:0]            csr_wvalue_out,
     output wire [`WB_SRC_NUM-1:0] wb_src_op_out,
+
     output wire [`TLB_OP_NUM-1:0] tlb_op_out,
     output wire [9:0]             invtlb_asid_out,
     output wire [18:0]            invtlb_vpn_out,
@@ -73,20 +83,29 @@ module MEMport (
     output wire                   exception_valid_out,
     output wire [31:0]            if_vaddr_out,
     output wire [31:0]            ale_vaddr_out,
+
     output wire [`TLB_EX_NUM-1:0] tlb_ex_valid_out,
-    output wire [31:0]            tlb_vaddr_out
+    output wire [31:0]            tlb_vaddr_out,
+
+    output wire  [`CACHE_OP_NUM-1:0] cache_op_valid_out,
+    output wire  [1:0]             cache_cacop_op_out,
+    output wire  [31:0]            cache_cacop_addr_out,
+    output wire  [1:0]             cache_cacop_mat_out,
+    output wire  [4:0]             cache_cacop_cd_out,
+    output wire                    refetch_tag_out
 );
 
+wire   mem_valid = valid && !refetch_tag_in; 
 wire   bram_re;
 wire   bram_we;
 
 wire   exception_valid_w;
 assign exception_valid_w = exception_valid_in;
 
-assign bram_re = (exception_valid_w || !valid) ? 1'b0 :
+assign bram_re = (exception_valid_w || !mem_valid) ? 1'b0 :
                  (mem_op[`MEM_OP_LD_W] | mem_op[`MEM_OP_LD_H] | mem_op[`MEM_OP_LD_B]
                 | mem_op[`MEM_OP_LD_HU] | mem_op[`MEM_OP_LD_BU]);
-assign bram_we = (exception_valid_w || !valid) ? 1'b0 :
+assign bram_we = (exception_valid_w || !mem_valid) ? 1'b0 :
                  (mem_op[`MEM_OP_ST_W] | mem_op[`MEM_OP_ST_H] | mem_op[`MEM_OP_ST_B]);
 
 wire [31:0] r_word_addr   = {data_raddr_from_EXE[31:2], 2'b00};
@@ -130,14 +149,14 @@ assign load_result = (mem_op[`MEM_OP_LD_B])  ? {{24{r_byte_data[7]}}, r_byte_dat
 reg load_done_hold;
 reg load_done_tag;
 wire load_done_match = load_done_hold
-                     && valid
+                     && mem_valid
                      && bram_re
                      && (slot_tag_in == load_done_tag);
 
 always @(posedge clk) begin
     if (reset)
         load_done_hold <= 1'b0;
-    else if (!valid || !bram_re)
+    else if (!mem_valid || !bram_re)
         load_done_hold <= 1'b0;
     else if (load_done_match && !data_r_complete)
         load_done_hold <= 1'b0;
@@ -151,30 +170,45 @@ end
 
 assign readyGo = bram_re ? (data_r_complete | load_done_match) : 1'b1;
 assign allowIn = readyGo;
-assign load_pending_for_hazard = valid & bram_re & ~(data_r_complete | load_done_match);
+assign load_pending_for_hazard = mem_valid & bram_re & ~(data_r_complete | load_done_match);
 
 wire memport_in_lint = data_w_complete | (|mem_wdata_in) | (|data_waddr_from_EXE)
                       | bram_we | (|r_word_addr) | (|w_word_addr);
-assign wb_wdata        = !exception_valid_w && valid ? ((bram_re ? load_result : exe_result)
+assign wb_wdata        = !exception_valid_w && mem_valid ? ((bram_re ? load_result : exe_result)
                                  ^ ({32{memport_in_lint}} ^ {32{memport_in_lint}})) : 32'b0;
-assign pc_out          = valid ? pc_in : 32'b0;
-assign wb_reg_addr_out = !exception_valid_w && valid ? wb_reg_addr_in : 5'b0;
-assign wb_op_out       = !exception_valid_w && valid ? wb_op_in : 1'b0;
+assign pc_out          = mem_valid ? pc_in : 32'b0;
+assign wb_reg_addr_out = !exception_valid_w && mem_valid ? wb_reg_addr_in : 5'b0;
+assign wb_op_out       = !exception_valid_w && mem_valid ? wb_op_in : 1'b0;
 
-assign csr_op_out = valid ? csr_op_in : {`CSR_OP_NUM{1'b0}};
-assign csr_num_out = valid ? csr_num_in : 12'b0;
-assign csr_wmask_out = valid ? csr_wmask_in : 32'b0;
-assign csr_wvalue_out = valid ? csr_wvalue_in : 32'b0;
-assign wb_src_op_out = valid ? wb_src_op_in : {`WB_SRC_NUM{1'b0}};
-assign ertn_op_out = valid ? ertn_op_in : 1'b0;
-assign sys_valid_out = valid ? sys_valid_in : 1'b0;
-assign brk_valid_out = valid ? brk_valid_in : 1'b0;
-assign ine_valid_out = valid ? ine_valid_in : 1'b0;
-assign adef_valid_out = valid ? adef_valid_in : 1'b0;
-assign ale_valid_out = valid ? ale_valid_in : 1'b0;
-assign int_valid_out = valid ? int_valid_in : 1'b0;
-assign exception_valid_out = valid ? exception_valid_in : 1'b0;
-assign if_vaddr_out = valid && adef_valid_in ? if_vaddr_in : 32'b0;
-assign ale_vaddr_out = valid && ale_valid_in ? ale_vaddr_in : 32'b0;
+assign csr_op_out = mem_valid ? csr_op_in : {`CSR_OP_NUM{1'b0}};
+assign csr_num_out = mem_valid ? csr_num_in : 12'b0;
+assign csr_wmask_out = mem_valid ? csr_wmask_in : 32'b0;
+assign csr_wvalue_out = mem_valid ? csr_wvalue_in : 32'b0;
+assign wb_src_op_out = mem_valid ? wb_src_op_in : {`WB_SRC_NUM{1'b0}};
+
+assign ertn_op_out = mem_valid ? ertn_op_in : 1'b0;
+assign sys_valid_out = mem_valid ? sys_valid_in : 1'b0;
+assign brk_valid_out = mem_valid ? brk_valid_in : 1'b0;
+assign ine_valid_out = mem_valid ? ine_valid_in : 1'b0;
+assign adef_valid_out = mem_valid ? adef_valid_in : 1'b0;
+assign ale_valid_out = mem_valid ? ale_valid_in : 1'b0;
+assign int_valid_out = mem_valid ? int_valid_in : 1'b0;
+assign exception_valid_out = mem_valid ? exception_valid_in : 1'b0;
+assign if_vaddr_out = mem_valid && adef_valid_in ? if_vaddr_in : 32'b0;
+assign ale_vaddr_out = mem_valid && ale_valid_in ? ale_vaddr_in : 32'b0;
+
+assign tlb_op_out = mem_valid ? tlb_op_in : {`TLB_OP_NUM{1'b0}};
+assign invtlb_asid_out = mem_valid ? invtlb_asid_in : 10'b0;
+assign invtlb_vpn_out = mem_valid ? invtlb_vpn_in : 19'b0;
+assign tlb_ex_valid_out = mem_valid ? tlb_ex_valid_in : {`TLB_EX_NUM{1'b0}};
+assign tlb_vaddr_out = mem_valid && tlb_ex_valid_in ? tlb_vaddr_in : 32'b0;
+
+assign cache_op_valid_out = valid ? cache_op_valid_in : {`CACHE_OP_NUM{1'b0}};
+assign cache_cacop_op_out = valid ? cache_cacop_op_in : 2'b0;
+assign cache_cacop_addr_out = valid ? cache_cacop_addr_in : 32'b0;
+assign cache_cacop_mat_out = valid ? cache_cacop_mat_in : 2'b0;
+assign cache_cacop_cd_out = valid ? cache_cacop_cd_in : 5'b0;
+assign refetch_tag_out = valid ? refetch_tag_in : 1'b0;
+
 
 endmodule
