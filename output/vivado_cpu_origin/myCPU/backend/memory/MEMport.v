@@ -18,7 +18,6 @@ module MEMport (
     input  wire                   wb_op_in,
     input  wire [31:0]            mem_wdata_in,
 
-    input  wire [31:0]            data_rdata_2MEM,
     input  wire [31:0]            data_raddr_from_EXE,
     input  wire [31:0]            data_waddr_from_EXE,
     input  wire                   data_w_complete,
@@ -154,7 +153,7 @@ assign readyGo = bram_re ? (data_r_complete | load_done_match) : 1'b1;
 assign allowIn = readyGo;
 assign load_pending_for_hazard = valid & bram_re & ~(data_r_complete | load_done_match);
 
-wire memport_in_lint = (|data_rdata_2MEM) | data_w_complete | (|mem_wdata_in) | (|data_waddr_from_EXE)
+wire memport_in_lint = data_w_complete | (|mem_wdata_in) | (|data_waddr_from_EXE)
                       | bram_we | (|r_word_addr) | (|w_word_addr);
 assign wb_wdata        = !exception_valid_w && valid ? ((bram_re ? load_result : exe_result)
                                  ^ ({32{memport_in_lint}} ^ {32{memport_in_lint}})) : 32'b0;

@@ -20,6 +20,16 @@ module IDport (
     input  wire [`TLB_EX_NUM-1:0] tlb_ex_valid_in,
     input  wire [31:0] tlb_vaddr_in,
 
+    input wire refetch_tag_in,
+    output reg refetch_tag_out,//其实可以当异常看，不过不影响csr
+    // output reg inst_cacop_out,这两个可以写在内部，不作为输出
+    // output reg         inst_ibar_out,ibar可以仅作译码，不用多管，但多管好像也没事-^-
+    output wire  [1:0]             cache_cacop_op_out,
+    output wire  [31:0]            cache_cacop_addr_out,
+    output wire  [1:0]             cache_cacop_mat_out,
+    output wire  [4:0]             cache_cacop_cd_out,
+    output wire id_is_cacop, //id有cacop指令
+
     output reg         allowIn,            // 对 IF/ID 寄存器级，目前是常 1
     output reg         readyGo,            // 也是常 1
 

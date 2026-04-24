@@ -22,6 +22,9 @@ module IFport (
     input  wire        adef_valid_in,      // 地址未对齐异常信号
     input  wire [`TLB_EX_NUM-1:0] tlb_ex_valid_in, // tlb异常信号，由top tlb manager给入
 
+    input wire refetch_tag_in,
+    output wire refetch_tag_out,//其实可以当异常看，不过不影响csr
+
     output wire        readyGo,            // 本级可向下游提交
     output wire        allowIn,            // 对上游允许（当前常 1）
 
