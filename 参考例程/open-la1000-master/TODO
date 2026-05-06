@@ -1,0 +1,12 @@
+remake front
+monitor and perf counter
+no L2$, can't test cache alias
+optimize invtlb inst
+iBar wait at wb
+judge rollback at wb (e.g. CSRWR tlbidx don't rollback)
+calculate CSR masked result at ex2(or wb) instead of just before write to EACH CSR
+when exception, ignore stall before
+cancel same cycle's div
+ex3 for div, lsu(release critical path)
+DCache: add s2 to s0 forward and lower s2 priority
+other TODOs in code

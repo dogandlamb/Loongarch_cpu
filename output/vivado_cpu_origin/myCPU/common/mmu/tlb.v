@@ -1,0 +1,259 @@
+module tlb
+#(
+    parameter TLBNUM = 16
+)
+(
+    input  wire                         clk,
+    input  wire                         reset,
+
+    // 查找端口0（用于取指）
+    input  wire [18:0]                  s0_vppn,
+    input  wire                         s0_va_bit12,
+    input  wire [9:0]                   s0_asid,
+    output wire                         s0_found,
+    output wire [$clog2(TLBNUM)-1:0]    s0_index,
+    output wire [19:0]                  s0_ppn,
+    output wire [5:0]                   s0_ps,
+    output wire [1:0]                   s0_plv,
+    output wire [1:0]                   s0_mat,
+    output wire                         s0_d,
+    output wire                         s0_v,
+
+    // 查找端口1（用于访存 load/store）
+    input  wire [18:0]                  s1_vppn,
+    input  wire                         s1_va_bit12,
+    input  wire [9:0]                   s1_asid,
+    output wire                         s1_found,
+    output wire [$clog2(TLBNUM)-1:0]    s1_index,
+    output wire [19:0]                  s1_ppn,
+    output wire [5:0]                   s1_ps,
+    output wire [1:0]                   s1_plv,
+    output wire [1:0]                   s1_mat,
+    output wire                         s1_d,
+    output wire                         s1_v,
+
+    // INVTLB 指令接口（用于 TLB 无效化）
+    input  wire                         invtlb_valid,
+    input  wire [4:0]                   invtlb_op,
+    input  wire [9:0]                   invtlb_asid,      // 【新增】独立ASID参数
+    input  wire [18:0]                  invtlb_vpn,       // 【新增】独立VPN参数
+
+    // 写端口
+    input  wire                         we,
+    input  wire [$clog2(TLBNUM)-1:0]    w_index,
+    input  wire                         w_e,
+    input  wire [18:0]                  w_vppn,
+    input  wire [5:0]                   w_ps,
+    input  wire [9:0]                   w_asid,
+    input  wire                         w_g,
+    input  wire [19:0]                  w_ppn0,
+    input  wire [1:0]                   w_plv0,
+    input  wire [1:0]                   w_mat0,
+    input  wire                         w_d0,
+    input  wire                         w_v0,
+    input  wire [19:0]                  w_ppn1,
+    input  wire [1:0]                   w_plv1,
+    input  wire [1:0]                   w_mat1,
+    input  wire                         w_d1,
+    input  wire                         w_v1,
+
+    // 读端口
+    input  wire [$clog2(TLBNUM)-1:0]    r_index,
+    output wire                         r_e,
+    output wire [18:0]                  r_vppn,
+    output wire [5:0]                   r_ps,
+    output wire [9:0]                   r_asid,
+    output wire                         r_g,
+    output wire [19:0]                  r_ppn0,
+    output wire [1:0]                   r_plv0,
+    output wire [1:0]                   r_mat0,
+    output wire                         r_d0,
+    output wire                         r_v0,
+    output wire [19:0]                  r_ppn1,
+    output wire [1:0]                   r_plv1,
+    output wire [1:0]                   r_mat1,
+    output wire                         r_d1,
+    output wire                         r_v1
+);
+
+localparam IDXW   = $clog2(TLBNUM);
+localparam PS_4KB = 6'd12;
+localparam [TLBNUM-1:0] ALL_ONE = {TLBNUM{1'b1}};
+
+reg [18:0] tlb_vppn [TLBNUM-1:0];
+reg        tlb_e    [TLBNUM-1:0];
+reg [9:0]  tlb_asid [TLBNUM-1:0];
+reg        tlb_g    [TLBNUM-1:0];
+reg [5:0]  tlb_ps   [TLBNUM-1:0];
+reg [19:0] tlb_ppn0 [TLBNUM-1:0];
+reg [1:0]  tlb_plv0 [TLBNUM-1:0];
+reg [1:0]  tlb_mat0 [TLBNUM-1:0];
+reg        tlb_d0   [TLBNUM-1:0];
+reg        tlb_v0   [TLBNUM-1:0];
+reg [19:0] tlb_ppn1 [TLBNUM-1:0];
+reg [1:0]  tlb_plv1 [TLBNUM-1:0];
+reg [1:0]  tlb_mat1 [TLBNUM-1:0];
+reg        tlb_d1   [TLBNUM-1:0];
+reg        tlb_v1   [TLBNUM-1:0];
+
+wire [TLBNUM-1:0] match0;
+wire [TLBNUM-1:0] match1;
+wire [TLBNUM-1:0] s0_odd_page_hit;
+wire [TLBNUM-1:0] s1_odd_page_hit;
+
+wire [TLBNUM-1:0] inv_cond_nonglobal;
+wire [TLBNUM-1:0] inv_cond_global;
+wire [TLBNUM-1:0] inv_cond_asid;
+wire [TLBNUM-1:0] inv_cond_vpn;
+wire [TLBNUM-1:0] inv_match;
+
+reg [IDXW-1:0] s0_index_r;
+reg [IDXW-1:0] s1_index_r;
+reg            s0_index_hit;
+reg            s1_index_hit;
+
+wire s0_sel_odd;
+wire s1_sel_odd;
+
+genvar i;
+generate
+    for (i = 0; i < TLBNUM; i = i + 1) begin: gen_tlb_lookup
+        assign s0_odd_page_hit[i] = (tlb_ps[i] == PS_4KB) ? s0_va_bit12 : s0_vppn[8];
+        assign s1_odd_page_hit[i] = (tlb_ps[i] == PS_4KB) ? s1_va_bit12 : s1_vppn[8];
+
+        assign match0[i] = ((tlb_ps[i] == PS_4KB) ? (s0_vppn == tlb_vppn[i]) : (s0_vppn[18:9] == tlb_vppn[i][18:9])) &&
+                           ((s0_asid == tlb_asid[i]) || tlb_g[i]) &&
+                           tlb_e[i];
+        assign match1[i] = ((tlb_ps[i] == PS_4KB) ? (s1_vppn == tlb_vppn[i]) : (s1_vppn[18:9] == tlb_vppn[i][18:9])) &&
+                           ((s1_asid == tlb_asid[i]) || tlb_g[i]) &&
+                           tlb_e[i];
+
+        assign inv_cond_nonglobal[i] = ~tlb_g[i];
+        assign inv_cond_global[i]    =  tlb_g[i];
+        assign inv_cond_asid[i]      = (invtlb_asid == tlb_asid[i]);  // 【修正】使用独立ASID参数
+        // 【修正】INVTLB的VPN匹配使用独立的invtlb_vpn参数
+        assign inv_cond_vpn[i]       = (tlb_ps[i] == PS_4KB) ? (invtlb_vpn == tlb_vppn[i]) : (invtlb_vpn[18:9] == tlb_vppn[i][18:9]);
+    end
+endgenerate
+
+assign inv_match = ((invtlb_op == 5'h0) || (invtlb_op == 5'h1)) ? ALL_ONE :
+                   (invtlb_op == 5'h2)                          ? inv_cond_global :
+                   (invtlb_op == 5'h3)                          ? inv_cond_nonglobal :
+                   (invtlb_op == 5'h4)                          ? (inv_cond_nonglobal & inv_cond_asid) :
+                   (invtlb_op == 5'h5)                          ? (inv_cond_nonglobal & inv_cond_asid & inv_cond_vpn) :
+                   (invtlb_op == 5'h6)                          ? ((inv_cond_global | inv_cond_asid) & inv_cond_vpn) :
+                                                                   {TLBNUM{1'b0}};
+
+assign s0_found = |match0;
+assign s1_found = |match1;
+
+integer idx0;
+always @(*) begin
+    s0_index_r   = {IDXW{1'b0}};
+    s0_index_hit = 1'b0;
+    for (idx0 = 0; idx0 < TLBNUM; idx0 = idx0 + 1) begin
+        if (match0[idx0] && !s0_index_hit) begin
+            s0_index_r   = idx0[IDXW-1:0];
+            s0_index_hit = 1'b1;
+        end
+    end
+end
+
+integer idx1;
+always @(*) begin
+    s1_index_r   = {IDXW{1'b0}};
+    s1_index_hit = 1'b0;
+    for (idx1 = 0; idx1 < TLBNUM; idx1 = idx1 + 1) begin
+        if (match1[idx1] && !s1_index_hit) begin
+            s1_index_r   = idx1[IDXW-1:0];
+            s1_index_hit = 1'b1;
+        end
+    end
+end
+
+assign s0_index = s0_index_r;
+assign s1_index = s1_index_r;
+
+assign s0_sel_odd = s0_odd_page_hit[s0_index_r];
+assign s1_sel_odd = s1_odd_page_hit[s1_index_r];
+
+assign s0_ps  = s0_found ? tlb_ps[s0_index_r] : 6'b0;
+assign s0_ppn = s0_found ? (s0_sel_odd ? tlb_ppn1[s0_index_r] : tlb_ppn0[s0_index_r]) : 20'b0;
+assign s0_plv = s0_found ? (s0_sel_odd ? tlb_plv1[s0_index_r] : tlb_plv0[s0_index_r]) : 2'b0;
+assign s0_mat = s0_found ? (s0_sel_odd ? tlb_mat1[s0_index_r] : tlb_mat0[s0_index_r]) : 2'b0;
+assign s0_d   = s0_found ? (s0_sel_odd ? tlb_d1[s0_index_r]   : tlb_d0[s0_index_r])   : 1'b0;
+assign s0_v   = s0_found ? (s0_sel_odd ? tlb_v1[s0_index_r]   : tlb_v0[s0_index_r])   : 1'b0;
+
+assign s1_ps  = s1_found ? tlb_ps[s1_index_r] : 6'b0;
+assign s1_ppn = s1_found ? (s1_sel_odd ? tlb_ppn1[s1_index_r] : tlb_ppn0[s1_index_r]) : 20'b0;
+assign s1_plv = s1_found ? (s1_sel_odd ? tlb_plv1[s1_index_r] : tlb_plv0[s1_index_r]) : 2'b0;
+assign s1_mat = s1_found ? (s1_sel_odd ? tlb_mat1[s1_index_r] : tlb_mat0[s1_index_r]) : 2'b0;
+assign s1_d   = s1_found ? (s1_sel_odd ? tlb_d1[s1_index_r]   : tlb_d0[s1_index_r])   : 1'b0;
+assign s1_v   = s1_found ? (s1_sel_odd ? tlb_v1[s1_index_r]   : tlb_v0[s1_index_r])   : 1'b0;
+
+assign r_e    = tlb_e[r_index];
+assign r_vppn = tlb_vppn[r_index];
+assign r_ps   = tlb_ps[r_index];
+assign r_asid = tlb_asid[r_index];
+assign r_g    = tlb_g[r_index];
+assign r_ppn0 = tlb_ppn0[r_index];
+assign r_plv0 = tlb_plv0[r_index];
+assign r_mat0 = tlb_mat0[r_index];
+assign r_d0   = tlb_d0[r_index];
+assign r_v0   = tlb_v0[r_index];
+assign r_ppn1 = tlb_ppn1[r_index];
+assign r_plv1 = tlb_plv1[r_index];
+assign r_mat1 = tlb_mat1[r_index];
+assign r_d1   = tlb_d1[r_index];
+assign r_v1   = tlb_v1[r_index];
+
+integer widx;
+always @(posedge clk) begin
+    if (reset) begin
+        for (widx = 0; widx < TLBNUM; widx = widx + 1) begin
+            tlb_vppn[widx] <= 19'b0;
+            tlb_e[widx]    <= 1'b0;
+            tlb_asid[widx] <= 10'b0;
+            tlb_g[widx]    <= 1'b0;
+            tlb_ps[widx]   <= PS_4KB;
+            tlb_ppn0[widx] <= 20'b0;
+            tlb_plv0[widx] <= 2'b0;
+            tlb_mat0[widx] <= 2'b0;
+            tlb_d0[widx]   <= 1'b0;
+            tlb_v0[widx]   <= 1'b0;
+            tlb_ppn1[widx] <= 20'b0;
+            tlb_plv1[widx] <= 2'b0;
+            tlb_mat1[widx] <= 2'b0;
+            tlb_d1[widx]   <= 1'b0;
+            tlb_v1[widx]   <= 1'b0;
+        end
+    end else begin
+        if (we) begin
+            tlb_vppn[w_index] <= w_vppn;
+            tlb_e[w_index]    <= w_e;
+            tlb_asid[w_index] <= w_asid;
+            tlb_g[w_index]    <= w_g;
+            tlb_ps[w_index]   <= w_ps;
+            tlb_ppn0[w_index] <= w_ppn0;
+            tlb_plv0[w_index] <= w_plv0;
+            tlb_mat0[w_index] <= w_mat0;
+            tlb_d0[w_index]   <= w_d0;
+            tlb_v0[w_index]   <= w_v0;
+            tlb_ppn1[w_index] <= w_ppn1;
+            tlb_plv1[w_index] <= w_plv1;
+            tlb_mat1[w_index] <= w_mat1;
+            tlb_d1[w_index]   <= w_d1;
+            tlb_v1[w_index]   <= w_v1;
+        end
+
+        if (invtlb_valid) begin
+            for (widx = 0; widx < TLBNUM; widx = widx + 1) begin
+                if (!((we == 1'b1) && (w_index == widx[IDXW-1:0])) && inv_match[widx]) begin
+                    tlb_e[widx] <= 1'b0;
+                end
+            end
+        end
+    end
+end
+
+endmodule

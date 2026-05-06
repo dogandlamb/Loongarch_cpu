@@ -2,10 +2,10 @@
 -- Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
 -- --------------------------------------------------------------------------------
 -- Tool Version: Vivado v.2023.2 (win64) Build 4029153 Fri Oct 13 20:14:34 MDT 2023
--- Date        : Tue Apr 21 15:46:03 2026
+-- Date        : Tue May  5 11:46:01 2026
 -- Host        : DESKTOP-829P7GE running 64-bit major release  (build 9200)
 -- Command     : write_vhdl -force -mode synth_stub
---               e:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_axi/rtl/xilinx_ip/axi_crossbar_1x2/axi_crossbar_1x2_stub.vhdl
+--               e:/360MoveData/Users/admin/Desktop/frinal_test/exp23/soc_verify/soc_axi/rtl/xilinx_ip/axi_crossbar_1x2/axi_crossbar_1x2_stub.vhdl
 -- Design      : axi_crossbar_1x2
 -- Purpose     : Stub declaration of top-level module interface
 -- Device      : xc7a200tfbg676-1
