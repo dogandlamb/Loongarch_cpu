@@ -77,14 +77,21 @@ always @(posedge clk) begin
         end
 
         if (cancel_sig) begin
-            ID_valid  <= 1'b0;
-            EXE_valid <= 1'b0;
+            ID_valid <= 1'b0;
 
-            // On exception/ERTN flush, squash younger MEM/WB flow to keep precise traps.
             if (csr_flush) begin
+                // 异常/ERTN 从提交端冲刷，EXE/MEM 都属于更年轻指令，需要直接清空。
+                EXE_valid <= 1'b0;
                 MEM_valid <= 1'b0;
-            end else if (EXE_MEM_reg_allowIn) begin
-                MEM_valid <= EXE_valid && EXE_readyGo;
+            end else begin
+                // 分支在 EXE 命中时，当前 EXE 指令本身不能被冲掉。
+                // 若 MEM 反压导致 EXE 尚未交付，就保持 EXE_valid，等下游放行后再推进到 MEM。
+                if (ID_EXE_reg_allowIn) begin
+                    EXE_valid <= 1'b0;
+                end
+                if (EXE_MEM_reg_allowIn) begin
+                    MEM_valid <= EXE_valid && EXE_readyGo;
+                end
             end
         end else if (wb_refetch_tag) begin
             ID_valid  <= 1'b0;

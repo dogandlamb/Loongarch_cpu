@@ -259,29 +259,22 @@ module csr_exception_commit_handler (
 
     // ERA 的 PC 域
     reg [31:0] csr_era_pc;
-    reg        csr_era_from_adef_adjust;
     wire wb_adef_valid = (ADEF_valid === 1'b1);
     wire wb_pif_valid  = (Ecode === `PIF_ECODE);
     // PIF：手册/测试套件期望 ERA 记录 fault VA（与 BADV 一致）；其余 TLB/常规例外为 faulting PC。
-    wire [31:0] era_fault_pc = wb_adef_valid ? (wb_pc - 32'd4)
-                             : wb_pif_valid ? wb_vaddr
-                             : wb_pc;
+    // ADEF/PIF 的精确异常地址来自 IF/TLB 传下来的虚地址；流水提交 PC 可能已经受取指节奏影响。
+    // 其余常规异常记录提交槽自己的 PC。
+    wire [31:0] era_fault_pc = (wb_adef_valid || wb_pif_valid) ? wb_vaddr : wb_pc;
     always @(posedge clk) begin
         if (reset) begin
             csr_era_pc <= 32'b0;
-            csr_era_from_adef_adjust <= 1'b0;
         end
         else if (wb_valid && wb_ex) begin
-            // IF ADEF arrives one step advanced on current front-end timing;
-            // when wb_pc is already unaligned fault address, keep wb_pc directly.
             csr_era_pc <= era_fault_pc;
-            csr_era_from_adef_adjust <= wb_adef_valid;
         end
         else if (csr_we && csr_num == `CSR_ERA) begin
             csr_era_pc <= csr_wmask[`CSR_ERA_PC] & csr_wvalue[`CSR_ERA_PC] 
                             | ~csr_wmask[`CSR_ERA_PC] & csr_era_pc;
-            // Software write defines ERA explicitly; do not apply ADEF readback compensation.
-            csr_era_from_adef_adjust <= 1'b0;
         end
     end
 
@@ -487,9 +480,7 @@ module csr_exception_commit_handler (
     wire [31:0] csr_prmd_rvalue = {29'b0, csr_prmd_pie, csr_prmd_pplv};
     wire [31:0] csr_ecfg_rvalue = {19'b0, csr_ecfg_lie};
     wire [31:0] csr_estat_rvalue = {1'b0, csr_estat_esubcode, csr_estat_ecode, 3'b0, csr_estat_is};
-    // Compensate visible ERA value only when it comes from ADEF auto-commit path.
-    wire [31:0] csr_era_rvalue = (csr_era_from_adef_adjust === 1'b1) ? (csr_era_pc + 32'd4)
-                               : csr_era_pc;
+    wire [31:0] csr_era_rvalue = csr_era_pc;
     wire [31:0] csr_badv_rvalue = csr_badv_vaddr;
     wire [31:0] csr_eentry_rvalue = {csr_eentry_va, 6'b0};
     wire [31:0] csr_save0_rvalue = csr_save0_data;

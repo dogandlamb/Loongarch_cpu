@@ -81,6 +81,7 @@ reg [127:0] rd_buf;
 reg        rd_ret_valid_r;
 reg        rd_ret_last_r;
 reg [127:0] rd_ret_data_r;
+reg        rd_rr_dc;
 
 reg [31:0] wr_addr_buf;
 reg [127:0] wr_data_buf;
@@ -88,8 +89,12 @@ reg [15:0] wr_strb_buf;
 reg        wr_is_line;
 reg [1:0]  wr_beat;
 
-wire ic_rd_fire = (rd_state == RD_IDLE) && ic_rd_req;
-wire dc_rd_fire = (rd_state == RD_IDLE) && !ic_rd_req && dc_rd_req;
+// 读通道仲裁：ICache/DCache 同拍请求时采用 round-robin。
+// 这样不再让 ICache 固定优先，同时也避免 DCache 硬优先破坏自修改代码场景下的取指观察顺序。
+wire rd_grant_dc = dc_rd_req && ((ic_rd_req !== 1'b1) || (rd_rr_dc === 1'b1));
+wire rd_grant_ic = ic_rd_req && ((dc_rd_req !== 1'b1) || (rd_rr_dc !== 1'b1));
+wire dc_rd_fire = (rd_state == RD_IDLE) && rd_grant_dc;
+wire ic_rd_fire = (rd_state == RD_IDLE) && rd_grant_ic;
 wire [127:0] rd_buf_next = rd_buf;
 
 // Handshake qualifier: only report "rd_rdy" when AR is accepted,
@@ -168,6 +173,7 @@ always @(posedge clk) begin
         rd_ret_valid_r <= 1'b0;
         rd_ret_last_r <= 1'b0;
         rd_ret_data_r <= 128'b0;
+        rd_rr_dc <= 1'b0;
         wr_addr_buf <= 32'b0;
         wr_data_buf <= 128'b0;
         wr_strb_buf <= 16'b0;
@@ -181,6 +187,7 @@ always @(posedge clk) begin
             RD_IDLE: begin
                 if (ic_rd_fire) begin
                     rd_is_ic <= 1'b1;
+                    rd_rr_dc <= 1'b1;
                     rd_addr_buf <= ic_rd_addr;
                     rd_is_line <= (ic_rd_type == 3'b100);
                     rd_word_sel <= ic_rd_addr[3:2];
@@ -189,6 +196,7 @@ always @(posedge clk) begin
                     rd_state <= RD_AR;
                 end else if (dc_rd_fire) begin
                     rd_is_ic <= 1'b0;
+                    rd_rr_dc <= 1'b0;
                     rd_addr_buf <= dc_rd_addr;
                     rd_is_line <= (dc_rd_type == 3'b100);
                     rd_word_sel <= dc_rd_addr[3:2];

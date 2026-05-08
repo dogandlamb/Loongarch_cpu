@@ -2,10 +2,10 @@
 -- Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
 -- --------------------------------------------------------------------------------
 -- Tool Version: Vivado v.2023.2 (win64) Build 4029153 Fri Oct 13 20:14:34 MDT 2023
--- Date        : Tue May  5 21:20:18 2026
+-- Date        : Tue May  5 21:20:17 2026
 -- Host        : DESKTOP-829P7GE running 64-bit major release  (build 9200)
--- Command     : write_vhdl -force -mode synth_stub
---               e:/Loongarch_cpu/output/loongson.gen/sources_1/ip/dcache_way0_Bank2_ram_1/dcache_way0_Bank2_ram_stub.vhdl
+-- Command     : write_vhdl -force -mode synth_stub -rename_top dcache_way0_Bank2_ram -prefix
+--               dcache_way0_Bank2_ram_ dcache_way0_Bank2_ram_stub.vhdl
 -- Design      : dcache_way0_Bank2_ram
 -- Purpose     : Stub declaration of top-level module interface
 -- Device      : xc7a200tfbg676-1

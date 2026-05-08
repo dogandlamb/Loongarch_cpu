@@ -33,6 +33,7 @@ module IFport (
     // 下游交互
     output wire                   readyGo,            // 本级可向下游提交
     output wire                   allowIn,            // 对上游允许（当前常 1）
+    output wire                   filter_stall,       // IFport 丢弃旧/重复返回时，必要时反压 PC
 
     // 与bram交互
     output wire [31:0]            pc_req_out,         // 透传 pc_req_in
@@ -73,10 +74,15 @@ module IFport (
 
     wire                   stale_redirect_resp;
     wire                   redirect_pc_match;
+    wire                   cancel_redirect_pc_match;
     wire                   if_tlb_ex;
     wire                   if_ex_ok;              //这拍发生取指异常，也可以往下交付
     wire                   duplicated_resp;
     wire                   dedup_bypass_hotspot;
+    wire                   cancel_redirect_resp_match;
+    wire                   cancel_resp_hold;
+    wire                   cancel_adef_hold;
+    wire                   waiting_redirect_resp;
 
     //新槽位内容
     wire                   new_slot_ok;
@@ -109,12 +115,26 @@ module IFport (
                                 && (redirect_pc_pending[31:29] === 3'b111)
                                 && (pc_inst_in[31:29] === 3'b110);
     wire redirect_resp_match = (redirect_pc_match === 1'b1) || (redirect_pc_alias_match === 1'b1);
+    assign cancel_redirect_pc_match = (pc_inst_in === redirect_pc_in);
+    wire cancel_redirect_pc_alias_match = (pc_inst_in[28:0] === redirect_pc_in[28:0])
+                                       && (redirect_pc_in[31:29] === 3'b111)
+                                       && (pc_inst_in[31:29] === 3'b110);
+    assign cancel_redirect_resp_match = (cancel_redirect_pc_match === 1'b1) || (cancel_redirect_pc_alias_match === 1'b1);
+    // cancel 同拍若已经返回重定向目标，不能再直接丢弃；先压入 hold，下一拍交付。
+    assign cancel_resp_hold = (inst_valid_in === 1'b1) && (cancel_redirect_resp_match === 1'b1);
+    // JIRL/分支重定向到非对齐地址时没有真实 inst_valid 返回，也必须把目标 ADEF 槽保住。
+    assign cancel_adef_hold = (redirect_pc_in[1:0] === 2'b01)
+                            || (redirect_pc_in[1:0] === 2'b10)
+                            || (redirect_pc_in[1:0] === 2'b11);
+    // drop window 等重定向目标时，目标 PC 已经发出但同步 ICache 尚未返回，需要停一拍避免顺序 PC 越过目标。
+    assign waiting_redirect_resp = (drop_next_resp === 1'b1)
+                                && (pc_req_in === redirect_pc_pending)
+                                && (inst_valid_in !== 1'b1);
     // For locally completed ADEF fetches, allow the response through even if
     // redirect drop window is active, otherwise IF can livelock at TP51.
     assign stale_redirect_resp = (drop_next_resp === 1'b1)
                               && (inst_valid_in === 1'b1)
-                              && (refetch_drop_guard == 2'b00)
-                              && (redirect_resp_match !== 1'b1)
+                              && ((refetch_drop_guard != 2'b00) || (redirect_resp_match !== 1'b1))
                               && (adef_valid_in !== 1'b1);
     // If frontend keeps re-observing the same response PC while request PC is also
     // still that value, consume it only once to avoid replaying one instruction.
@@ -169,20 +189,34 @@ module IFport (
             dedup_mask_once   <= 1'b0;
             refetch_drop_guard <= 2'b00;
         end else if (cancel_in) begin
-            hold_valid <= 1'b0;
-            hold_inst  <= 32'b0;
-            hold_pc    <= 32'b0;
-            hold_adef  <= 1'b0;
-            drop_next_resp <= 1'b1;
-            redirect_pc_pending <= redirect_pc_in;
-            hold_tlb_ex_valid <= {`TLB_EX_NUM{1'b0}};
-            hold_tlb_vaddr    <= 32'b0;
-            hold_refetch_tag  <= 1'b0;
+            if (cancel_resp_hold || cancel_adef_hold) begin
+                hold_valid <= 1'b1;
+                hold_inst  <= cancel_adef_hold ? 32'b0 : inst_in;
+                hold_pc    <= cancel_adef_hold ? redirect_pc_in : pc_inst_in;
+                hold_adef  <= cancel_adef_hold;
+                drop_next_resp <= 1'b0;
+                redirect_pc_pending <= 32'b0;
+                hold_tlb_ex_valid <= {`TLB_EX_NUM{1'b0}};
+                hold_tlb_vaddr    <= cancel_adef_hold ? redirect_pc_in : 32'b0;
+                hold_refetch_tag  <= 1'b0;
+            end else begin
+                hold_valid <= 1'b0;
+                hold_inst  <= 32'b0;
+                hold_pc    <= 32'b0;
+                hold_adef  <= 1'b0;
+                drop_next_resp <= 1'b1;
+                redirect_pc_pending <= redirect_pc_in;
+                hold_tlb_ex_valid <= {`TLB_EX_NUM{1'b0}};
+                hold_tlb_vaddr    <= 32'b0;
+                hold_refetch_tag  <= 1'b0;
+            end
             last_resp_valid   <= 1'b0;
             last_resp_pc      <= 32'b0;
             dedup_mask_once   <= 1'b0;
-            // WB refetch 合并到 cancel 时，先丢弃前两拍在途返回，避免同 PC 旧响应提前清空 drop window。
-            refetch_drop_guard <= (refetch_tag_in === 1'b1) ? 2'b10 : 2'b00;
+            // WB refetch 合并到 cancel 时，丢弃一拍同步 ICache 的旧返回，避免旧响应提前清空 drop window。
+            refetch_drop_guard <= ((refetch_tag_in === 1'b1)
+                                && (cancel_resp_hold !== 1'b1)
+                                && (cancel_adef_hold !== 1'b1)) ? 2'b01 : 2'b00;
         end else begin
             if (refetch_drop_guard != 2'b00) begin
                 refetch_drop_guard <= refetch_drop_guard - 2'b01;
@@ -198,7 +232,7 @@ module IFport (
                 // Unlock dedup window once a different response PC shows up.
                 last_resp_valid <= 1'b0;
             end
-            // Clear drop window once the redirected PC response arrives (or ADEF response).
+            // 保护计数归零后，收到重定向目标返回（或 ADEF 返回）再关闭 drop。
             if ((drop_next_resp === 1'b1)
                 && (inst_valid_in === 1'b1)
                 && (refetch_drop_guard == 2'b00)
@@ -243,6 +277,9 @@ module IFport (
 
     assign readyGo = out_valid;
     assign allowIn = 1'b1;
+    assign filter_stall = (stale_redirect_resp === 1'b1)
+                        || (waiting_redirect_resp === 1'b1)
+                        || ((duplicated_resp === 1'b1) && (pc_req_in !== pc_inst_in));
     assign pc_req_out = pc_req_in;
     assign inst_out = out_valid ? out_inst : 32'b0;
     assign pc_inst_out = out_valid ? out_pc : 32'b0;

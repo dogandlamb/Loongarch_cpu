@@ -120,6 +120,7 @@ module mycpu_top(
 
     // 流水线控制信号:阻塞、冲刷
     wire        stall;                 // 顶层统一阻塞信号（当前等价于 block_sig）
+    wire        raw_stall;             // conflict_handle 给出的原始寄存器 RAW 阻塞
     // EXE/MEM/WB 任一级存在 TLBSRCH/TLBRD 时阻塞 ID→EXE，避免 CSR 读早于 TLBRD 提交。
     wire        tlb_inst_stall;
     wire        pc_stall;              // 由 npc 输出：阻塞且本拍不跳转、或 IF/ID 不可收且非跳转时保持 PC
@@ -131,6 +132,8 @@ module mycpu_top(
     wire        hit_wb_rs2;            // 写回阶段冲突2
     wire        RAW_hazard;            // conflict_handle 给出的 RAW 冲突检测结果
     wire        block_sig;             // 送入 pipeline_controller/npc 的阻塞主信号
+    wire        raw_block_sig;         // conflict_handle 给出的原始阻塞
+    wire        csr_raw_stall;         // CSR 写后读/写同号 CSR 时插泡
     wire        cancel_sig;            // 冲刷：分支命中或 csr_flush（conflict_handle 内相或）
     wire        wb_refetch_tag_to_npc; // WB refetch：NPC 重定向
     wire        cancel_sig_or_refetch;
@@ -170,7 +173,8 @@ module mycpu_top(
     wire [31:0] tlbrd_tlbelo1;
     wire [9:0]  tlbrd_asid;
     wire        tlbsrch_found;
-    wire [4:0]  tlbsrch_index;
+    wire [3:0]  tlbsrch_index_raw;
+    wire [4:0]  tlbsrch_index = {1'b0, tlbsrch_index_raw}; // 16 项 TLB 的搜索索引补零后写回 CSR_TLBIDX[4:0]
 
 
 
@@ -321,6 +325,7 @@ module mycpu_top(
     wire [31:0]            pc_exe;                   // EXE 级当前指令 PC（用于分支重定向）
     wire                   IF_readyGo;               // IF 阶段就绪
     wire                   IF_allowIn;               // IF 阶段允许接收（当前 IFport 常 1）
+    wire                   IF_filter_stall;          // IFport 过滤旧/重复返回时对 PC 的窄反压
 
     wire [31:0]            pc_2ram_data_controller;  // IF 当前请求 PC
     wire [31:0]            inst_fromIF;              // IF 输出指令（对齐PC）
@@ -393,6 +398,7 @@ module mycpu_top(
         .downstream_allowIn (IF_ID_reg_allowIn),             // 下游 IF_ID_reg 是否可接收
         .readyGo            (IF_readyGo),                    // IF 本拍是否可向下游提交
         .allowIn            (IF_allowIn),                    // IF 对上游允许（当前 IFport 内固定为 1）
+        .filter_stall       (IF_filter_stall),               // IF 过滤旧/重复返回时反压 PC
         .pc_req_out         (pc_2ram_data_controller),       // 透传后的请求 PC（送 mmu 作为 inst_vaddr）
         .inst_out           (inst_fromIF),                   // 送 IF_ID_reg 的指令
         .pc_inst_out        (pc_fromIF),                     // 送 IF_ID_reg 的指令对应 PC
@@ -427,8 +433,6 @@ module mycpu_top(
         .tlb_ex_valid_out      (ifid_tlb_ex_valid_to_id),
         .tlb_vaddr_out         (ifid_tlb_vaddr_to_id)
     );
-
-
 
     //------------------------------------------------------------------
     // ID
@@ -624,10 +628,12 @@ module mycpu_top(
         .refetch_tag_out    (refetch_tag_fromID)
     );
 
+    wire id_exe_cancel_sig = csr_flush_pipeline | (cancel_sig & ID_EXE_reg_allowIn);
+
     ID_EXE_reg u_ID_EXE_reg(
         .clk                   (clk),
         .reset                 (reset),
-        .cancel_sig            (cancel_sig),
+        .cancel_sig            (id_exe_cancel_sig),
         .valid                 (ID_EXE_reg_valid),
         .readyGo               (ID_readyGo),
         .allowIn               (ID_EXE_reg_allowIn),
@@ -986,6 +992,8 @@ module mycpu_top(
     wire                     data_re_accept;
     wire                     data_we_accept;
 
+    wire                     dcache_ld_addr_ok = dcache_mem_addr_ok & mmu_data_re;
+    wire                     dcache_st_addr_ok = dcache_mem_addr_ok & mmu_data_we;
     wire                     mem_load_req_sent = ld_req_pending;
     wire                     data_r_complete_qual_mem = data_r_complete & (ld_req_accepted_pending | data_re_accept);
     wire                     data_w_complete_qual_mem = data_w_complete & (st_req_accepted_pending | data_we_accept);
@@ -1064,9 +1072,11 @@ module mycpu_top(
     mem_req_tracker u_mem_req_tracker (
         .clk                     (clk),
         .reset                   (reset),
+        .slot_tag                (em_slot_tag),
         .ld_in_mem               (ld_in_mem),
         .st_in_mem               (st_in_mem),
-        .addr_ok                 (dcache_mem_addr_ok),
+        .ld_addr_ok              (dcache_ld_addr_ok),
+        .st_addr_ok              (dcache_st_addr_ok),
         .data_r_complete         (data_r_complete),
         .data_w_complete         (data_w_complete),
         .ld_req_pending          (ld_req_pending),
@@ -1348,6 +1358,25 @@ module mycpu_top(
     // - 这些信号用于衔接后续“冲突检测/前递/流水控制”模块；
     // - 本节不引入新状态，仅对已有流水状态与控制位做组合归并。
     // ------------------------------------------------------------------
+    // ICache 打开后连续 CSR 指令会背靠背进入流水；CSR 在 WB 提交，而读值在 EXE 组合取数。
+    // 若 ID 槽 CSR 紧跟 EXE/MEM 中尚未提交的同号 CSR 写，需要插泡等旧写落地。
+    wire        id_inst_csr_all_raw = (ID_valid === 1'b1)
+                                   && (inst_2ID[31:26] === 6'h01)
+                                   && (inst_2ID[25:24] === 2'b00);
+    wire [11:0] id_csr_num_raw      = inst_2ID[23:10];
+    wire        exe_csr_write_wait  = (EXE_valid === 1'b1)
+                                   && ((csr_op_2EXE[`CSR_OP_CSRWR] === 1'b1)
+                                    || (csr_op_2EXE[`CSR_OP_CSRXCHG] === 1'b1));
+    wire        mem_csr_write_wait  = (MEM_valid === 1'b1)
+                                   && ((em_csr_op[`CSR_OP_CSRWR] === 1'b1)
+                                    || (em_csr_op[`CSR_OP_CSRXCHG] === 1'b1));
+
+    assign csr_raw_stall = id_inst_csr_all_raw
+                         && (((exe_csr_write_wait === 1'b1) && (csr_num_2EXE === id_csr_num_raw))
+                          || ((mem_csr_write_wait === 1'b1) && (em_csr_num === id_csr_num_raw)));
+    assign block_sig = raw_block_sig | csr_raw_stall;
+    assign stall     = raw_stall     | csr_raw_stall;
+
     assign tlb_inst_stall =
           ((EXE_valid === 1'b1) && (tlb_op_2EXE[`TLB_OP_TLBRD] || tlb_op_2EXE[`TLB_OP_TLBSRCH]))
         | ((MEM_valid === 1'b1) && (em_tlb_op[`TLB_OP_TLBRD] || em_tlb_op[`TLB_OP_TLBSRCH]))
@@ -1444,8 +1473,8 @@ module mycpu_top(
         .csr_flush   (csr_flush_pipeline),
         .refetch_req_in (refetch_req_2conflict_handler),
         .RAW_hazard  (RAW_hazard),
-        .block_sig   (block_sig),
-        .stall       (stall),
+        .block_sig   (raw_block_sig),
+        .stall       (raw_stall),
         .cancel_sig  (cancel_sig),
         .FD_EXE_2rs1_sig  (FD_EXE_2rs1_sig),
         .FD_MEM_2rs1_sig  (FD_MEM_2rs1_sig),
@@ -1510,7 +1539,8 @@ module mycpu_top(
     // 存储系统：TLB/MMU/Cache/AXI 桥接
     //------------------------------------------------------------------
     // tlb_manager：组合产生 TLB 翻译结果、页表异常、TLBSRCH/TLBRD 回读结果。
-    tlb_manager #(.TLBNUM(32)) u_tlb_manager (
+    // 功能测试按 16 项 TLB 编写（TLB_ENTRY=16），TLBFILL 的随机索引也必须落在 0..15。
+    tlb_manager #(.TLBNUM(16)) u_tlb_manager (
         .clk            (clk),
         .reset          (reset),
         .inst_req       (IF_valid & IF_ID_reg_allowIn),
@@ -1549,7 +1579,7 @@ module mycpu_top(
         .data_ex_ppi    (tlbm_data_ex_ppi),
         .data_ex_pme    (tlbm_data_ex_pme),
         .tlbsrch_found  (tlbsrch_found),
-        .tlbsrch_index  (tlbsrch_index),
+        .tlbsrch_index  (tlbsrch_index_raw),
         .tlbrd_tlbidx   (tlbrd_tlbidx),
         .tlbrd_tlbehi   (tlbrd_tlbehi),
         .tlbrd_tlbelo0  (tlbrd_tlbelo0),
@@ -1703,41 +1733,31 @@ module mycpu_top(
 
     assign cache_inst_r_complete  = icache_if_data_ok;
     assign pc_2ID_from_bram = icache_if_pc;
-    reg dcache_resp_pending;
     wire dcache_req_accepted = (mmu_data_re | mmu_data_we) & dcache_mem_addr_ok;
     wire dcache_resp_is_store = dcache_req_accepted ? mmu_data_we : dcache_req_is_store;
-    wire dcache_resp_valid = dcache_mem_data_ok & (dcache_resp_pending | dcache_req_accepted);
+    wire dcache_resp_valid = dcache_mem_data_ok;
     always @(posedge clk) begin
         if (reset) begin
             dcache_req_is_store <= 1'b0;
-            dcache_resp_pending <= 1'b0;
         end else begin
-            case ({dcache_req_accepted, dcache_mem_data_ok})
-                2'b10: begin
-                    dcache_req_is_store <= mmu_data_we;
-                    dcache_resp_pending <= 1'b1;
-                end
-                2'b01: begin
-                    dcache_resp_pending <= 1'b0;
-                end
-                2'b11: begin
-                    // Accepted and completed in the same cycle.
-                    dcache_req_is_store <= mmu_data_we;
-                    dcache_resp_pending <= 1'b0;
-                end
-                default: begin
-                    dcache_resp_pending <= dcache_resp_pending;
-                end
-            endcase
+            if (dcache_req_accepted) begin
+                dcache_req_is_store <= mmu_data_we;
+            end
         end
     end
 
     assign cache_data_r_complete  = dcache_resp_valid & ~dcache_resp_is_store;
     assign cache_data_w_complete  = dcache_resp_valid &  dcache_resp_is_store;
-    assign axi_if_busy      = icache_stall_if | dcache_stall_mem;
+    // IFport 丢弃旧返回/重复返回且可能跳过目标 PC 时，才额外停住 PC。
+    assign axi_if_busy      = icache_stall_if | dcache_stall_mem | IF_filter_stall;
     // WB 维护指令触发的 refetch 也需要取消 ICache 在途返回，否则会把旧响应送回 IF。
     assign icache_tlb_excp_cancel_req = mmu_inst_tlbr | mmu_inst_pif | mmu_inst_ppi | cancel_sig_or_refetch;
-    assign dcache_tlb_excp_cancel_req = mmu_data_tlb_excp_cancel | cancel_sig;
+    wire dcache_flush_cancel = cancel_sig
+                              & !ld_req_accepted_pending
+                              & !st_req_accepted_pending
+                              & !data_re_accept
+                              & !data_we_accept;
+    assign dcache_tlb_excp_cancel_req = mmu_data_tlb_excp_cancel | dcache_flush_cancel;
     assign dcache_sc_cancel_req = 1'b0;
     assign dcache_preld_hint = 5'b0;
     assign dcache_preld_en = 1'b0;
@@ -1899,8 +1919,6 @@ module mycpu_top(
         .dcache_cacop_addr (dcache_cacop_addr),
         .dcache_cacop_mat (dcache_cacop_mat)
     );
-
-
 
     //------------------------------------------------------------------
     // 调试：对齐测试平台的 WB 提交观测
