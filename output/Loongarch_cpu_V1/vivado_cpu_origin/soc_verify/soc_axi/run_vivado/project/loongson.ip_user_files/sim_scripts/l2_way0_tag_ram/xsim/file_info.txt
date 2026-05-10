@@ -1,0 +1,2 @@
+l2_way0_tag_ram.v,verilog,xil_defaultlib,../../../../../../../../myCPU/IP/l2_way0_tag_ram/sim/l2_way0_tag_ram.v,
+glbl.v,Verilog,xil_defaultlib,glbl.v

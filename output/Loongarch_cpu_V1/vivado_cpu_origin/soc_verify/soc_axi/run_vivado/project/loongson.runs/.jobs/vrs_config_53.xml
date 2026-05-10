@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<Runs Version="1" Minor="0">
+	<Run Id="l2_way0_tag_ram_synth_1" LaunchDir="E:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/l2_way0_tag_ram_synth_1" FlowId="Vivado_Synthesis" FromStepId="vivado" ToStepId="vivado"/>
+	<Run Id="l2_way1_data_ram_synth_1" LaunchDir="E:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/l2_way1_data_ram_synth_1" FlowId="Vivado_Synthesis" FromStepId="vivado" ToStepId="vivado"/>
+	<Run Id="l2_way0_data_ram_synth_1" LaunchDir="E:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/l2_way0_data_ram_synth_1" FlowId="Vivado_Synthesis" FromStepId="vivado" ToStepId="vivado" IsOrderedIPRun="true">
+		<Parent Id="l2_way1_data_ram_synth_1"/>
+	</Run>
+	<Run Id="icache_way1_Bank3_ram_synth_1" LaunchDir="E:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/icache_way1_Bank3_ram_synth_1" FlowId="Vivado_Synthesis" FromStepId="vivado" ToStepId="vivado"/>
+	<Run Id="icache_way1_Bank2_ram_synth_1" LaunchDir="E:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/icache_way1_Bank2_ram_synth_1" FlowId="Vivado_Synthesis" FromStepId="vivado" ToStepId="vivado" IsOrderedIPRun="true">
+		<Parent Id="icache_way1_Bank3_ram_synth_1"/>
+	</Run>
+	<Parameters>
+		<Parameter Name="runs.monitorLSFJobs" Val="true" Type="bool"/>
+		<Parameter Name="runs.enableClusterConf" Val="true" Type="bool"/>
+		<Parameter Name="general.shortenLongPath" Val="true" Type="bool"/>
+	</Parameters>
+	<ProductInfo Name="vivado"/>
+</Runs>
+

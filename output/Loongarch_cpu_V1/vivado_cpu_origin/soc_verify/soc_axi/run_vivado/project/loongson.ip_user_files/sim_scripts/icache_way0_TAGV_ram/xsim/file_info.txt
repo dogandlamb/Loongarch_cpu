@@ -1,0 +1,2 @@
+icache_way0_TAGV_ram.v,verilog,xil_defaultlib,../../../../../../../../../loongson.gen/sources_1/ip/icache_way0_TAGV_ram_1/sim/icache_way0_TAGV_ram.v,
+glbl.v,Verilog,xil_defaultlib,glbl.v

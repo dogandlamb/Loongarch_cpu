@@ -1,0 +1,48 @@
+name: Difftest
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Clone Difftest Repo
+        uses: actions/checkout@v3
+        with:
+          repository: HITSZ-NSCSCC22/difftest
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          path: difftest
+
+      - name: Install Dependencies
+        run: sudo apt-get update && sudo apt-get install -y verilator libsdl2-2.0-0 libsdl2-dev
+
+      - name: Download NEMU Interpreter
+        uses: dsaltares/fetch-gh-release-asset@master
+        with:
+          repo: "HITSZ-NSCSCC22/loongarch32-toolchains"
+          file: "la32-nemu-interpreter-so"
+          target: "la32-nemu-interpreter-so"
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+      - name: Download Test Cases
+        uses: dsaltares/fetch-gh-release-asset@master
+        with:
+          repo: "HITSZ-NSCSCC22/test-case"
+          file: "bin.zip"
+          target: "bin.zip"
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+
+      - name: Extract Test Cases
+        run: unzip bin.zip && mv bin/*.bin test/
+
+      - name: Build
+        run: make build-difftest
+
+      - name: Test
+        run: ls && make run-difftest

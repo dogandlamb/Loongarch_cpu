@@ -1,0 +1,24 @@
+#-----------------------------------------------------------
+# Vivado v2023.2 (64-bit)
+# SW Build 4029153 on Fri Oct 13 20:14:34 MDT 2023
+# IP Build 4028589 on Sat Oct 14 00:45:43 MDT 2023
+# SharedData Build 4025554 on Tue Oct 10 17:18:54 MDT 2023
+# Start of session at: Fri May  8 21:06:45 2026
+# Process ID: 12168
+# Current directory: E:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/icache_way1_Bank2_ram_synth_1
+# Command line: vivado.exe -log icache_way1_Bank2_ram.vds -product Vivado -mode batch -messageDb vivado.pb -notrace -source icache_way1_Bank2_ram.tcl
+# Log file: E:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/icache_way1_Bank2_ram_synth_1/icache_way1_Bank2_ram.vds
+# Journal file: E:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/icache_way1_Bank2_ram_synth_1\vivado.jou
+# Running On: DESKTOP-829P7GE, OS: Windows, CPU Frequency: 1992 MHz, CPU Physical cores: 4, Host memory: 16984 MB
+#-----------------------------------------------------------
+source icache_way1_Bank2_ram.tcl -notrace
+create_project: Time (s): cpu = 00:00:13 ; elapsed = 00:00:13 . Memory (MB): peak = 455.535 ; gain = 183.309
+INFO: [IP_Flow 19-6924] IPCACHE: Running cache check for IP inst: icache_way1_Bank2_ram
+INFO: [IP_Flow 19-6922] IPCACHE: Exporting cached entry 692907ba3c500c62 to dir: E:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/icache_way1_Bank2_ram_synth_1
+INFO: [IP_Flow 19-6928] IPCACHE: copied cached file e:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.cache/ip/2023.2/6/9/692907ba3c500c62/dcache_way0_Bank2_ram.dcp to E:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/icache_way1_Bank2_ram_synth_1/icache_way1_Bank2_ram.dcp.
+INFO: [IP_Flow 19-6928] IPCACHE: copied cached file e:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.cache/ip/2023.2/6/9/692907ba3c500c62/dcache_way0_Bank2_ram_sim_netlist.v to E:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/icache_way1_Bank2_ram_synth_1/icache_way1_Bank2_ram_sim_netlist.v.
+INFO: [IP_Flow 19-6928] IPCACHE: copied cached file e:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.cache/ip/2023.2/6/9/692907ba3c500c62/dcache_way0_Bank2_ram_sim_netlist.vhdl to E:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/icache_way1_Bank2_ram_synth_1/icache_way1_Bank2_ram_sim_netlist.vhdl.
+INFO: [IP_Flow 19-6928] IPCACHE: copied cached file e:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.cache/ip/2023.2/6/9/692907ba3c500c62/dcache_way0_Bank2_ram_stub.v to E:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/icache_way1_Bank2_ram_synth_1/icache_way1_Bank2_ram_stub.v.
+INFO: [IP_Flow 19-6928] IPCACHE: copied cached file e:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.cache/ip/2023.2/6/9/692907ba3c500c62/dcache_way0_Bank2_ram_stub.vhdl to E:/Loongarch_cpu/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/icache_way1_Bank2_ram_synth_1/icache_way1_Bank2_ram_stub.vhdl.
+INFO: [IP_Flow 19-4838] Using cached IP synthesis design for IP icache_way1_Bank2_ram, cache-ID = 692907ba3c500c62.
+INFO: [Common 17-206] Exiting Vivado at Fri May  8 21:07:09 2026...

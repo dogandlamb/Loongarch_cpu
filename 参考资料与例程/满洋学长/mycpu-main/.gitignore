@@ -1,0 +1,48 @@
+# Vivado files
+.Xil/
+*.cache/
+*.hw/
+*.ip_user_files/
+*.runs/
+*.sim/
+*.srcs/
+*.ioplanning/
+vivado*
+
+# VSCode configuration files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Verilator output files
+obj_dir/
+wave.vcd
+
+# Misc log files
+logs/
+log
+
+#la_code
+la_code
+
+# Difftest related files
+difftest/
+src/emu-compile
+src/emu
+src/lock-emu
+src/time.log
+src/.history
+la32-nemu-interpreter-so
+test/*.bin
+test/*.s
+build/
+
+# Branch Predictor Test data
+src/vsrc/branch_predictor/data
+
+# System Verilog language server
+.svlint.toml
+.svls.toml
+
+# BPU traces
+**/BPU/data

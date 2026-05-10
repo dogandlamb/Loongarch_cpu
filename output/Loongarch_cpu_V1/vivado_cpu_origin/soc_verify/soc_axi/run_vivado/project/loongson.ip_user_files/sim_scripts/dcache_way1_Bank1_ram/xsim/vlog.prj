@@ -1,0 +1,7 @@
+verilog xil_defaultlib  \
+"../../../../../../../../../loongson.gen/sources_1/ip/dcache_way1_Bank1_ram_1/sim/dcache_way1_Bank1_ram.v" \
+
+verilog xil_defaultlib "glbl.v"
+
+# Do not sort compile order
+nosort
