@@ -1,0 +1,3 @@
+Loongarch_cpu_V1 5.9完成 无bpu 过教材79仿真点 AXI、异常、cache等基础的五级流水CPU
+Loongarch_cpu_V2 6.9完成 无bpu 过chiplab 82仿真点 提交包58仿真点 接入diffeset比对（对正常编译无影响） 基础的五级流水CPU
+Loongarch_cpu_V3_developing 开发中的乱序双发射 CPU
