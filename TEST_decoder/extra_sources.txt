@@ -1,6 +1,0 @@
-../common/deps/inst_dec.v
-../common/deps/op_dec.v
-../common/deps/imm_generator.v
-../common/deps/get_reg_read_addr.v
-../common/deps/decode_tools.v
-../common/deps/exception_Decoder.v

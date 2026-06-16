@@ -101,6 +101,7 @@ assign rd = inst[ 4: 0];
 assign rj = inst[ 9: 5];
 assign rk = inst[14:10];
 
+//v1版本使用无意义，当时好像就是为了过仿真和编译
 assign grra_unused_inputs = reset | inst_lu12i_w | inst_pcaddu12i | (|inst);
 
 assign need_rj = inst_add_w  | inst_addi_w | inst_slti | inst_sltui
