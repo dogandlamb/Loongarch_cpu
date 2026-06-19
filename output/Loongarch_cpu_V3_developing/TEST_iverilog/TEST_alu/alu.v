@@ -47,6 +47,8 @@ module alu(
     wire op_div_wu;
     wire op_mod_w;
     wire op_mod_wu;
+    wire op_andn;
+    wire op_orn;
     
     assign op_add     = alu_op[`ALU_OP_ADD];
     assign op_sub     = alu_op[`ALU_OP_SUB];
@@ -67,6 +69,9 @@ module alu(
     assign op_div_wu  = alu_op[`ALU_OP_DIV_WU];
     assign op_mod_w   = alu_op[`ALU_OP_MOD_W];
     assign op_mod_wu  = alu_op[`ALU_OP_MOD_WU];
+    assign op_andn    = alu_op[`ALU_OP_ANDN];
+    assign op_orn     = alu_op[`ALU_OP_ORN];
+    
     
     wire op_mul_any          = op_mul_w | op_mulh_w | op_mulh_wu; // any指任意一个，w、wu...
     wire op_div_signed_any   = op_div_w | op_mod_w;
@@ -94,6 +99,8 @@ module alu(
     wire [31:0] sll_result     = alu_src1 << alu_src2[4:0];
     wire [63:0] sr64_result    = {{32{op_sra & alu_src1[31]}}, alu_src1} >> alu_src2[4:0];
     wire [31:0] sr_result      = sr64_result[31:0];
+    wire [31:0] andn_result    = alu_src1 & ~alu_src2;
+    wire [31:0] orn_result     = alu_src1 | ~alu_src2;
     
     
     
@@ -240,7 +247,8 @@ module alu(
     
     
     wire op_alu_1cycle = op_add | op_sub | op_slt | op_sltu | op_and | op_nor
-                       | op_or  | op_xor | op_sll | op_srl  | op_sra | op_lui; // 1cycle指单周期操作
+                       | op_or  | op_xor | op_sll | op_srl  | op_sra | op_lui
+                       | op_andn | op_orn; // 1cycle指单周期操作
     wire mul_result_ok = op_mul_any && op_mul_any_d && !mul_is_new;
     
     assign alu_result_valid = op_alu_1cycle | mul_result_ok | div_result_ok;
@@ -260,7 +268,9 @@ module alu(
                           | ({32{op_mulh_w}} & mulh_w_result)
                           | ({32{op_mulh_wu}} & mulh_wu_result)
                           | ({32{op_div_w | op_div_wu}} & div_quot_result)
-                          | ({32{op_mod_w | op_mod_wu}} & div_rem_result);
+                          | ({32{op_mod_w | op_mod_wu}} & div_rem_result)
+                          | ({32{op_andn}} & andn_result)
+                          | ({32{op_orn}} & orn_result);
     
     // mul_result_raw 在首几拍可为 X；若 alu_wide_hi_lint 参与异或自消去，会把 X 扩散到 alu_result，毒化 addi 等单周期运算
     assign alu_result = alu_result_mux;
