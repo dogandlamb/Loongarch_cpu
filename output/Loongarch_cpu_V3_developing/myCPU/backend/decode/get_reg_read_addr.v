@@ -3,7 +3,7 @@
 // ============================================================
 // get_reg_read_addr 模块（源寄存器读地址生成）
 // ------------------------------------------------------------
-// 新架构角色：被 decoder.v 内部例化复用，生成 src0/src1 读地址：
+// 被 decoder.v 内部例化复用，生成 src0/src1 读地址：
 // - 大多数指令：src0 读 rj，src1 读 rk/rd（store 数据、分支比较第二源）；
 // - CSR 指令特例：csrwr 源在 rd；csrxchg mask=rj、写值=rd。
 // 零改动复用（decoder 直接把两个输出当 src0_addr/src1_addr）。
@@ -101,6 +101,7 @@ assign rd = inst[ 4: 0];
 assign rj = inst[ 9: 5];
 assign rk = inst[14:10];
 
+//v1版本使用无意义，当时好像就是为了过仿真和编译
 assign grra_unused_inputs = reset | inst_lu12i_w | inst_pcaddu12i | (|inst);
 
 assign need_rj = inst_add_w  | inst_addi_w | inst_slti | inst_sltui
