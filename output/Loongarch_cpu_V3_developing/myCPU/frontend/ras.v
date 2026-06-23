@@ -1,20 +1,11 @@
 // ============================================================
 // ras 模块（Return Address Stack，返回地址栈，双栈结构）
 // ------------------------------------------------------------
-// 功能：
-// - 预测函数返回指令（jirl rd=r0, rj=r1）的目标地址。
-// - 双栈结构（参考团队赛 ras_my.sv）：
-//   * 前端推测栈：BPU 预测到 CALL 时 push（返回地址 = call 块的 fall_through），
-//     预测到 RET 时 pop 并把栈顶作为预测目标。会被错误路径污染。
-//   * 提交栈：commit 级提交真正的 call/ret 时维护，永远正确。
-//   * 全局冲刷（flush）时：前端栈整体复制提交栈内容，消除推测污染。
-// - 仅由 bpu.v 内部例化。
-//
-// 端口：
-// - spec_push/pop  ：前端推测维护（BPU P1 级预测 CALL/RET 时）
-// - top_addr_o     ：前端栈栈顶（RET 的预测目标）
-// - cmt_push/pop   ：提交栈维护（commit 提交 call/ret 时）
-// - flush_i        ：冲刷时前端栈 <= 提交栈
+// 参考实现说明：
+// - 前端推测栈（BPU 预测 CALL push / RET pop）+ 提交栈（commit 维护，恒正确）；
+// - flush 时前端栈整体复制提交栈（指针+内容+计数一拍对拷）；
+// - 同拍 flush 与 cmt_push/pop：先算提交栈新值再恢复（用 next 值）；
+// - 栈满环形回绕覆盖最旧项（深调用链精度下降可接受）。
 // ============================================================
 `include "mycpu.h"
 
@@ -38,31 +29,54 @@ module ras(
     input  wire                cmt_pop_i           // commit 提交 ret
 );
 
-//TODO: 实现双栈 RAS（参考：团队赛 ras_my.sv 的 pre_train_lutram + BU_lutram 双栈方案）
-//
-//TODO: 存储结构（LUTRAM/reg，当拍读栈顶）：
-//      reg [31:0]        spec_stack[0:`RAS_DEPTH-1];  reg [`RAS_W-1:0] spec_ptr;  // 前端栈
-//      reg [31:0]        cmt_stack [0:`RAS_DEPTH-1];  reg [`RAS_W-1:0] cmt_ptr;   // 提交栈
-//      可以各加一个计数器/空标志位实现 empty_o。
-//
-//TODO: 前端栈操作：
-//      spec_push_i: spec_stack[spec_ptr+1] <= spec_push_addr_i; spec_ptr <= spec_ptr+1;
-//      spec_pop_i : spec_ptr <= spec_ptr-1;
-//      同拍 push+pop（call 和 ret 不会同拍出现在同一个预测块，无需处理）。
-//      栈满回绕覆盖最旧项（环形指针自然处理，深调用链超过 32 层时精度下降可接受）。
-//
-//TODO: 提交栈操作：cmt_push_i / cmt_pop_i 同理维护 cmt_stack/cmt_ptr。
-//
-//TODO: 冲刷恢复：
-//      flush_i 时：spec_ptr <= cmt_ptr; 且 spec_stack 内容整体复制 cmt_stack。
-//      32 项 ×32bit 的整体复制用 generate-for 一拍完成（LUTRAM 阵列对拷，
-//      团队赛就是这样做的；面积可接受）。
-//
-//TODO: 坑点提示：
-//      1. "返回地址"定义务必统一：BPU 推测 push 的是预测块的 fall_through，
-//         commit push 的是 call 指令 PC+4 —— 两者必须是同一个值
-//         （call 一定是块内最后一条指令，fall_through == call_pc+4，自行确保）。
-//      2. flush 与 cmt_push/pop 同拍时：先完成提交栈更新、再用更新后的值恢复
-//         前端栈（即恢复用 cmt_ptr 的"新值"），否则会差一层。
+reg [31:0]        spec_stack [0:`RAS_DEPTH-1];
+reg [31:0]        cmt_stack  [0:`RAS_DEPTH-1];
+reg [`RAS_W-1:0]  spec_ptr,  cmt_ptr;     // 指向当前栈顶
+reg [`RAS_W:0]    spec_cnt,  cmt_cnt;     // 计数（饱和在 DEPTH）
+
+// 提交栈 next 值（flush 同拍先提交后恢复）
+wire [`RAS_W-1:0] cmt_ptr_n = cmt_push_i ? (cmt_ptr + 1'b1)
+                            : (cmt_pop_i && (cmt_cnt != 0)) ? (cmt_ptr - 1'b1)
+                            : cmt_ptr;
+wire [`RAS_W:0]   cmt_cnt_n = cmt_push_i ? ((cmt_cnt == `RAS_DEPTH) ? cmt_cnt : (cmt_cnt + 1'b1))
+                            : (cmt_pop_i && (cmt_cnt != 0)) ? (cmt_cnt - 1'b1)
+                            : cmt_cnt;
+
+assign top_addr_o = spec_stack[spec_ptr];
+assign empty_o    = (spec_cnt == 0);
+
+integer k;
+always @(posedge clk) begin
+    if (reset) begin
+        spec_ptr <= {`RAS_W{1'b0}};
+        cmt_ptr  <= {`RAS_W{1'b0}};
+        spec_cnt <= {(`RAS_W+1){1'b0}};
+        cmt_cnt  <= {(`RAS_W+1){1'b0}};
+    end else begin
+        // ---- 提交栈 ----
+        if (cmt_push_i) cmt_stack[cmt_ptr + 1'b1] <= cmt_push_addr_i;
+        cmt_ptr <= cmt_ptr_n;
+        cmt_cnt <= cmt_cnt_n;
+
+        // ---- 前端栈 ----
+        if (flush_i) begin
+            // 整体复制提交栈（用本拍提交后的新值）
+            for (k = 0; k < `RAS_DEPTH; k = k + 1)
+                spec_stack[k] <= cmt_stack[k];
+            if (cmt_push_i) spec_stack[cmt_ptr + 1'b1] <= cmt_push_addr_i;
+            spec_ptr <= cmt_ptr_n;
+            spec_cnt <= cmt_cnt_n;
+        end else begin
+            if (spec_push_i) begin
+                spec_stack[spec_ptr + 1'b1] <= spec_push_addr_i;
+                spec_ptr <= spec_ptr + 1'b1;
+                if (spec_cnt != `RAS_DEPTH) spec_cnt <= spec_cnt + 1'b1;
+            end else if (spec_pop_i && (spec_cnt != 0)) begin
+                spec_ptr <= spec_ptr - 1'b1;
+                spec_cnt <= spec_cnt - 1'b1;
+            end
+        end
+    end
+end
 
 endmodule

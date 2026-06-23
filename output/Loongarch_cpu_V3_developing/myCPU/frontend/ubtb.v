@@ -1,17 +1,11 @@
 // ============================================================
 // ubtb 模块（micro-BTB，当拍返回的小型分支目标缓冲）
 // ------------------------------------------------------------
-// 功能：
-// - `UBTB_SIZE（16）项全相联小表，用触发器/LUTRAM 实现，查询当拍组合返回。
-// - 解决"taken bubble"问题：FTB/TAGE 走 BRAM 有 1 拍延迟，且 FTB 只在提交时
-//   训练（小循环里 FTB 还没学会，BPU 就已经又预测到该分支了）。uBTB 在
-//   分支提交训练时立即回填"向回跳转"的分支，使下一次循环 P0 当拍即可命中。
-// - 仅由 bpu.v 内部例化，不直接连顶层。
-//
-// 端口：
-// - query_pc_i      ：当前预测块起始 PC（组合查询）
-// - hit_o/taken_o…  ：当拍命中信息（给 P0 块）
-// - update_*        ：提交训练回填口（仅回填回跳分支）
+// 参考实现说明：
+// - 16 项全相联（完整 32 位块 PC 做 tag），查询纯组合当拍返回；
+// - 仅回填"实际发生跳转的向回分支"（target < block_pc，小循环），
+//   命中即预测跳转（taken 恒 1）；
+// - 替换：同 tag 原地更新 > 无效项 > 轮转替换。
 // ============================================================
 `include "mycpu.h"
 
@@ -22,7 +16,7 @@ module ubtb(
     // ---------------- 查询口（组合，当拍返回）----------------
     input  wire [31:0]                query_pc_i,        // 预测块起始 PC
     output wire                       hit_o,             // 命中
-    output wire                       taken_o,           // 命中项的方向（uBTB 一般只存恒跳/强跳分支）
+    output wire                       taken_o,           // 命中项的方向（uBTB 只存恒跳/强跳分支）
     output wire [31:0]                target_o,          // 跳转目标
     output wire [`BLK_LEN_W-1:0]      length_o,          // 块长（起始 PC 到分支指令的条数）
     output wire [`BR_TYPE_W-1:0]      br_type_o,
@@ -36,30 +30,74 @@ module ubtb(
     input  wire [`BR_TYPE_W-1:0]      update_br_type_i
 );
 
-//TODO: 实现 16 项全相联 uBTB（参考：团队赛报告 2.2.1.3 节 uBTB 设计；代码中无实现需自写）
-//
-//TODO: 存储结构（全部用 reg，保证当拍组合读出）：
-//      reg [`UBTB_SIZE-1:0]        valid;
-//      reg [31:0]                  tag   [0:`UBTB_SIZE-1];  // 直接存完整块起始 PC 做精确匹配
-//      reg [31:0]                  target[0:`UBTB_SIZE-1];
-//      reg [`BLK_LEN_W-1:0]        length[0:`UBTB_SIZE-1];
-//      reg [`BR_TYPE_W-1:0]        btype [0:`UBTB_SIZE-1];
-//      （16 项很小，tag 存满 32 位没压力；也可以学团队赛用 pc 低位索引+高位 tag）
-//
-//TODO: 查询逻辑（纯组合）：
-//      hit = |（valid[i] && tag[i]==query_pc_i）；命中项输出 target/length/btype，taken 恒 1
-//      （uBTB 只回填"实际发生跳转"的分支，所以命中即预测跳转）
-//
-//TODO: 更新逻辑（时序）：
-//      仅当 update_valid_i && update_taken_i && (update_target_i < update_block_pc_i)
-//      （即向回跳转的循环分支）时写入：
-//        - 已有同 tag 项 -> 原地更新
-//        - 否则 -> 选一个 invalid 项写入；全满则用 LFSR/计数器随机替换一项
-//
-//TODO: 坑点提示：
-//      1. uBTB 与 FTB 给出的信息冲突时，以 P1（FTB）覆盖为准——bpu.v 已有覆盖机制，
-//         本模块不需要管。
-//      2. 一期可先不实现（hit_o 恒 0），整个前端仍可正常工作，只是小循环每次
-//         多 1 拍 taken bubble；建议前端跑通后再启用本模块对比性能。
+reg [`UBTB_SIZE-1:0]   valid;
+reg [31:0]             tag    [0:`UBTB_SIZE-1];
+reg [31:0]             target [0:`UBTB_SIZE-1];
+reg [`BLK_LEN_W-1:0]   length [0:`UBTB_SIZE-1];
+reg [`BR_TYPE_W-1:0]   btype  [0:`UBTB_SIZE-1];
+reg [3:0]              repl_ptr;
+
+// ---------------- 查询（全相联组合比较）----------------
+wire [`UBTB_SIZE-1:0] q_hit;
+genvar g;
+generate
+for (g = 0; g < `UBTB_SIZE; g = g + 1) begin : gen_qhit
+    assign q_hit[g] = valid[g] && (tag[g] == query_pc_i);
+end
+endgenerate
+
+reg [3:0]  q_idx;
+integer qi;
+always @(*) begin
+    q_idx = 4'd0;
+    for (qi = `UBTB_SIZE-1; qi >= 0; qi = qi - 1)
+        if (q_hit[qi]) q_idx = qi[3:0];
+end
+
+assign hit_o     = |q_hit;
+assign taken_o   = |q_hit;            // 只存跳转分支，命中即预测跳
+assign target_o  = target[q_idx];
+assign length_o  = length[q_idx];
+assign br_type_o = btype[q_idx];
+
+// ---------------- 更新（仅回填向回跳转的分支）----------------
+wire do_fill = update_valid_i && update_taken_i && (update_target_i < update_block_pc_i);
+
+wire [`UBTB_SIZE-1:0] u_hit;
+generate
+for (g = 0; g < `UBTB_SIZE; g = g + 1) begin : gen_uhit
+    assign u_hit[g] = valid[g] && (tag[g] == update_block_pc_i);
+end
+endgenerate
+
+reg [3:0]  u_idx;
+reg        u_found;
+reg [3:0]  inv_idx;
+reg        inv_found;
+integer ui;
+always @(*) begin
+    u_found = 1'b0;  u_idx = 4'd0;
+    inv_found = 1'b0; inv_idx = 4'd0;
+    for (ui = `UBTB_SIZE-1; ui >= 0; ui = ui - 1) begin
+        if (u_hit[ui]) begin u_found = 1'b1; u_idx = ui[3:0]; end
+        if (!valid[ui]) begin inv_found = 1'b1; inv_idx = ui[3:0]; end
+    end
+end
+
+wire [3:0] fill_idx = u_found ? u_idx : inv_found ? inv_idx : repl_ptr;
+
+always @(posedge clk) begin
+    if (reset) begin
+        valid    <= {`UBTB_SIZE{1'b0}};
+        repl_ptr <= 4'd0;
+    end else if (do_fill) begin
+        valid[fill_idx]  <= 1'b1;
+        tag[fill_idx]    <= update_block_pc_i;
+        target[fill_idx] <= update_target_i;
+        length[fill_idx] <= update_length_i;
+        btype[fill_idx]  <= update_br_type_i;
+        if (!u_found && !inv_found) repl_ptr <= repl_ptr + 4'd1;
+    end
+end
 
 endmodule

@@ -1,4 +1,4 @@
-../common/deps/ubtb.v
-../common/deps/ftb.v
-../common/deps/tage.v
-../common/deps/ras.v
+../../myCPU/frontend/ubtb.v
+../../myCPU/frontend/ftb.v
+../../myCPU/frontend/tage.v
+../../myCPU/frontend/ras.v

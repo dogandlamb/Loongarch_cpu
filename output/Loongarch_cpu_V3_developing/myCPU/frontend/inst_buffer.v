@@ -1,22 +1,3 @@
-// ============================================================
-// inst_buffer 模块（指令缓冲，前后端解耦 FIFO）
-// ------------------------------------------------------------
-// 功能：
-// - `IB_SIZE（16）项 FIFO：前端每拍最多写入 `FETCH_WIDTH（4）条，
-//   后端每拍最多读出 `MACHINE_WIDTH（2）条去译码/重命名。
-// - 吸收前端（4 宽突发取指）与后端（2 宽消费）的速率差，
-//   前端 icache miss 时后端可继续消费存量，后端阻塞时前端可继续取指。
-// - 每项内容：{pc, inst, pred_taken, is_last_in_block, ftq_id, 取指异常向量}。
-// - "灵活判满"：按本拍实际要写入的条数动态判断是否还有空间
-//   （而不是永远保留 4 个空位），提高缓冲利用率（参考团队赛 inst_buffer.sv）。
-//
-// 端口：
-// - push0~3_*    ：前端写入口（ifu 的 ib_push* 直连）
-// - can_push_o   ：本拍可写入（给 ifu 反压）
-// - pop0/1_*     ：后端读出口（两槽，0 槽更老）
-// - pop0/1_ready ：后端收走使能（rename 级反压）
-// - flush_i      ：全局冲刷清空
-// ============================================================
 `include "mycpu.h"
 
 module inst_buffer(
@@ -24,7 +5,6 @@ module inst_buffer(
     input  wire                       reset,
     input  wire                       flush_i,
 
-    // ---------------- 前端写入口（最多 4 条/拍）----------------
     input  wire                       push0_valid_i,
     input  wire [31:0]                push0_pc_i,
     input  wire [31:0]                push0_inst_i,
@@ -57,9 +37,8 @@ module inst_buffer(
     input  wire [`FTQ_W-1:0]          push3_ftq_id_i,
     input  wire [`EXCP_NUM-1:0]       push3_excp_i,
 
-    output wire                       can_push_o,         // 本拍可接收 ifu 给出的全部有效条目
+    output wire                       can_push_o,
 
-    // ---------------- 后端读出口（2 槽，槽 0 更老）----------------
     output wire                       pop0_valid_o,
     output wire [31:0]                pop0_pc_o,
     output wire [31:0]                pop0_inst_o,
@@ -67,7 +46,7 @@ module inst_buffer(
     output wire                       pop0_is_last_o,
     output wire [`FTQ_W-1:0]          pop0_ftq_id_o,
     output wire [`EXCP_NUM-1:0]       pop0_excp_o,
-    input  wire                       pop0_ready_i,       // rename 级本拍收走槽 0
+    input  wire                       pop0_ready_i,
 
     output wire                       pop1_valid_o,
     output wire [31:0]                pop1_pc_o,
@@ -76,35 +55,90 @@ module inst_buffer(
     output wire                       pop1_is_last_o,
     output wire [`FTQ_W-1:0]          pop1_ftq_id_o,
     output wire [`EXCP_NUM-1:0]       pop1_excp_o,
-    input  wire                       pop1_ready_i        // rename 级本拍收走槽 1（收 1 必先收 0）
+    input  wire                       pop1_ready_i
 );
 
-//TODO: 实现 16 项环形 FIFO（参考：团队赛 inst_buffer.sv、满洋 instr_buffer.sv 多通道方案）
-//
-//TODO: 存储结构（reg/LUTRAM，当拍读）：
-//      每项打包成一个宽位向量存放：{excp, ftq_id, is_last, pred_taken, inst, pc}
-//      reg [ENTRY_W-1:0] mem[0:`IB_SIZE-1];  reg [`IB_W-1:0] head, tail;  reg [`IB_W:0] count;
-//      （用 count 计数器判满/空最直观，4 入 2 出位宽给足）
-//
-//TODO: 写入（灵活判满）：
-//      本拍写入条数 n = push0_valid + push1_valid + push2_valid + push3_valid（ifu 保证连续）；
-//      can_push_o = (count + n <= `IB_SIZE)。注意 can_push 是对"本拍这批"的判断，
-//      组合依赖 push*_valid，ifu 端用它做整批写/不写（不能拆半批）。
-//      写入时按 tail 依次放入 n 条，tail += n，count += n。
-//
-//TODO: 读出：
-//      pop0 = mem[head]，pop1 = mem[head+1]；valid 由 count 决定（>=1、>=2）。
-//      head 推进量 = pop0_ready + pop1_ready（约定 rename 收 1 必先收 0，
-//      即 pop1_ready=1 时必有 pop0_ready=1，双发射时同时收两条）。
-//      count 同拍按 入-出 增减。
-//
-//TODO: 冲刷：flush_i 时 head/tail/count 全清（IB 中全是错误路径或未发射指令，
-//      提交级冲刷语义下直接丢弃是安全的）。
-//
-//TODO: 坑点提示：
-//      1. 同拍又读又写时 count 的增减要合并到一个 always 块里算总账，
-//         分开写会综合出多驱动。
-//      2. pop 端口直接组合读 mem[head]，head 是 reg，没有读延迟问题；
-//         别把 mem 推断成 BRAM（保持 reg 数组+异步读写法，Vivado 会用 LUTRAM）。
+localparam ENTRY_W = `EXCP_NUM + `FTQ_W + 1 + 1 + 32 + 32;
+
+reg [ENTRY_W-1:0] mem [0:`IB_SIZE-1];
+reg [`IB_W-1:0]   head;
+reg [`IB_W-1:0]   tail;
+reg [`IB_W:0]     count;
+
+reg [ENTRY_W-1:0] pop0_entry_r;
+reg [ENTRY_W-1:0] pop1_entry_r;
+reg               pop0_valid_r;
+reg               pop1_valid_r;
+
+wire [ENTRY_W-1:0] push0_entry = {push0_excp_i, push0_ftq_id_i, push0_is_last_i,
+                                  push0_pred_taken_i, push0_inst_i, push0_pc_i};
+wire [ENTRY_W-1:0] push1_entry = {push1_excp_i, push1_ftq_id_i, push1_is_last_i,
+                                  push1_pred_taken_i, push1_inst_i, push1_pc_i};
+wire [ENTRY_W-1:0] push2_entry = {push2_excp_i, push2_ftq_id_i, push2_is_last_i,
+                                  push2_pred_taken_i, push2_inst_i, push2_pc_i};
+wire [ENTRY_W-1:0] push3_entry = {push3_excp_i, push3_ftq_id_i, push3_is_last_i,
+                                  push3_pred_taken_i, push3_inst_i, push3_pc_i};
+
+wire [2:0] push_n = {2'b0, push0_valid_i} + {2'b0, push1_valid_i}
+                  + {2'b0, push2_valid_i} + {2'b0, push3_valid_i};
+wire pop0_fire = pop0_ready_i && pop0_valid_r;
+wire pop1_fire = pop0_fire && pop1_ready_i && pop1_valid_r;
+wire [1:0] pop_n = {1'b0, pop0_fire} + {1'b0, pop1_fire};
+
+assign can_push_o = (count + {2'b0, push_n}) <= `IB_SIZE;
+
+wire [`IB_W-1:0] head_plus1 = head + {{(`IB_W-1){1'b0}}, 1'b1};
+wire [`IB_W-1:0] tail_plus1 = tail + {{(`IB_W-1){1'b0}}, 1'b1};
+wire [`IB_W-1:0] tail_plus2 = tail + {{(`IB_W-2){1'b0}}, 2'd2};
+wire [`IB_W-1:0] tail_plus3 = tail + {{(`IB_W-2){1'b0}}, 2'd3};
+
+assign {pop0_excp_o, pop0_ftq_id_o, pop0_is_last_o, pop0_pred_taken_o,
+        pop0_inst_o, pop0_pc_o} = pop0_entry_r;
+assign {pop1_excp_o, pop1_ftq_id_o, pop1_is_last_o, pop1_pred_taken_o,
+        pop1_inst_o, pop1_pc_o} = pop1_entry_r;
+assign pop0_valid_o = pop0_valid_r;
+assign pop1_valid_o = pop1_valid_r;
+
+integer i;
+initial begin
+    head = {`IB_W{1'b0}};
+    tail = {`IB_W{1'b0}};
+    count = {(`IB_W+1){1'b0}};
+    pop0_entry_r = {ENTRY_W{1'b0}};
+    pop1_entry_r = {ENTRY_W{1'b0}};
+    pop0_valid_r = 1'b0;
+    pop1_valid_r = 1'b0;
+    for (i = 0; i < `IB_SIZE; i = i + 1)
+        mem[i] = {ENTRY_W{1'b0}};
+end
+
+always @(posedge clk or posedge reset or posedge flush_i) begin
+    if (reset || flush_i) begin
+        head <= {`IB_W{1'b0}};
+        tail <= {`IB_W{1'b0}};
+        count <= {(`IB_W+1){1'b0}};
+        pop0_entry_r <= {ENTRY_W{1'b0}};
+        pop1_entry_r <= {ENTRY_W{1'b0}};
+        pop0_valid_r <= 1'b0;
+        pop1_valid_r <= 1'b0;
+    end else begin
+        pop0_entry_r <= mem[head];
+        pop1_entry_r <= mem[head_plus1];
+        pop0_valid_r <= (count != {(`IB_W+1){1'b0}});
+        pop1_valid_r <= (count >= {{(`IB_W-1){1'b0}}, 2'd2});
+
+        if (can_push_o) begin
+            if (push0_valid_i) mem[tail]      <= push0_entry;
+            if (push1_valid_i) mem[tail_plus1] <= push1_entry;
+            if (push2_valid_i) mem[tail_plus2] <= push2_entry;
+            if (push3_valid_i) mem[tail_plus3] <= push3_entry;
+            tail <= tail + push_n[`IB_W-1:0];
+        end
+
+        head <= head + {{(`IB_W-2){1'b0}}, pop_n};
+        count <= count + (can_push_o ? {2'b0, push_n} : {(`IB_W+1){1'b0}})
+                       - {{(`IB_W-1){1'b0}}, pop_n};
+    end
+end
 
 endmodule
