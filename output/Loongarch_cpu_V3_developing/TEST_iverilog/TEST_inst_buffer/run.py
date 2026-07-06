@@ -7,7 +7,8 @@ DIR = Path(__file__).resolve().parent
 ROOT = DIR.parent
 COMMON = ROOT / "common"
 USE_REF = os.environ.get("USE_REF", "0") == "1"
-dut = DIR / (f"{MOD}_reference.v" if USE_REF else f"{MOD}.v")
+SRC_CPU = ROOT.parent / "myCPU" / "frontend"
+dut = DIR / f"{MOD}_reference.v" if USE_REF else SRC_CPU / f"{MOD}.v"
 tb = DIR / f"{MOD}_tb.v"
 out = DIR / "sim.vvp"
 

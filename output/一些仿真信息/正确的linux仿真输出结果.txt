@@ -1,0 +1,245 @@
+=============================================================================================================
+=============================================================================================================
+RUN simulation...
+=============================================================================================================
+=============================================================================================================
+make[1]: Entering directory '/home/dogandlamb/chiplab/sims/verilator/run_prog/tmp'
+../output --simu-bus-delay --simu-bus-delay-random-seed 5570815  --dump-delay 0 --dump-waveform 0 --time-limit 0 --save-bp-time 0 --ram-save-bp-file  --top-save-bp-file  --restore-bp-time 0 --ram-restore-bp-file  --top-restore-bp-file  --end-pc 0 --fork-child 0
+The image is ././ram.dat
+Using simulated 4096MB RAM
+Verilator Simulation Start.
+Start
+abcdefghij
+uart work!
+[    0.000000] Linux version 5.14.0-rc2-gbb6b2ca56ade-dirty (dogandlamb@admin) (loongarch32r-linux-gnusf-gcc (LoongArch GNU toolchain LA32 v2.0 (20230903)) 8.3.0, GNU ld (LoongArch GNU toolchain LA32 v2.0 20230903) 2.31.1.20190122) #2 PREEMPT Sun May 17 00:15:37 CST 2026
+[    0.000000] Standard 32-bit Loongson Processor probed
+[    0.000000] the link is empty!
+[    0.000000] Scan bootparam failed
+[    0.000000] printk: bootconsole [early0] enabled
+[    0.000000] initrd start < PAGE_OFFSET
+[    0.000000] Can't find EFI system table.
+[    0.000000] start_pfn=0x0, end_pfn=0x8000, num_physpages:0x8000
+[    0.000000] The BIOS Version: (null)
+[    0.000000] Initrd not found or empty - disabling initrd
+[    0.000000] CPU0 revision is: 00004200 (Loongson-32bit)
+[    0.000000] Primary instruction cache 8kB, 2-way, VIPT, linesize 16 bytes.
+[    0.000000] Primary data cache 8kB, 2-way, VIPT, no aliases, linesize 16 bytes
+[    0.000000] Zone ranges:
+[    0.000000]   DMA32    [mem 0x0000000000000000-0x00000000ffffffff]
+[    0.000000]   Normal   empty
+[    0.000000] Movable zone start for each node
+[    0.000000] Early memory node ranges
+[    0.000000]   node   0: [mem 0x0000000000000000-0x0000000007ffffff]
+[    0.000000] Initmem setup node 0 [mem 0x0000000000000000-0x0000000007ffffff]
+[    0.000000] eentry = 0xa0210000,tlbrentry = 0xa0201000
+[    0.000000] pcpu-alloc: s0 r0 d32768 u32768 alloc=1*32768
+[    0.000000] pcpu-alloc: [0] 0
+[    0.000000] Built 1 zonelists, mobility grouping on.  Total pages: 32480
+[    0.000000] Kernel command line: =/init loglevel=8
+[    0.000000] Dentry cache hash table entries: 16384 (order: 4, 65536 bytes, linear)
+[    0.000000] Inode-cache hash table entries: 8192 (order: 3, 32768 bytes, linear)
+[    0.000000] mem auto-init: stack:off, heap alloc:off, heap free:off
+[    0.000000] Memory: 115044K/131072K available (5080K kernel code, 1116K rwdata, 924K rodata, 5032K init, 473K bss, 16028K reserved, 0K cma-reserved)
+[    0.000000] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=1, Nodes=1
+[    0.000000] rcu: Preemptible hierarchical RCU implementation.
+[    0.000000] rcu:     RCU event tracing is enabled.
+[    0.000000]  Trampoline variant of Tasks RCU enabled.
+[    0.000000]  Tracing variant of Tasks RCU enabled.
+[    0.000000] rcu: RCU calculated value of scheduler-enlistment delay is 25 jiffies.
+[    0.000000] NR_IRQS: 320
+[    0.000000] Constant clock event device register
+[    0.000000] clocksource: Constant: mask: 0xffffffffffffffff max_cycles: 0x79c5e18f3, max_idle_ns: 440795202740 ns
+[    0.000000] Constant clock source device register
+[    0.004000] Console: colour dummy device 80x25
+[    0.008000] Calibrating delay loop (skipped), value calculated using timer frequency.. 66.00 BogoMIPS (lpj=132000)
+[    0.008000] pid_max: default: 32768 minimum: 301
+[    0.012000] Mount-cache hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    0.016000] Mountpoint-cache hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    0.072000] rcu: Hierarchical SRCU implementation.
+[    0.084000] devtmpfs: initialized
+[    0.108000] random: get_random_u32 called from bucket_table_alloc.isra.34+0x68/0x1e0 with crng_init=0
+[    0.120000] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 7645041785100000 ns
+[    0.120000] futex hash table entries: 256 (order: -1, 3072 bytes, linear)
+[    0.136000] NET: Registered PF_NETLINK/PF_ROUTE protocol family
+[    0.492000] pps_core: LinuxPPS API ver. 1 registered
+[    0.492000] pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
+[    0.516000] clocksource: Switched to clocksource Constant
+[    0.524000] FS-Cache: Loaded
+[    0.824000] NET: Registered PF_INET protocol family
+[    0.828000] IP idents hash table entries: 2048 (order: 2, 16384 bytes, linear)
+[    0.852000] tcp_listen_portaddr_hash hash table entries: 512 (order: 0, 4096 bytes, linear)
+[    0.852000] TCP established hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    0.856000] TCP bind hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    0.860000] TCP: Hash tables configured (established 1024 bind 1024)
+[    0.864000] UDP hash table entries: 256 (order: 0, 4096 bytes, linear)
+[    0.864000] UDP-Lite hash table entries: 256 (order: 0, 4096 bytes, linear)
+[    0.872000] NET: Registered PF_UNIX/PF_LOCAL protocol family
+[    0.940000] workingset: timestamp_bits=14 max_order=15 bucket_order=1
+[    1.016000] random: fast init done
+[    1.448000] IPMI message handler: version 39.2
+[    1.456000] ipmi device interface
+[    1.464000] ipmi_si: IPMI System Interface driver
+[    1.472000] ipmi_si: Unable to find any System Interface(s)
+[    1.736000] Serial: 8250/16550 driver, 16 ports, IRQ sharing enabled
+[    1.944000] printk: console [ttyS0] disabled
+[    1.952000] 1fe001e0.serial: ttyS0 at MMIO 0x1fe001e0 (irq = 18, base_baud = 2062500) is a 16550A
+[    1.960000] printk: console [ttyS0] enabled
+[    1.960000] printk: console [ttyS0] enabled
+[    1.976000] printk: bootconsole [early0] disabled
+[    1.976000] printk: bootconsole [early0] disabled
+[    2.032000] ls1a-nand driver initializing
+[    2.040000] ls1a_nand : mtd struct base address is a182b800
+[    2.048000] info->data_buff===================0x81943000
+[    2.080000] nand: No NAND device found
+[    2.088000] ls1a-nand 1fe78000.nand: failed to scan nand
+[    2.100000] ITC MAC 10/100M Fast Ethernet Adapter driver 1.0 init
+[    2.212000] libphy: Fixed MDIO Bus: probed
+[    2.248000] mousedev: PS/2 mouse device common for all mice
+[    2.288000] IR MCE Keyboard/mouse protocol handler initialized
+[    2.312000] hid: raw HID events driver (C) Jiri Kosina
+[    2.408000] NET: Registered PF_INET6 protocol family
+[    2.492000] Segment Routing with IPv6
+[    2.500000] sit: IPv6, IPv4 and MPLS over IPv4 tunneling driver
+[    4.604000] Warning: unable to open an initial console.
+[    5.488000] Freeing unused kernel image (initmem) memory: 5032K
+[    5.496000] This architecture does not have kernel memory protection.
+[    5.504000] Run /init as init process
+[    5.508000]   with arguments:
+[    5.512000]     /init
+[    5.516000]   with environment:
+[    5.520000]     HOME=/
+[    5.520000]     TERM=linux
+
+Processing /etc/profile... Done
+
+/ # ls /
+ls /
+ls /bin /sbin /etc
+ls /bin /sbin /etc
+bin      emb      init     lib32    media    proc     sys      usr
+dev      etc      lib      linuxrc  mnt      sbin     tmp      var
+/ # ls /bin /sbin /etc
+/bin:
+arch           echo           link           nice           setpriv
+ash            ed             linux32        nuke           setserial
+base64         egrep          linux64        pidof          sh
+busybox        false          ln             ping           sleep
+cat            fatattr        login          ping6          stat
+chattr         fdflush        ls             pipe_progress  stty
+chgrp          fgrep          lsattr         printenv       su
+chmod          fsync          lzop           ps             sync
+chown          getopt         makemime       pwd            tar
+conspy         grep           mkdir          reformime      touch
+cp             gunzip         mknod          resume         true
+cpio           gzip           mktemp         rev            umount
+cttyhack       hostname       more           rm             uname
+date           hush           mount          rmdir          usleep
+dd             ionice         mountpoint     rpm            vi
+df             iostat         mpstat         run-parts      watch
+dmesg          ipcalc         mt             scriptreplay   zcat
+dnsdomainname  kbd_mode       mv             sed
+dumpkmap       kill           netstat        setarch
+
+/etc:
+fstab    init.d   inittab  profile
+
+/sbin:
+acpid              hwclock            lsmod              run-init
+adjtimex           ifconfig           makedevs           runlevel
+arp                ifdown             mdev               setconsole
+blkid              ifenslave          mkdosfs            slattach
+blockdev           ifup               mke2fs             start-stop-daemon
+bootchartd         init               mkfs.ext2          sulogin
+depmod             insmod             mkfs.minix         swapoff
+devmem             ip                 mkfs.vfat          swapon
+fbsplash           ipaddr             mkswap             switch_root
+fdisk              iplink             modinfo            sysctl
+findfs             ipneigh            modprobe           syslogd
+freeramdisk        iproute            nameif             tc
+fsck               iprule             pivot_root         tunctl
+fsck.minix         iptunnel           poweroff           udhcpc
+fstrim             klogd              raidautorun        uevent
+getty              loadkmap           reboot             vconfig
+halt               logread            rmmod              watchdog
+hdparm             losetup            route              zcip
+/ # cat /etc/init.d/rcS
+mount
+ps
+uname -acat
+ /etc/init.d/rcS
+ls -l
+cat /proc/cpuinfo
+free
+ifconfig          # 仿真里网卡可能无真实链路
+echo hellols -l
+
+cat /proc/cpuinfo
+free
+ifconfig          # 仿真里网卡可能无真实链路
+echo hello
+#! /bin/sh
+
+/bin/mount -a
+/ # mount
+rootfs on / type rootfs (rw,size=57520k,nr_inodes=14380)
+none on /dev type devtmpfs (rw,relatime,size=57520k,nr_inodes=14380,mode=755)
+proc on /proc type proc (rw,relatime)
+sys on /sys type sysfs (rw,relatime)
+/ # ps
+PID   USER     TIME  COMMAND
+    1 0         0:02 init
+    2 0         0:00 [kthreadd]
+    3 0         0:00 [rcu_gp]
+    4 0         0:00 [rcu_par_gp]
+    5 0         0:00 [kworker/0:0-rcu]
+    6 0         0:00 [kworker/0:0H-ev]
+    7 0         0:02 [kworker/u2:0-ev]
+    8 0         0:00 [mm_percpu_wq]
+    9 0         0:00 [rcu_tasks_kthre]
+   10 0         0:00 [rcu_tasks_trace]
+   11 0         0:00 [ksoftirqd/0]
+   12 0         0:00 [rcu_preempt]
+   13 0         0:00 [kdevtmpfs]
+   14 0         0:00 [inet_frag_wq]
+   15 0         0:00 [kworker/0:1-eve]
+   16 0         0:00 [oom_reaper]
+   17 0         0:00 [writeback]
+   18 0         0:00 [kcompactd0]
+   19 0         0:00 [kworker/0:1H]
+   20 0         0:00 [kworker/u2:1-ev]
+   21 0         0:00 [kswapd0]
+   22 0         0:00 [mld]
+   23 0         0:00 [ipv6_addrconf]
+   24 0         0:00 [kworker/u2:2]
+   30 0         0:00 -/bin/sh
+   31 0         0:00 init
+   36 0         0:00 ps
+/ # uname -a
+Linux (none) 5.14.0-rc2-gbb6b2ca56ade-dirty #2 PREEMPT Sun May 17 00:15:37 CST 2026 loongarch32r GNU/Linux
+/ # ls -l
+total 4
+drwxr-xr-x    2 1000     1000          1900 May 16  2026 bin
+drwxr-xr-x    3 0        0             2720 Jan  1 00:00 dev
+drwxr-xr-x    2 1000     1000            40 May 16  2026 emb
+drwxr-xr-x    3 1000     1000           120 May 16  2026 etc
+-rwxr-xr-x    1 1000     1000           151 Apr 16  2022 init
+drwxr-xr-x    3 1000     1000           140 May 16  2026 lib
+lrwxrwxrwx    1 1000     1000             3 May 16  2026 lib32 -> lib
+lrwxrwxrwx    1 1000     1000            11 May 16  2026 linuxrc -> bin/busybox
+drwxr-xr-x    2 1000     1000            40 May 16  2026 media
+drwxr-xr-x    2 1000     1000            40 May 16  2026 mnt
+dr-xr-xr-x   71 0        0                0 Jan  1 00:00 proc
+drwxr-xr-x    2 1000     1000          1480 May 16  2026 sbin
+dr-xr-xr-x   10 0        0                0 Jan  1 00:00 sys
+drwxr-xr-x    2 1000     1000            40 May 16  2026 tmp
+drwxr-xr-x    5 1000     1000           100 May 16  2026 usr
+drwxr-xr-x    2 1000     1000            40 May 16  2026 var
+/ # cat /proc/cpuinfo
+/ # free
+              total        used        free      shared  buff/cache   available
+Mem:         120076        3520      111552        4820        5004      109616
+Swap:             0           0           0
+/ # ifconfig          # ????????????
+/ # echo hello
+hello
+/ #

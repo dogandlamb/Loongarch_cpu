@@ -1,20 +1,13 @@
 // ============================================================
 // ftb 模块（Fetch Target Buffer，取指目标缓冲）
 // ------------------------------------------------------------
-// 功能：
-// - 以"基本块"为单位存储分支信息：用块起始 PC 查询，命中则给出
-//   该块内第一条分支的（类型 / 跳转目标 / 顺序出口 fall-through）。
-// - BPU 据此算出真实块长（fall_through - start_pc）和预测方向来源
-//   （COND 用 TAGE 方向；CALL/UNCOND 恒跳；RET 目标用 RAS）。
-// - `FTB_NWAY（4）路组相联 × `FTB_NSET（1024）组，BRAM 实现，
-//   查询有 1 拍延迟（结果在 BPU 的 P1 级使用）。
-// - 只在基本块"提交"时训练/更新（保证存入的信息永远正确，
-//   推测路径不会污染 FTB —— 参考团队赛报告 2.2.1.2 节）。
-//
-// 端口：
-// - query_pc_i           ：预测块起始 PC（本拍发起，下一拍出结果）
-// - hit_o / entry 各字段 ：下一拍返回的命中信息
-// - update_*             ：提交训练口
+// 参考实现说明：
+// - 4 路 × 1024 组，推断 BRAM（1R+1W 简单双口），查询 1 拍延迟；
+// - 条目 {valid, tag(20), br_type(2), len(3), target(32)}；
+//   fall_through 不存全宽：由 len 重建（= 块PC + 4*len）；
+// - 更新走内部 2 级小流水：U0 借用查询读口读出组内 4 路（该拍查询作废，
+//   预测器允许偶发 miss），U1 比较命中路原地更新 / victim 轮转分配；
+// - 复位逐组清 valid（1024 拍）。
 // ============================================================
 `include "mycpu.h"
 
@@ -37,39 +30,173 @@ module ftb(
     input  wire [31:0]                update_jump_target_i,
     input  wire [31:0]                update_fall_through_i,
     input  wire [`BR_TYPE_W-1:0]      update_br_type_i,
-    input  wire                       update_alloc_i       // 1=新分配（未命中过/信息错需重写），0=仅更新
+    input  wire                       update_alloc_i       // 1=新分配，0=仅更新
 );
 
-//TODO: 实现 4 路 × 1024 组 FTB（参考：团队赛 ftb.sv、满洋 BPU/components/ftb.sv）
-//
-//TODO: 条目格式（每路每组一项）：
-//      { valid(1), tag(约19~20bit), br_type(2), jump_target(32 或压缩位宽),
-//        fall_through 的低位(块长最多 4 条 -> 只需存 fall_through[4:2] 与
-//        start_pc 的差值 3bit，可大幅省 BRAM；也可以直接存 32 位图省事) }
-//      索引：query_pc_i[2 +: `FTB_INDEX_W]（pc[11:2..]，按字对齐后取 10 位）
-//      tag ：query_pc_i 的高位（pc[31:12] 附近，自行划分）
-//
-//TODO: 存储介质：
-//      用"可推断 BRAM 的双口 RAM 模板"（一读一写，读口 1 拍延迟），每路一块；
-//      不要用 .xci IP（chiplab/verilator 仿真不便、参数不可调）。
-//      模板写法：always @(posedge clk) begin rdata <= mem[raddr]; if(we) mem[waddr] <= wdata; end
-//
-//TODO: 查询逻辑：
-//      本拍发地址 -> 下一拍 4 路数据/tag 出来 -> 与打拍后的 query_pc tag 比较 -> 命中选路。
-//      注意 tag 比较用的 PC 必须与 BRAM 数据同拍（query_pc 打一拍），否则错位。
-//
-//TODO: 更新逻辑（仅提交训练，update_valid_i 时）：
-//      - update_alloc_i=1：选 victim 路写入整个新条目。victim 选择：无效路优先，
-//        否则 LFSR 随机（例化已有思路即可，团队赛用 lfsr.sv）。
-//      - update_alloc_i=0：命中路原地更新（目标/类型变化时）。
-//      - 更新条件由 bpu.v 训练通路判断（首次 taken 的条件分支 / 无条件分支 /
-//        目标错误 / 类型错误），本模块只管执行写入。
-//
-//TODO: 坑点提示：
-//      1. BRAM 读写同地址冲突：查询与更新同组同拍时，读出的可能是旧数据，
-//         需要 bypass（本拍写的数据直接旁路给读口）或接受 1 次小误差（预测器可容忍）。
-//      2. fall_through 必须严格 = 块起始 PC + 4*实际块长，BPU 用它算 P1 块长，
-//         算错会导致取指切块错位（指令流错乱，难查！）。
-//      3. 复位时 valid 清零即可，BRAM 内容不用清。
+localparam TAGW    = 20;                          // pc[31:12]
+localparam ENTRY_W = 1 + TAGW + `BR_TYPE_W + `BLK_LEN_W + 32;  // 58
 
+// ---------------- 更新流水 U0/U1 ----------------
+reg                   u0_valid;
+reg [31:0]            u0_pc, u0_target, u0_ft;
+reg [`BR_TYPE_W-1:0]  u0_btype;
+reg                   u0_alloc;
+reg                   u1_valid;
+reg [31:0]            u1_pc, u1_target;
+reg [`BR_TYPE_W-1:0]  u1_btype;
+reg [`BLK_LEN_W-1:0]  u1_len;
+
+wire [`FTB_INDEX_W-1:0] q_index = query_pc_i[2 +: `FTB_INDEX_W];
+wire [`FTB_INDEX_W-1:0] u0_index= u0_pc[2 +: `FTB_INDEX_W];
+wire [`FTB_INDEX_W-1:0] u1_index= u1_pc[2 +: `FTB_INDEX_W];
+
+// 读口仲裁：U0 借口
+wire                     rd_steal = u0_valid;
+wire [`FTB_INDEX_W-1:0]  rd_index = rd_steal ? u0_index : q_index;
+
+// ---------------- 初始化（复位逐组清 valid）----------------
+reg                     initing;
+reg [`FTB_INDEX_W-1:0]  init_set;
+
+// ---------------- 4 路 BRAM ----------------
+wire [ENTRY_W-1:0] way_rdata [0:`FTB_NWAY-1];
+reg  [`FTB_NWAY-1:0] way_we;
+reg  [ENTRY_W-1:0] way_wdata;
+wire [`FTB_INDEX_W-1:0] wr_index = initing ? init_set : u1_index;
+
+genvar g;
+generate
+for (g = 0; g < `FTB_NWAY; g = g + 1) begin : gen_ftb_way
+    ftb_way_ram u_way(
+        .clk   (clk),
+        .raddr (rd_index),
+        .rdata (way_rdata[g]),
+        .we    (way_we[g] | initing),
+        .waddr (wr_index),
+        .wdata (initing ? {ENTRY_W{1'b0}} : way_wdata)
+    );
+end
+endgenerate
+
+// ---------------- 查询结果（晚 1 拍）----------------
+reg        q_valid_r;
+reg [31:0] q_pc_r;
+always @(posedge clk) begin
+    q_valid_r <= query_valid_i && !rd_steal && !initing;
+    q_pc_r    <= query_pc_i;
+end
+
+wire [TAGW-1:0] q_tag_r = q_pc_r[31:12];
+wire [`FTB_NWAY-1:0] q_hit;
+generate
+for (g = 0; g < `FTB_NWAY; g = g + 1) begin : gen_ftb_hit
+    assign q_hit[g] = q_valid_r && way_rdata[g][ENTRY_W-1]
+                   && (way_rdata[g][ENTRY_W-2 -: TAGW] == q_tag_r);
+end
+endgenerate
+
+reg [1:0] q_way;
+integer qi;
+always @(*) begin
+    q_way = 2'd0;
+    for (qi = `FTB_NWAY-1; qi >= 0; qi = qi - 1)
+        if (q_hit[qi]) q_way = qi[1:0];
+end
+
+wire [ENTRY_W-1:0] q_entry = way_rdata[q_way];
+wire [`BLK_LEN_W-1:0] q_len = q_entry[32 +: `BLK_LEN_W];
+
+assign hit_o          = |q_hit;
+assign jump_target_o  = q_entry[31:0];
+assign fall_through_o = q_pc_r + {27'b0, q_len, 2'b00};
+assign br_type_o      = q_entry[32+`BLK_LEN_W +: `BR_TYPE_W];
+
+// ---------------- 更新流水 ----------------
+// U1 拍：U0 读出的 4 路与 u1 tag 比较
+wire [TAGW-1:0] u1_tag = u1_pc[31:12];
+wire [`FTB_NWAY-1:0] u_hit;
+generate
+for (g = 0; g < `FTB_NWAY; g = g + 1) begin : gen_ftb_uhit
+    assign u_hit[g] = way_rdata[g][ENTRY_W-1]
+                   && (way_rdata[g][ENTRY_W-2 -: TAGW] == u1_tag);
+end
+endgenerate
+
+reg [1:0] u_way;
+reg       u_found;
+reg [1:0] u_inv_way;
+reg       u_inv_found;
+integer uj;
+always @(*) begin
+    u_found = 1'b0;  u_way = 2'd0;
+    u_inv_found = 1'b0; u_inv_way = 2'd0;
+    for (uj = `FTB_NWAY-1; uj >= 0; uj = uj - 1) begin
+        if (u_hit[uj]) begin u_found = 1'b1; u_way = uj[1:0]; end
+        if (!way_rdata[uj][ENTRY_W-1]) begin u_inv_found = 1'b1; u_inv_way = uj[1:0]; end
+    end
+end
+
+reg [1:0] victim_rr;
+wire [1:0] wr_way = u_found ? u_way : u_inv_found ? u_inv_way : victim_rr;
+
+always @(*) begin
+    way_we    = {`FTB_NWAY{1'b0}};
+    way_wdata = {1'b1, u1_tag, u1_btype, u1_len, u1_target};
+    if (u1_valid) way_we[wr_way] = 1'b1;
+end
+
+always @(posedge clk) begin
+    if (reset) begin
+        u0_valid  <= 1'b0;
+        u1_valid  <= 1'b0;
+        victim_rr <= 2'd0;
+        initing   <= 1'b1;
+        init_set  <= {`FTB_INDEX_W{1'b0}};
+    end else if (initing) begin
+        init_set <= init_set + 1'b1;
+        if (init_set == {`FTB_INDEX_W{1'b1}}) initing <= 1'b0;
+    end else begin
+        // U0：捕获更新请求（借读口）
+        u0_valid <= update_valid_i;
+        if (update_valid_i) begin
+            u0_pc     <= update_block_pc_i;
+            u0_target <= update_jump_target_i;
+            u0_ft     <= update_fall_through_i;
+            u0_btype  <= update_br_type_i;
+            u0_alloc  <= update_alloc_i;
+        end
+        // U1：写入
+        u1_valid <= u0_valid;
+        if (u0_valid) begin
+            u1_pc     <= u0_pc;
+            u1_target <= u0_target;
+            u1_btype  <= u0_btype;
+            u1_len    <= (u0_ft - u0_pc) >> 2;      // 块长（1~4）
+        end
+        if (u1_valid && !u_found && !u_inv_found)
+            victim_rr <= victim_rr + 2'd1;
+    end
+end
+
+// lint 吸收（alloc 标志当前未区分语义：命中即原地更新，未命中即分配）
+wire ftb_lint = u0_alloc;
+
+endmodule
+
+// ------------------------------------------------------------
+// ftb_way_ram：简单双口 RAM 模板（1R + 1W，推断 BRAM）
+// ------------------------------------------------------------
+module ftb_way_ram(
+    input  wire                      clk,
+    input  wire [`FTB_INDEX_W-1:0]   raddr,
+    output reg  [57:0]               rdata,
+    input  wire                      we,
+    input  wire [`FTB_INDEX_W-1:0]   waddr,
+    input  wire [57:0]               wdata
+);
+reg [57:0] mem [0:`FTB_NSET-1];
+always @(posedge clk) begin
+    rdata <= mem[raddr];
+    if (we) mem[waddr] <= wdata;
+end
 endmodule

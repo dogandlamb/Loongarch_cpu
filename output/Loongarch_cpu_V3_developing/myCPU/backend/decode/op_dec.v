@@ -3,9 +3,9 @@
 // ============================================================
 // op_dec 模块（操作码生成：inst_* 独热 -> alu_op/br_op/mem_op/csr_op 等）
 // ------------------------------------------------------------
-// 新架构角色：被 decoder.v 内部例化复用，操作码编码体系（mycpu.h 独热宏）
+// 被 decoder.v 内部例化复用，操作码编码体系（mycpu.h 独热宏）
 // 不变，零改动。decoder.v 在其输出之上补充 futype 分类与 priv_vec 标记。
-//TODO: 注意 inst_known（指令识别有效）输出供 decoder 生成 INE 异常，确认
+// 注意 inst_known（指令识别有效）输出供 decoder 生成 INE 异常，确认
 //      新增指令时同步维护。
 // ============================================================
 module op_dec(
@@ -150,6 +150,8 @@ module op_dec(
 // `define MEM_OP_LD_H     5   // load half，从内存取数据写入寄存器堆（与 {inst_ld_h, inst_st_h} 对齐）    
 // `define MEM_OP_LD_BU    6   // load byte unsigned，从内存取数据写入寄存器堆（与 {inst_ld_b, inst_st_b} 对齐）
 // `define MEM_OP_LD_HU    7   // load half unsigned，从内存取数据写入寄存器堆（与 {inst_ld_h, inst_st_h} 对齐）
+// `define MEM_OP_LL_W     8   // load linked，从内存取数据写入寄存器堆（与 {inst_ll_w, inst_sc_w} 对齐）
+// `define MEM_OP_SC_W     9   // store conditional，从寄存器堆数据存入内存（与 {inst_ll_w, inst_sc_w} 对齐）
     assign mem_op[`MEM_OP_ST_W] = inst_st_w;
     assign mem_op[`MEM_OP_ST_B] = inst_st_b;
     assign mem_op[`MEM_OP_ST_H] = inst_st_h;

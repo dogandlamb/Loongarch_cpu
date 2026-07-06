@@ -1,24 +1,14 @@
 // ============================================================
 // ftq 模块（Fetch Target Queue，取指目标队列）
 // ------------------------------------------------------------
-// 功能：
-// - 前端的"调度中枢"：BPU 产生的预测块先进队列，IFU 按自己的节奏消费，
-//   实现 BPU 与 IFU 解耦（BPU 可以跑在 IFU 前面）。
-// - 暂存每个块的 BPU 训练元数据（meta），等后端提交该块后把
-//   训练包回送给 BPU（保证只用"确定正确"的结果训练预测器）。
-// - 三指针环形队列（`FTQ_SIZE=8 项）：
-//   * bpu_ptr：BPU 写入位置（P0 当拍写入；P1 覆盖 bpu_ptr-1 处上一拍的块）
-//   * ifu_ptr：IFU 读取位置
-//   * cmt_ptr：提交释放位置（后端整块提交完毕后前移）
-// - 满判断：bpu_ptr+1 == cmt_ptr（最多缓冲 8 块 × 4 条 = 32 条，与 ROB 对齐）。
-//
-// 端口：
-// - p0_* / p1_*       ：BPU 写入口（p1 为覆盖写）
-// - ifu_*             ：IFU 取块口（valid/accept 握手）
-// - predec_redirect_i ：IFU 预译码重定向（回退 bpu_ptr 到出错块之后并修正块信息）
-// - cmt_*             ：commit 提交信息入口（推进 cmt_ptr + 取出 meta 产生训练包）
-// - train_*           ：送往 BPU 的训练包
-// - flush_i           ：提交级全局冲刷（整个队列清空）
+// 参考实现说明：
+// - 三指针环形队列（bpu_ptr 写 / ifu_ptr 取 / cmt_ptr 提交释放）；
+// - P0 当拍写 bpu_ptr；P1 次拍覆盖 bpu_ptr-1（含 meta）；
+// - "P1 安定"约定：块写入次拍内不发给 IFU（保证覆盖发生在取走前），
+//   即 ifu_ptr 指向上一拍刚写入的块时 ifu_valid 压低一拍；
+// - 预译码重定向：修正出错块 + bpu_ptr 回退到 id+1（丢弃其后推测块）；
+// - 提交：is_last 推进 cmt_ptr；分支提交产生训练包（寄存一拍送 BPU，
+//   flush 不清在途训练包——它来自已提交的正确信息）。
 // ============================================================
 `include "mycpu.h"
 
@@ -89,62 +79,138 @@ module ftq(
     output wire [`BPU_META_W-1:0]     train_meta_o          // 暂存的 meta 原样回送
 );
 
-//TODO: 实现三指针环形 FTQ（参考：团队赛 ftq.sv、满洋 frontend/ftq.sv）
-//
-//TODO: 存储结构（LUTRAM/reg，当拍读）：
-//      reg [`FTQ_SIZE-1:0]      valid;
-//      reg [31:0]               blk_pc    [0:`FTQ_SIZE-1];
-//      reg [`BLK_LEN_W-1:0]     blk_len   [0:`FTQ_SIZE-1];
-//      reg                      blk_taken [0:`FTQ_SIZE-1];
-//      reg [31:0]               blk_target[0:`FTQ_SIZE-1];
-//      reg [`BR_TYPE_W-1:0]     blk_btype [0:`FTQ_SIZE-1];
-//      reg [`BPU_META_W-1:0]    blk_meta  [0:`FTQ_SIZE-1];
-//      reg [`FTQ_W-1:0]         bpu_ptr, ifu_ptr, cmt_ptr;
-//
-//TODO: 写入/覆盖：
-//      - p0_valid_i：写 blk_*[bpu_ptr]，bpu_ptr++（meta 先写 0）。
-//      - p1_valid_i：覆盖 blk_*[bpu_ptr-1]（即上一拍 P0 写入的块）并写入 meta。
-//        注意：若 P1 修正了块边界（块变短/方向变跳），且 IFU 恰好已把旧块取走
-//        （ifu_ptr 已越过该块），必须把 ifu_ptr 拉回该块位置并通知 IFU 作废在途请求
-//        （输出一个 ifu 重取脉冲，或约定 IFU 只在 ifu_valid 稳定 1 拍后才 accept，
-//        团队赛用 to_ifu_redirect 信号处理，建议同样加一根线——一期可先约定
-//        "P1 覆盖只发生在 IFU 尚未取走该块时"（IFU accept 比 BPU 慢一拍即可保证））。
-//
-//TODO: IFU 取块：
-//      ifu_valid_o = valid[ifu_ptr] && (ifu_ptr != bpu_ptr 的空判断)；
-//      输出 blk_*[ifu_ptr] + ifu_ftq_id_o = ifu_ptr；ifu_accept_i 时 ifu_ptr++。
-//
-//TODO: 预译码重定向：
-//      predec_redirect_i 时：
-//        - 用 predec_* 修正 blk_*[predec_redirect_id_i]（块长截断、taken=1、目标/类型更新）
-//        - bpu_ptr 回退到 predec_redirect_id_i + 1（丢弃其后所有推测块）
-//        - ifu_ptr 不动（出错块本身已被 IFU 正确截断送出）
-//
-//TODO: 提交与训练：
-//      - cmt_valid_i && cmt_is_last_i：cmt_ptr++（该块全部指令提交完毕，槽位释放）。
-//      - cmt_valid_i && cmt_is_branch_i：产生训练包：
-//          train_pc_o          = blk_pc[cmt_ftq_id_i]（块起始 PC）
-//          train_fall_through_o= blk_pc + 4*实际块长（实际块长=分支在块内的位置+1，
-//                                可由 cmt_pc_i - blk_pc 算出，更稳妥）
-//          train_taken/mispred/target/br_type = cmt_* 直通
-//          train_meta_o        = blk_meta[cmt_ftq_id_i]
-//        训练包可以当拍直通（组合）或打一拍再给 BPU（时序更松，推荐打一拍）。
-//
-//TODO: commit 查询口（纯组合）：
-//      cmt_blk_target_o = blk_target[cmt_query_id_i];
-//      （提交时该块槽位必然还未释放——cmt_ptr 只有在块提交后才推进，
-//        所以这里读到的就是预测当时存入的目标，供 commit 判"目标误预测"。）
-//
-//TODO: 满/空判断：
-//      ftq_full_o = (bpu_ptr+1 == cmt_ptr)；空 = (bpu_ptr == ifu_ptr 且无 valid)。
-//      指针都是 `FTQ_W 位环形回绕，注意用 valid 位辅助区分满/空。
-//
-//TODO: 坑点提示：
-//      1. flush_i 时三指针同时清零、valid 全清——提交级冲刷意味着 ROB 已空，
-//         FTQ 里所有块都是错误路径或已提交完，直接全清是安全的。
-//      2. cmt_ptr 的推进依赖"块内最后一条提交"标记（cmt_is_last_i），该标记由
-//         IFU 切块时打在每条指令上、随流水带到 ROB，commit 提交时回传，别丢。
-//      3. 一期不做 FTQ 引导预取；二期可在 ifu_ptr 之后的块上向 icache 发预取
-//        （AXI 优化约定，详见计划，接口可后加）。
+// ---------------- 存储 ----------------
+reg [31:0]            blk_pc    [0:`FTQ_SIZE-1];
+reg [`BLK_LEN_W-1:0]  blk_len   [0:`FTQ_SIZE-1];
+reg                   blk_taken [0:`FTQ_SIZE-1];
+reg [31:0]            blk_target[0:`FTQ_SIZE-1];
+reg [`BR_TYPE_W-1:0]  blk_btype [0:`FTQ_SIZE-1];
+reg [`BPU_META_W-1:0] blk_meta  [0:`FTQ_SIZE-1];
+
+reg [`FTQ_W-1:0] bpu_ptr, ifu_ptr, cmt_ptr;
+reg              p0_wrote_r;     // 上一拍 P0 写入过（"P1 安定"判定）
+
+integer ftq_i;
+initial begin
+    for (ftq_i = 0; ftq_i < `FTQ_SIZE; ftq_i = ftq_i + 1) begin
+        blk_pc[ftq_i]     = 32'b0;
+        blk_len[ftq_i]    = 3'd4;
+        blk_taken[ftq_i]  = 1'b0;
+        blk_target[ftq_i] = 32'b0;
+        blk_btype[ftq_i]  = `BR_TYPE_COND;
+        blk_meta[ftq_i]   = {`BPU_META_W{1'b0}};
+    end
+    bpu_ptr    = {`FTQ_W{1'b0}};
+    ifu_ptr    = {`FTQ_W{1'b0}};
+    cmt_ptr    = {`FTQ_W{1'b0}};
+    p0_wrote_r = 1'b0;
+end
+
+wire [`FTQ_W-1:0] bpu_prev = bpu_ptr - {{(`FTQ_W-1){1'b0}}, 1'b1};
+
+// ---------------- 满/空 ----------------
+assign ftq_full_o = ((bpu_ptr + {{(`FTQ_W-1){1'b0}}, 1'b1}) == cmt_ptr);
+
+// ---------------- IFU 取块口 ----------------
+// 上一拍刚写入的块要等 P1 覆盖安定后才发出
+wire head_blk_settling = (ifu_ptr == bpu_prev) && p0_wrote_r;
+assign ifu_valid_o  = (ifu_ptr != bpu_ptr) && !head_blk_settling;
+assign ifu_pc_o     = blk_pc[ifu_ptr];
+assign ifu_length_o = blk_len[ifu_ptr];
+assign ifu_taken_o  = blk_taken[ifu_ptr];
+assign ifu_target_o = blk_target[ifu_ptr];
+assign ifu_ftq_id_o = ifu_ptr;
+
+// ---------------- commit 查询口 ----------------
+assign cmt_blk_target_o = blk_target[cmt_query_id_i];
+
+// ---------------- 指针与块写入 ----------------
+always @(posedge clk) begin
+    if (reset || flush_i) begin
+        bpu_ptr    <= {`FTQ_W{1'b0}};
+        ifu_ptr    <= {`FTQ_W{1'b0}};
+        cmt_ptr    <= {`FTQ_W{1'b0}};
+        p0_wrote_r <= 1'b0;
+    end else begin
+        // predec 优先于 P0：同拍禁止写入 fall-through 块污染 ifu_ptr 指向的槽
+        if (predec_redirect_i) begin
+            blk_len[predec_redirect_id_i]    <= predec_length_i;
+            blk_taken[predec_redirect_id_i]  <= predec_taken_i;
+            blk_target[predec_redirect_id_i] <= predec_target_i;
+            blk_btype[predec_redirect_id_i]  <= predec_br_type_i;
+            bpu_ptr    <= predec_redirect_id_i + 1'b1;
+            p0_wrote_r <= 1'b0;
+        end else begin
+            p0_wrote_r <= p0_valid_i;
+
+            // P0 写入
+            if (p0_valid_i) begin
+                blk_pc[bpu_ptr]     <= p0_pc_i;
+                blk_len[bpu_ptr]    <= p0_length_i;
+                blk_taken[bpu_ptr]  <= p0_taken_i;
+                blk_target[bpu_ptr] <= p0_target_i;
+                blk_btype[bpu_ptr]  <= p0_br_type_i;
+                blk_meta[bpu_ptr]   <= {`BPU_META_W{1'b0}};
+                bpu_ptr             <= bpu_ptr + 1'b1;
+            end
+        end
+
+        // P1 覆盖（bpu_ptr-1；与 P0 同拍时 P0 写新槽、P1 写旧槽，不冲突）
+        if (p1_valid_i) begin
+            blk_pc[bpu_prev]     <= p1_pc_i;
+            blk_len[bpu_prev]    <= p1_length_i;
+            blk_taken[bpu_prev]  <= p1_taken_i;
+            blk_target[bpu_prev] <= p1_target_i;
+            blk_btype[bpu_prev]  <= p1_br_type_i;
+            blk_meta[bpu_prev]   <= p1_meta_i;
+        end
+
+        // IFU 取走
+        if (ifu_accept_i && ifu_valid_o)
+            ifu_ptr <= ifu_ptr + 1'b1;
+
+        // 提交释放
+        if (cmt_valid_i && cmt_is_last_i)
+            cmt_ptr <= cmt_ptr + 1'b1;
+    end
+end
+
+// ---------------- 训练包（寄存一拍；flush 不清——已提交信息恒正确）----------------
+reg                   train_valid_r;
+reg [31:0]            train_pc_r;
+reg                   train_is_branch_r, train_taken_r, train_mispred_r;
+reg [31:0]            train_target_r;
+reg [`BR_TYPE_W-1:0]  train_btype_r;
+reg [31:0]            train_ft_r;
+reg [`BPU_META_W-1:0] train_meta_r;
+
+always @(posedge clk) begin
+    if (reset) begin
+        train_valid_r <= 1'b0;
+    end else begin
+        train_valid_r     <= cmt_valid_i && cmt_is_branch_i;
+        train_pc_r        <= blk_pc[cmt_ftq_id_i];
+        train_is_branch_r <= cmt_is_branch_i;
+        train_taken_r     <= cmt_taken_i;
+        train_mispred_r   <= cmt_mispred_i;
+        train_target_r    <= cmt_target_i;
+        train_btype_r     <= cmt_br_type_i;
+        train_ft_r        <= cmt_pc_i + 32'd4;     // 实际块出口 = 分支 PC + 4
+        train_meta_r      <= blk_meta[cmt_ftq_id_i];
+    end
+end
+
+assign train_valid_o        = train_valid_r;
+assign train_pc_o           = train_pc_r;
+assign train_is_branch_o    = train_is_branch_r;
+assign train_taken_o        = train_taken_r;
+assign train_mispred_o      = train_mispred_r;
+assign train_target_o       = train_target_r;
+assign train_br_type_o      = train_btype_r;
+assign train_fall_through_o = train_ft_r;
+assign train_meta_o         = train_meta_r;
+
+// lint 吸收（blk_btype 读口暂未对外）
+wire ftq_lint = (|blk_btype[0]);
 
 endmodule

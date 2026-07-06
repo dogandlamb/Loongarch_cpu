@@ -1,0 +1,114 @@
+=============================================================================================================
+=============================================================================================================
+RUN simulation...
+=============================================================================================================
+=============================================================================================================
+cp: cannot stat './log/func/func_lab19_log/golden_trace.txt': No such file or directory
+make[2]: Entering directory '/home/dogandlamb/chiplab/sims/verilator/run_prog/tmp'
+../output --simu-bus-delay --simu-bus-delay-random-seed 2796287 --dump-delay 0 --dump-waveform 0 --time-limit 0 --save-bp-time 0 --ram-save-bp-file  --top-save-bp-file  --restore-bp-time 0 --ram-restore-bp-file  --top-restore-bp-file  --end-pc 0 --fork-child 0
+The image is ././ram.dat
+Using simulated 4096MB RAM
+Verilator Simulation Start.
+--diff is not given, try to use $(CHIPLAB_HOME)/toolchains/nemu/la32r-nemu-interpreter-so by default
+Using /home/dogandlamb/chiplab/toolchains/nemu/la32r-nemu-interpreter-so for difftest
+[NEMU] ####### INIT HERE ########
+[NEMU] TLB_ENTRY = 32
+[NEMU] PALEN = 32
+Start
+The first instruction of core 0 has commited. Difftest enabled.
+[NEMU] PC: 0x1c074e30 [NEMU]: INVALID INST
+[NEMU]: INVALID INST CODE : 0x 0
+[NEMU] PC: 0x1c074e84 [NEMU]: INVALID INST
+[NEMU]: INVALID INST CODE : 0x ffffffff
+[NEMU] PC: 0x1c074eb8 [NEMU]: INVALID INST
+[NEMU]: INVALID INST CODE : 0x f9000000
+[NEMU] PC: 0x1c074ed0 [NEMU]: INVALID INST
+[NEMU]: INVALID INST CODE : 0x 887b8000
+[NEMU] PC: 0x1c074ef4 [NEMU]: INVALID INST
+[NEMU]: INVALID INST CODE : 0x 88000200
+[NEMU] PC: 0x1c074f0c [NEMU]: INVALID INST
+[NEMU]: INVALID INST CODE : 0x f36e0000
+[NEMU] PC: 0x1c074f28 [NEMU]: INVALID INST
+[NEMU]: INVALID INST CODE : 0x 94080000
+[NEMU] PC: 0x227f9789 [NEMU]: inst fetch, PC = 0x227f9789, not 4 aligned
+[NEMU] PC: 0x3101bbed [NEMU]: inst fetch, PC = 0x3101bbed, not 4 aligned
+[NEMU] PC: 0x44790977 [NEMU]: inst fetch, PC = 0x44790977, not 4 aligned
+[NEMU] PC: 0x92b0a2c3 [NEMU]: inst fetch, PC = 0x92b0a2c3, not 4 aligned
+[NEMU] PC: 0xaf9edafa [NEMU]: inst fetch, PC = 0xaf9edafa, not 4 aligned
+[NEMU] PC: 0xb088f329 [NEMU]: inst fetch, PC = 0xb088f329, not 4 aligned
+[NEMU] PC: 0x827f97ab [NEMU]: inst fetch, PC = 0x827f97ab, not 4 aligned
+[NEMU] this is CACOP instruction
+[NEMU] this is CACOP instruction
+[NEMU] this is CACOP instruction
+[NEMU] this is CACOP instruction
+[NEMU] PC: 0x1c07552c [NEMU]: current mem addr = 0xcfde1 not 4 aligned
+[NEMU] PC: 0x1c0755b0 [NEMU]: current mem addr = 0xd7dea not 4 aligned
+[NEMU] PC: 0x1c07562c [NEMU]: current mem addr = 0xd5eca not 4 aligned
+[NEMU] PC: 0x1c075678 [NEMU]: current mem addr = 0xd78bb not 4 aligned
+[NEMU] PC: 0x1c0756d0 [NEMU]: current mem addr = 0xd5bea not 4 aligned
+[NEMU] PC: 0x1c07571c [NEMU]: current mem addr = 0xd0543 not 4 aligned
+[NEMU] PC: 0x1c07576c [NEMU]: current mem addr = 0xd6de1 not 4 aligned
+[NEMU] PC: 0x1c075804 [NEMU]: current mem addr = 0xd0c61 not 2 aligned
+[NEMU] PC: 0x1c075888 [NEMU]: current mem addr = 0xd321f not 2 aligned
+[NEMU] PC: 0x1c075904 [NEMU]: current mem addr = 0xd0e53 not 2 aligned
+[NEMU] PC: 0x1c075950 [NEMU]: current mem addr = 0xd620d not 2 aligned
+[NEMU] PC: 0x1c0759a8 [NEMU]: current mem addr = 0xd0173 not 2 aligned
+[NEMU] PC: 0x1c0759f4 [NEMU]: current mem addr = 0xd2d35 not 2 aligned
+[NEMU] PC: 0x1c075a44 [NEMU]: current mem addr = 0xd4145 not 2 aligned
+[NEMU] PC: 0x1c075adc [NEMU]: current mem addr = 0xd0c61 not 2 aligned
+[NEMU] PC: 0x1c075b64 [NEMU]: current mem addr = 0xd321f not 2 aligned
+[NEMU] PC: 0x1c075be0 [NEMU]: current mem addr = 0xd0e53 not 2 aligned
+[NEMU] PC: 0x1c075c2c [NEMU]: current mem addr = 0xd620d not 2 aligned
+[NEMU] PC: 0x1c075c84 [NEMU]: current mem addr = 0xd0173 not 2 aligned
+[NEMU] PC: 0x1c075cd0 [NEMU]: current mem addr = 0xd2d35 not 2 aligned
+[NEMU] PC: 0x1c075d20 [NEMU]: current mem addr = 0xd4145 not 2 aligned
+[NEMU] PC: 0x1c075dbc [NEMU]: current mem addr = 0xd585f not 2 aligned
+[NEMU] PC: 0x1c075e48 [NEMU]: current mem addr = 0xd2ca3 not 2 aligned
+[NEMU] PC: 0x1c075ec8 [NEMU]: current mem addr = 0xd1529 not 2 aligned
+[NEMU] PC: 0x1c075f18 [NEMU]: current mem addr = 0xd301d not 2 aligned
+[NEMU] PC: 0x1c075f74 [NEMU]: current mem addr = 0xd1b53 not 2 aligned
+[NEMU] PC: 0x1c075fc4 [NEMU]: current mem addr = 0xd3c0d not 2 aligned
+[NEMU] PC: 0x1c076018 [NEMU]: current mem addr = 0xd6b9d not 2 aligned
+[NEMU] PC: 0x1c0760b4 [NEMU]: current mem addr = 0xd8345 not 4 aligned
+[NEMU] PC: 0x1c076140 [NEMU]: current mem addr = 0xd2a76 not 4 aligned
+[NEMU] PC: 0x1c0761c0 [NEMU]: current mem addr = 0xd8cdb not 4 aligned
+[NEMU] PC: 0x1c076210 [NEMU]: current mem addr = 0xda319 not 4 aligned
+[NEMU] PC: 0x1c07626c [NEMU]: current mem addr = 0xd1d2e not 4 aligned
+[NEMU] PC: 0x1c0762bc [NEMU]: current mem addr = 0xd7b61 not 4 aligned
+[NEMU] PC: 0x1c076310 [NEMU]: current mem addr = 0xd1077 not 4 aligned
+[NEMU]: Unknown op 0x7 for INVTLB, exception INE will occur.
+[NEMU]: Unknown op 0x8 for INVTLB, exception INE will occur.
+[NEMU]: Unknown op 0x9 for INVTLB, exception INE will occur.
+[NEMU]: Unknown op 0xa for INVTLB, exception INE will occur.
+[NEMU] this is CACOP instruction
+[NEMU] this is CACOP instruction
+[NEMU] this is CACOP instruction
+[NEMU] this is CACOP instruction
+[NEMU] this is CACOP instruction
+[NEMU] this is CACOP instruction
+[NEMU] this is CACOP instruction
+[NEMU] this is CACOP instruction
+[NEMU] this is CACOP instruction
+[NEMU] this is CACOP instruction
+[NEMU] This is syscall 0x11, end
+[src/cpu/cpu-exec.c,338,cpu_exec] nemu: HIT GOOD TRAP at pc = 0x1c000230
+[src/cpu/cpu-exec.c,78,monitor_statistic] host time spent = 45138 us
+[src/cpu/cpu-exec.c,80,monitor_statistic] total guest instructions = 174083
+[src/cpu/cpu-exec.c,81,monitor_statistic] simulation frequency = 3856683 instr/s
+END by Syscall
+total clock is 609451
+
+==============================================================
+total clock             is 609451
+total instruction       is 174045
+instruction per cycle   is 0.285577
+simulation time         is 11.650885 s
+difftest time           is 3.629051 s
+nemu_step time          is 0.040362 s
+verilator eval time     is 7.776008 s
+==============================================================
+
+Terminated at 1218916 ns.
+Test exit.
+Reached test end PC.
+total time is 11651246 us
