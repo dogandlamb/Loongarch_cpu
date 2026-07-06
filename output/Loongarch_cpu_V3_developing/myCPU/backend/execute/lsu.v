@@ -90,41 +90,211 @@ module lsu(
     output wire [`ROB_W-1:0]          early_wakeup_robid_o
 );
 
-//TODO: 实现两级访存流水（参考：mariver fu_mu.v 的 preMEM(AGU)+MEM(LSU) 组织）
-//
-//TODO: AGU 级（第 1 级）：
-//      1) vaddr = issue_base_i + issue_imm_i；mmu_d_req_o 组合发翻译；
-//      2) ALE 检测：H 类要求 vaddr[0]==0，W 类要求 vaddr[1:0]==0，违者置 EXCP_ALE；
-//      3) 异常合并：ALE/ADEM/TLB 异常（mmu_d_tlb_ex_i 翻译到 EXCP_* 向量：
-//         load 用 PIL、store 用 PIS、写页用 PME，区分靠 mmu_d_is_store_o）；
-//      4) store 数据预处理：按 vaddr[1:0] 把 issue_wdata_i 对齐到字节通道、
-//         算 wstrb（st.b: 1<<va[1:0]；st.h: 3<<va[1:0]；st.w: 4'hf）；
-//      5) 有异常的访存：不发 DCache/不写 SB 信息，直接带异常向量流向写回。
-//      AGU 级结果锁存进 AGU/DC 流水寄存器。
-//
-//TODO: DC 级（第 2 级）：
-//      - store/sc.w(真store)/cacop：无需访存，直接写回 ROB：
-//          wb_data=对齐后写数据, wb_paddr/vaddr/wstrb/size/uncached 一并写回；
-//      - load/ll.w：
-//          a) 先看 AGU 级查 SB 的结果：sb_query_hit -> 直接用 SB 前递数据（不访 DCache）；
-//             sb_query_partial -> 本条 load 阻塞（DC 级保持，等 SB 排空后重发查询）；
-//          b) cached load -> dc_req 发 DCache（保持至 addr_ok），等 data_ok 收数；
-//          c) uncached load -> 必须等 issue_robid==rob_head_robid（到 ROB 头）才发
-//             dc_req（uncached 通道），期间 uncached_ld_inflight_o 置位
-//             （commit 据此屏蔽中断附着，防止外设读已发生却被中断丢弃）；
-//          d) 数据整形：按 vaddr[1:0] 与 mem_op 做字节/半字选择 + 符号/零扩展；
-//      - 写回拍输出 wb_*。DC 级被占用时 AGU 级反压（lsu_ready_o=0）。
-//
-//TODO: lsu_ready_o：
-//      AGU 级空（或本拍 AGU->DC 正常推进）即可接收新发射。
-//
-//TODO: 冲刷（flush_i）：
-//      清 AGU/DC 两级 valid；dc_cancel_o 通知 DCache 作废在途请求/返回
-//      （或本模块记"丢弃下一个 data_ok"标志）。注意：提交级冲刷时，
-//      在飞的 cached load 即使返回了数据也只是被丢弃，无副作用，安全；
-//      uncached load 因为只在 ROB 头发出，冲刷时要么还没发（直接作废）、
-//      要么它就是队头本身（commit 会等它完成），不存在"半截"状态。
-//
+reg agu_valid;
+reg [`ROB_W-1:0] agu_robid;
+reg [31:0] agu_pc;
+reg [`MEM_OP_NUM-1:0] agu_mem_op;
+reg  agu_is_cacop;
+reg  [31:0] agu_base;
+reg [31:0] agu_wdata;
+reg [31:0] agu_imm;
+
+wire agu_is_load;
+wire agu_is_store;
+wire [31:0] agu_vaddr;
+wire [31:0] agu_paddr;
+wire [1:0]  agu_mat;
+wire [`TLB_EX_NUM-1:0] agu_tlb_ex;
+wire agu_excp_adem;
+wire agu_detect_ale;
+wire [31:0] agu_store_data;
+wire [3:0] agu_store_wstrb;
+wire agu_sb_hit;
+wire [31:0] agu_sb_query_data;
+wire agu_sb_partial;
+wire agu_uncached;
+reg  [`EXCP_NUM-1:0] agu_excp;
+
+reg dc_valid;
+reg [`ROB_W-1:0] dc_robid;
+reg [`MEM_OP_NUM-1:0] dc_mem_op;
+reg dc_is_cacop;
+reg [31:0] dc_vaddr;
+reg [31:0] dc_paddr;
+reg dc_is_load;
+reg dc_is_store;
+reg [31:0] dc_wdata;
+reg [3:0] dc_wstrb;
+reg dc_sb_query_hit;
+reg [31:0] dc_sb_query_data;
+reg dc_sb_query_partial;
+reg [`EXCP_NUM-1:0] dc_excp;
+reg dc_uncached;
+
+wire dc_has_excp;
+wire dc_uncached_permit;
+wire dc_req;
+wire dc_data_ok;
+wire dc_done;
+wire dc_can_accept;
+wire [31:0] dc_rdata;
+wire [2:0] mem_size;
+
+// agu级
+always @(posedge clk) begin
+    if (reset || flush_i) begin
+        agu_valid <= 1'b0;
+    end else if (lsu_ready_o) begin
+        agu_valid <= issue_valid_i;
+        agu_robid <= issue_robid_i;
+        agu_pc <= issue_pc_i;
+        agu_mem_op <= issue_mem_op_i;
+        agu_is_cacop <= issue_is_cacop_i;
+        agu_base <= issue_base_i;
+        agu_wdata <= issue_wdata_i;
+        agu_imm <= issue_imm_i;
+    end
+end
+
+assign agu_vaddr = agu_base + agu_imm;
+assign mmu_d_req_o = agu_valid;
+assign mmu_d_vaddr_o = agu_vaddr;
+
+assign agu_is_load  = agu_mem_op[`MEM_OP_LD_W]  | agu_mem_op[`MEM_OP_LD_B]  |
+                      agu_mem_op[`MEM_OP_LD_H]  | agu_mem_op[`MEM_OP_LD_BU] |
+                      agu_mem_op[`MEM_OP_LD_HU] | agu_mem_op[`MEM_OP_LL_W];
+assign agu_is_store = agu_mem_op[`MEM_OP_ST_W] | agu_mem_op[`MEM_OP_ST_B] |
+                      agu_mem_op[`MEM_OP_ST_H] | agu_mem_op[`MEM_OP_SC_W];
+assign mmu_d_is_store_o = agu_is_store | agu_is_cacop;
+
+assign agu_paddr = mmu_d_paddr_i;
+assign agu_mat = mmu_d_mat_i;
+assign agu_tlb_ex = mmu_d_tlb_ex_i;
+assign agu_excp_adem = mmu_d_excp_adem_i;
+
+assign sb_query_paddr_o = (dc_valid && dc_sb_query_partial) ? dc_paddr : agu_paddr;
+assign agu_sb_hit = agu_is_load && sb_query_hit_i;
+assign agu_sb_query_data = sb_query_data_i;
+assign agu_sb_partial = agu_is_load && sb_query_partial_i;
+
+assign agu_uncached = (agu_mat == 2'b00) || (agu_mat == 2'b10);
+
+assign agu_detect_ale = (agu_vaddr[0] != 1'b0 &&
+                        (agu_mem_op[`MEM_OP_ST_H] | agu_mem_op[`MEM_OP_LD_H] |
+                         agu_mem_op[`MEM_OP_LD_HU])) ||
+                        (agu_vaddr[1:0] != 2'b00 &&
+                        (agu_mem_op[`MEM_OP_ST_W] | agu_mem_op[`MEM_OP_LD_W] |
+                         agu_mem_op[`MEM_OP_LL_W] | agu_mem_op[`MEM_OP_SC_W]));
+
+always @(*) begin
+    agu_excp = {`EXCP_NUM{1'b0}};
+    agu_excp[`EXCP_ALE]    = agu_detect_ale;
+    agu_excp[`EXCP_ADEM]   = agu_excp_adem;
+    agu_excp[`EXCP_TLBR_M] = agu_tlb_ex[`TLB_EX_TLBR];
+    agu_excp[`EXCP_PPI_M]  = agu_tlb_ex[`TLB_EX_PPI];
+    agu_excp[`EXCP_PIL]    = agu_tlb_ex[`TLB_EX_PIL];
+    agu_excp[`EXCP_PIS]    = agu_tlb_ex[`TLB_EX_PIS];
+    agu_excp[`EXCP_PME]    = agu_tlb_ex[`TLB_EX_PME];
+end
+
+assign agu_store_data = agu_wdata << {agu_vaddr[1:0], 3'b000};
+assign agu_store_wstrb = agu_mem_op[`MEM_OP_ST_B] ? (4'b0001 << agu_vaddr[1:0]) :
+                         agu_mem_op[`MEM_OP_ST_H] ? (4'b0011 << agu_vaddr[1:0]) :
+                         (agu_mem_op[`MEM_OP_ST_W] | agu_mem_op[`MEM_OP_SC_W]) ? 4'b1111 :
+                         4'b0000;
+
+// dc级
+always @(posedge clk) begin
+    if (reset || flush_i) begin
+        dc_valid <= 1'b0;
+    end else if (dc_can_accept) begin
+            dc_valid <= agu_valid;
+            dc_robid <= agu_robid;
+            dc_mem_op <= agu_mem_op;
+            dc_is_cacop <= agu_is_cacop;
+            dc_vaddr <= agu_vaddr;
+            dc_paddr <= agu_paddr;
+            dc_is_load <= agu_is_load;
+            dc_is_store <= agu_is_store;
+            dc_wdata <= agu_store_data;
+            dc_wstrb <= agu_store_wstrb;
+            dc_sb_query_hit <= agu_sb_hit;
+            dc_sb_query_data <= agu_sb_query_data;
+            dc_sb_query_partial <= agu_sb_partial;
+            dc_excp <= agu_excp;
+            dc_uncached <= agu_uncached;
+    end else if (dc_sb_query_partial) begin
+            dc_sb_query_hit <= sb_query_hit_i;
+            dc_sb_query_partial <= sb_query_partial_i;
+            if (sb_query_hit_i) begin
+                dc_sb_query_data <= sb_query_data_i;
+            end
+    end
+end
+
+assign dc_has_excp = |dc_excp;
+assign dc_uncached_permit = !dc_uncached || (rob_head_valid_i && (dc_robid == rob_head_robid_i));
+assign dc_req = dc_valid && dc_is_load && !dc_has_excp && !dc_sb_query_hit &&
+                !dc_sb_query_partial && dc_uncached_permit;
+assign dc_req_o = dc_req;
+
+assign dc_data_ok = dc_data_ok_i;
+assign dc_rdata = dc_rdata_i;
+
+assign dc_done = dc_valid && (dc_has_excp || dc_is_store || dc_is_cacop ||
+                              dc_sb_query_hit || dc_data_ok);
+assign dc_can_accept = !dc_valid || dc_done;
+assign lsu_ready_o = !agu_valid || dc_can_accept;
+assign dc_cancel_o = flush_i;
+
+wire [31:0] load_raw_data;
+wire [7:0]  load_byte;
+wire [15:0] load_half;
+wire [31:0] load_wb_data;
+
+assign load_raw_data = dc_sb_query_hit ? dc_sb_query_data : dc_rdata;  //sb hit则从sb取，否则向DCache发送请求
+
+assign load_byte = (dc_vaddr[1:0] == 2'b00) ? load_raw_data[7:0]   :
+                   (dc_vaddr[1:0] == 2'b01) ? load_raw_data[15:8]  :
+                   (dc_vaddr[1:0] == 2'b10) ? load_raw_data[23:16] :
+                                               load_raw_data[31:24];
+
+assign load_half = dc_vaddr[1] ? load_raw_data[31:16]
+                               : load_raw_data[15:0];
+
+assign load_wb_data =
+    dc_mem_op[`MEM_OP_LD_B ] ? {{24{load_byte[7]}}, load_byte} :
+    dc_mem_op[`MEM_OP_LD_BU] ? {24'b0, load_byte} :
+    dc_mem_op[`MEM_OP_LD_H ] ? {{16{load_half[15]}}, load_half} :
+    dc_mem_op[`MEM_OP_LD_HU] ? {16'b0, load_half} :
+                               load_raw_data;
+
+assign mem_size = (dc_mem_op[`MEM_OP_ST_B] || dc_mem_op[`MEM_OP_LD_B] || dc_mem_op[`MEM_OP_LD_BU]) ? 3'b000 :
+                  (dc_mem_op[`MEM_OP_ST_H] || dc_mem_op[`MEM_OP_LD_H] || dc_mem_op[`MEM_OP_LD_HU]) ? 3'b001 :
+                  3'b010;     //存储位宽
+
+assign dc_vaddr_o = dc_vaddr;
+assign dc_paddr_o = dc_paddr;
+assign dc_size_o = mem_size;
+assign dc_uncached_o = dc_uncached;
+assign uncached_ld_inflight_o = dc_valid && dc_is_load && dc_uncached && !dc_done;
+
+assign wb_valid_o = dc_done;
+assign wb_robid_o = dc_robid;
+assign wb_data_o = (dc_is_store || dc_is_cacop) ? dc_wdata :
+                    (dc_sb_query_hit || dc_data_ok) ? load_wb_data :
+                    32'b0;
+
+assign wb_paddr_o = dc_paddr;
+assign wb_vaddr_o = dc_vaddr;
+assign wb_wstrb_o = dc_wstrb;
+assign wb_size_o = mem_size;
+assign wb_uncached_o = dc_uncached;
+assign wb_excp_o  = dc_excp;
+
+assign early_wakeup_valid_o = 1'b0;
+assign early_wakeup_robid_o = {`ROB_W{1'b0}};
+
 //TODO: 二期优化（接口已预留）：
 //      1) AGU 级投机唤醒：load 在 AGU 级若能预测 DCache 命中（mariver 用
 //         "最近两次命中的行地址"匹配），提前 2 拍广播 early_wakeup，

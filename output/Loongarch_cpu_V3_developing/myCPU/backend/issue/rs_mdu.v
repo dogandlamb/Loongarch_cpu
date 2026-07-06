@@ -82,4 +82,121 @@ module rs_mdu(
 //      2. invtlb 的 asid 来自 rj[9:0]、va 来自 rk —— 也是双源指令。
 //      3. rdcnt 类无源操作数（use_src=0，rename 已置 ready=1），入站即可发射。
 
+reg                     valid [0:`RS_MDU_SIZE-1];
+reg [`ROB_W-1:0]        robid [0:`RS_MDU_SIZE-1];
+reg [`ALU_OP_NUM-1:0]   alu_op [0:`RS_MDU_SIZE-1];
+reg [`CSR_OP_NUM-1:0]   csr_op [0:`RS_MDU_SIZE-1];
+reg [13:0]              csr_num [0:`RS_MDU_SIZE-1];
+reg [`TLB_OP_NUM-1:0]   tlb_op [0:`RS_MDU_SIZE-1];
+reg [`WB_SRC_NUM-1:0]   wb_src_op [0:`RS_MDU_SIZE-1];
+reg                     s0_ready [0:`RS_MDU_SIZE-1];
+reg [31:0]              s0_val [0:`RS_MDU_SIZE-1];
+reg [`ROB_W-1:0]        s0_robid [0:`RS_MDU_SIZE-1];
+reg                     s1_ready [0:`RS_MDU_SIZE-1];
+reg [31:0]              s1_val [0:`RS_MDU_SIZE-1];
+reg [`ROB_W-1:0]        s1_robid [0:`RS_MDU_SIZE-1];
+reg                     head;
+reg                     tail;
+reg [1:0]               count;
+
+integer i;
+wire head_ready;
+wire issue_fire;
+
+function wb_hit;
+    input [`ROB_W-1:0] rid;
+    begin
+        wb_hit = (wb0_valid_i && (wb0_robid_i == rid)) ||
+                 (wb1_valid_i && (wb1_robid_i == rid)) ||
+                 (wb2_valid_i && (wb2_robid_i == rid)) ||
+                 (wb3_valid_i && (wb3_robid_i == rid));
+    end
+endfunction
+
+function [31:0] wb_data;
+    input [`ROB_W-1:0] rid;
+    begin
+        if (wb0_valid_i && (wb0_robid_i == rid)) begin
+            wb_data = wb0_data_i;
+        end else if (wb1_valid_i && (wb1_robid_i == rid)) begin
+            wb_data = wb1_data_i;
+        end else if (wb2_valid_i && (wb2_robid_i == rid)) begin
+            wb_data = wb2_data_i;
+        end else if (wb3_valid_i && (wb3_robid_i == rid)) begin
+            wb_data = wb3_data_i;
+        end else begin
+            wb_data = 32'b0;
+        end
+    end
+endfunction
+
+assign occupancy_o = count;
+assign can_accept_o = (count != `RS_MDU_SIZE);
+assign head_ready = (count != 2'b0) && valid[head] &&
+                    (s0_ready[head] || wb_hit(s0_robid[head])) &&
+                    (s1_ready[head] || wb_hit(s1_robid[head]));
+assign issue_valid_o = head_ready && mdu_ready_i;
+assign issue_fire = issue_valid_o;
+
+assign issue_robid_o = robid[head];
+assign issue_alu_op_o = alu_op[head];
+assign issue_csr_op_o = csr_op[head];
+assign issue_csr_num_o = csr_num[head];
+assign issue_tlb_op_o = tlb_op[head];
+assign issue_wb_src_op_o = wb_src_op[head];
+assign issue_src0_o = s0_ready[head] ? s0_val[head] : wb_data(s0_robid[head]);
+assign issue_src1_o = s1_ready[head] ? s1_val[head] : wb_data(s1_robid[head]);
+
+always @(posedge clk) begin
+    if (reset || flush_i) begin
+        head <= 1'b0;
+        tail <= 1'b0;
+        count <= 2'b0;
+        for (i = 0; i < `RS_MDU_SIZE; i = i + 1) begin
+            valid[i] <= 1'b0;
+        end
+    end else begin
+        for (i = 0; i < `RS_MDU_SIZE; i = i + 1) begin
+            if (valid[i] && !(issue_fire && (i[0] == head))) begin
+                if (!s0_ready[i] && wb_hit(s0_robid[i])) begin
+                    s0_ready[i] <= 1'b1;
+                    s0_val[i] <= wb_data(s0_robid[i]);
+                end
+                if (!s1_ready[i] && wb_hit(s1_robid[i])) begin
+                    s1_ready[i] <= 1'b1;
+                    s1_val[i] <= wb_data(s1_robid[i]);
+                end
+            end
+        end
+
+        if (issue_fire) begin
+            valid[head] <= 1'b0;
+            head <= head + 1'b1;
+        end
+
+        if (push_valid_i && can_accept_o) begin
+            valid[tail] <= 1'b1;
+            robid[tail] <= push_robid_i;
+            alu_op[tail] <= push_alu_op_i;
+            csr_op[tail] <= push_csr_op_i;
+            csr_num[tail] <= push_csr_num_i;
+            tlb_op[tail] <= push_tlb_op_i;
+            wb_src_op[tail] <= push_wb_src_op_i;
+            s0_ready[tail] <= push_src0_ready_i || wb_hit(push_src0_robid_i);
+            s0_val[tail] <= push_src0_ready_i ? push_src0_val_i : wb_data(push_src0_robid_i);
+            s0_robid[tail] <= push_src0_robid_i;
+            s1_ready[tail] <= push_src1_ready_i || wb_hit(push_src1_robid_i);
+            s1_val[tail] <= push_src1_ready_i ? push_src1_val_i : wb_data(push_src1_robid_i);
+            s1_robid[tail] <= push_src1_robid_i;
+            tail <= tail + 1'b1;
+        end
+
+        case ({push_valid_i && can_accept_o, issue_fire})
+            2'b10: count <= count + 2'b01;
+            2'b01: count <= count - 2'b01;
+            default: count <= count;
+        endcase
+    end
+end
+
 endmodule

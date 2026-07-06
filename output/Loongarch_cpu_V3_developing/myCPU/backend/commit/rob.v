@@ -236,4 +236,256 @@ module rob(
 //         残留会导致指令"未执行就提交"，查死人。
 //      3. 双发射槽 1 无效时照样占位（valid=0），提交仲裁会跳过它。
 
+reg [`ROB_PAIR_W-1:0] head;
+reg [`ROB_PAIR_W-1:0] tail;
+
+reg                       valid [0:`ROB_SIZE-1];
+reg                       complete [0:`ROB_SIZE-1];
+reg [31:0]                pc [0:`ROB_SIZE-1];
+reg [31:0]                inst [0:`ROB_SIZE-1];
+reg                       rf_we [0:`ROB_SIZE-1];
+reg [4:0]                 rd [0:`ROB_SIZE-1];
+reg [`FU_NUM-1:0]         futype [0:`ROB_SIZE-1];
+reg                       is_load [0:`ROB_SIZE-1];
+reg                       is_store [0:`ROB_SIZE-1];
+reg                       is_branch [0:`ROB_SIZE-1];
+reg [`BR_TYPE_W-1:0]      br_type [0:`ROB_SIZE-1];
+reg                       pred_taken [0:`ROB_SIZE-1];
+reg                       is_last [0:`ROB_SIZE-1];
+reg [`FTQ_W-1:0]          ftq_id [0:`ROB_SIZE-1];
+reg [`PRIV_NUM-1:0]       priv_vec [0:`ROB_SIZE-1];
+reg [13:0]                csr_num [0:`ROB_SIZE-1];
+reg [`TLB_OP_NUM-1:0]     tlb_op [0:`ROB_SIZE-1];
+reg [4:0]                 cacop_code [0:`ROB_SIZE-1];
+reg [`EXCP_NUM-1:0]       excp_static [0:`ROB_SIZE-1];
+
+reg [31:0]                result [0:`ROB_SIZE-1];
+reg [31:0]                result2 [0:`ROB_SIZE-1];
+reg [31:0]                paddr [0:`ROB_SIZE-1];
+reg [31:0]                vaddr [0:`ROB_SIZE-1];
+reg [3:0]                 wstrb [0:`ROB_SIZE-1];
+reg [2:0]                 size [0:`ROB_SIZE-1];
+reg                       uncached [0:`ROB_SIZE-1];
+reg                       br_taken [0:`ROB_SIZE-1];
+reg [31:0]                br_target [0:`ROB_SIZE-1];
+reg [`EXCP_NUM-1:0]       excp_dynamic [0:`ROB_SIZE-1];
+
+integer i;
+
+wire [4:0] alloc0_idx = {1'b0, tail};
+wire [4:0] alloc1_idx = {1'b1, tail};
+wire [4:0] head0_idx  = {1'b0, head};
+wire [4:0] head1_idx  = {1'b1, head};
+
+function wb_hit;
+    input [`ROB_W-1:0] rid;
+    begin
+        wb_hit = (alu0_wb_valid_i && (alu0_wb_robid_i == rid)) ||
+                 (alu1_wb_valid_i && (alu1_wb_robid_i == rid)) ||
+                 (mem_wb_valid_i  && (mem_wb_robid_i  == rid)) ||
+                 (mdu_wb_valid_i  && (mdu_wb_robid_i  == rid));
+    end
+endfunction
+
+function [31:0] wb_data;
+    input [`ROB_W-1:0] rid;
+    begin
+        if (alu0_wb_valid_i && (alu0_wb_robid_i == rid)) begin
+            wb_data = alu0_wb_data_i;
+        end else if (alu1_wb_valid_i && (alu1_wb_robid_i == rid)) begin
+            wb_data = alu1_wb_data_i;
+        end else if (mem_wb_valid_i && (mem_wb_robid_i == rid)) begin
+            wb_data = mem_wb_data_i;
+        end else if (mdu_wb_valid_i && (mdu_wb_robid_i == rid)) begin
+            wb_data = mdu_wb_data_i;
+        end else begin
+            wb_data = 32'b0;
+        end
+    end
+endfunction
+
+assign rob_tail_o = tail;
+assign rob_full_o = (head == (tail + `ROB_GUARD));
+assign rob_empty_o = (head == tail);
+assign head_robid0_o = head0_idx;
+
+assign rrdy0_o = complete[raddr0_i] | wb_hit(raddr0_i);
+assign rrdy1_o = complete[raddr1_i] | wb_hit(raddr1_i);
+assign rrdy2_o = complete[raddr2_i] | wb_hit(raddr2_i);
+assign rrdy3_o = complete[raddr3_i] | wb_hit(raddr3_i);
+assign rdata0_o = wb_hit(raddr0_i) ? wb_data(raddr0_i) : result[raddr0_i];
+assign rdata1_o = wb_hit(raddr1_i) ? wb_data(raddr1_i) : result[raddr1_i];
+assign rdata2_o = wb_hit(raddr2_i) ? wb_data(raddr2_i) : result[raddr2_i];
+assign rdata3_o = wb_hit(raddr3_i) ? wb_data(raddr3_i) : result[raddr3_i];
+
+assign cmt0_valid_o = valid[head0_idx];
+assign cmt0_complete_o = complete[head0_idx];
+assign cmt0_pc_o = pc[head0_idx];
+assign cmt0_inst_o = inst[head0_idx];
+assign cmt0_rf_we_o = rf_we[head0_idx];
+assign cmt0_rd_o = rd[head0_idx];
+assign cmt0_result_o = result[head0_idx];
+assign cmt0_result2_o = result2[head0_idx];
+assign cmt0_is_load_o = is_load[head0_idx];
+assign cmt0_is_store_o = is_store[head0_idx];
+assign cmt0_paddr_o = paddr[head0_idx];
+assign cmt0_vaddr_o = vaddr[head0_idx];
+assign cmt0_wstrb_o = wstrb[head0_idx];
+assign cmt0_size_o = size[head0_idx];
+assign cmt0_uncached_o = uncached[head0_idx];
+assign cmt0_is_branch_o = is_branch[head0_idx];
+assign cmt0_br_type_o = br_type[head0_idx];
+assign cmt0_pred_taken_o = pred_taken[head0_idx];
+assign cmt0_br_taken_o = br_taken[head0_idx];
+assign cmt0_br_target_o = br_target[head0_idx];
+assign cmt0_is_last_o = is_last[head0_idx];
+assign cmt0_ftq_id_o = ftq_id[head0_idx];
+assign cmt0_priv_vec_o = priv_vec[head0_idx];
+assign cmt0_csr_num_o = csr_num[head0_idx];
+assign cmt0_tlb_op_o = tlb_op[head0_idx];
+assign cmt0_cacop_code_o = cacop_code[head0_idx];
+assign cmt0_excp_o = excp_static[head0_idx] | excp_dynamic[head0_idx];
+
+assign cmt1_valid_o = valid[head1_idx];
+assign cmt1_complete_o = complete[head1_idx];
+assign cmt1_pc_o = pc[head1_idx];
+assign cmt1_inst_o = inst[head1_idx];
+assign cmt1_rf_we_o = rf_we[head1_idx];
+assign cmt1_rd_o = rd[head1_idx];
+assign cmt1_result_o = result[head1_idx];
+assign cmt1_result2_o = result2[head1_idx];
+assign cmt1_is_load_o = is_load[head1_idx];
+assign cmt1_is_store_o = is_store[head1_idx];
+assign cmt1_paddr_o = paddr[head1_idx];
+assign cmt1_vaddr_o = vaddr[head1_idx];
+assign cmt1_wstrb_o = wstrb[head1_idx];
+assign cmt1_size_o = size[head1_idx];
+assign cmt1_uncached_o = uncached[head1_idx];
+assign cmt1_is_branch_o = is_branch[head1_idx];
+assign cmt1_br_type_o = br_type[head1_idx];
+assign cmt1_pred_taken_o = pred_taken[head1_idx];
+assign cmt1_br_taken_o = br_taken[head1_idx];
+assign cmt1_br_target_o = br_target[head1_idx];
+assign cmt1_is_last_o = is_last[head1_idx];
+assign cmt1_ftq_id_o = ftq_id[head1_idx];
+assign cmt1_priv_vec_o = priv_vec[head1_idx];
+assign cmt1_csr_num_o = csr_num[head1_idx];
+assign cmt1_tlb_op_o = tlb_op[head1_idx];
+assign cmt1_cacop_code_o = cacop_code[head1_idx];
+assign cmt1_excp_o = excp_static[head1_idx] | excp_dynamic[head1_idx];
+
+always @(posedge clk) begin
+    if (reset || flush_i) begin
+        head <= {`ROB_PAIR_W{1'b0}};
+        tail <= {`ROB_PAIR_W{1'b0}};
+        for (i = 0; i < `ROB_SIZE; i = i + 1) begin
+            valid[i] <= 1'b0;
+            complete[i] <= 1'b0;
+            excp_dynamic[i] <= {`EXCP_NUM{1'b0}};
+        end
+    end else begin
+        if (cmt_clear0_i) begin
+            valid[head0_idx] <= 1'b0;
+        end
+        if (cmt_clear1_i) begin
+            valid[head1_idx] <= 1'b0;
+        end
+        if (cmt_pop_i) begin
+            head <= head + 1'b1;
+        end
+
+        if (alloc_en_i && !rob_full_o) begin
+            valid[alloc0_idx] <= a0_valid_i;
+            complete[alloc0_idx] <= a0_valid_i && a0_is_nop_i;
+            pc[alloc0_idx] <= a0_pc_i;
+            inst[alloc0_idx] <= a0_inst_i;
+            rf_we[alloc0_idx] <= a0_rf_we_i;
+            rd[alloc0_idx] <= a0_rd_i;
+            futype[alloc0_idx] <= a0_futype_i;
+            is_load[alloc0_idx] <= a0_is_load_i;
+            is_store[alloc0_idx] <= a0_is_store_i;
+            is_branch[alloc0_idx] <= a0_is_branch_i;
+            br_type[alloc0_idx] <= a0_br_type_i;
+            pred_taken[alloc0_idx] <= a0_pred_taken_i;
+            is_last[alloc0_idx] <= a0_is_last_i;
+            ftq_id[alloc0_idx] <= a0_ftq_id_i;
+            priv_vec[alloc0_idx] <= a0_priv_vec_i;
+            csr_num[alloc0_idx] <= a0_csr_num_i;
+            tlb_op[alloc0_idx] <= a0_tlb_op_i;
+            cacop_code[alloc0_idx] <= a0_cacop_code_i;
+            excp_static[alloc0_idx] <= a0_excp_i;
+            result[alloc0_idx] <= 32'b0;
+            result2[alloc0_idx] <= 32'b0;
+            paddr[alloc0_idx] <= 32'b0;
+            vaddr[alloc0_idx] <= 32'b0;
+            wstrb[alloc0_idx] <= 4'b0;
+            size[alloc0_idx] <= 3'b0;
+            uncached[alloc0_idx] <= 1'b0;
+            br_taken[alloc0_idx] <= 1'b0;
+            br_target[alloc0_idx] <= 32'b0;
+            excp_dynamic[alloc0_idx] <= {`EXCP_NUM{1'b0}};
+
+            valid[alloc1_idx] <= a1_valid_i;
+            complete[alloc1_idx] <= a1_valid_i && a1_is_nop_i;
+            pc[alloc1_idx] <= a1_pc_i;
+            inst[alloc1_idx] <= a1_inst_i;
+            rf_we[alloc1_idx] <= a1_rf_we_i;
+            rd[alloc1_idx] <= a1_rd_i;
+            futype[alloc1_idx] <= a1_futype_i;
+            is_load[alloc1_idx] <= a1_is_load_i;
+            is_store[alloc1_idx] <= a1_is_store_i;
+            is_branch[alloc1_idx] <= a1_is_branch_i;
+            br_type[alloc1_idx] <= a1_br_type_i;
+            pred_taken[alloc1_idx] <= a1_pred_taken_i;
+            is_last[alloc1_idx] <= a1_is_last_i;
+            ftq_id[alloc1_idx] <= a1_ftq_id_i;
+            priv_vec[alloc1_idx] <= a1_priv_vec_i;
+            csr_num[alloc1_idx] <= a1_csr_num_i;
+            tlb_op[alloc1_idx] <= a1_tlb_op_i;
+            cacop_code[alloc1_idx] <= a1_cacop_code_i;
+            excp_static[alloc1_idx] <= a1_excp_i;
+            result[alloc1_idx] <= 32'b0;
+            result2[alloc1_idx] <= 32'b0;
+            paddr[alloc1_idx] <= 32'b0;
+            vaddr[alloc1_idx] <= 32'b0;
+            wstrb[alloc1_idx] <= 4'b0;
+            size[alloc1_idx] <= 3'b0;
+            uncached[alloc1_idx] <= 1'b0;
+            br_taken[alloc1_idx] <= 1'b0;
+            br_target[alloc1_idx] <= 32'b0;
+            excp_dynamic[alloc1_idx] <= {`EXCP_NUM{1'b0}};
+
+            tail <= tail + 1'b1;
+        end
+
+        if (alu0_wb_valid_i) begin
+            result[alu0_wb_robid_i] <= alu0_wb_data_i;
+            br_taken[alu0_wb_robid_i] <= alu0_wb_br_taken_i;
+            br_target[alu0_wb_robid_i] <= alu0_wb_br_target_i;
+            complete[alu0_wb_robid_i] <= 1'b1;
+        end
+        if (alu1_wb_valid_i) begin
+            result[alu1_wb_robid_i] <= alu1_wb_data_i;
+            br_taken[alu1_wb_robid_i] <= alu1_wb_br_taken_i;
+            br_target[alu1_wb_robid_i] <= alu1_wb_br_target_i;
+            complete[alu1_wb_robid_i] <= 1'b1;
+        end
+        if (mem_wb_valid_i) begin
+            result[mem_wb_robid_i] <= mem_wb_data_i;
+            paddr[mem_wb_robid_i] <= mem_wb_paddr_i;
+            vaddr[mem_wb_robid_i] <= mem_wb_vaddr_i;
+            wstrb[mem_wb_robid_i] <= mem_wb_wstrb_i;
+            size[mem_wb_robid_i] <= mem_wb_size_i;
+            uncached[mem_wb_robid_i] <= mem_wb_uncached_i;
+            excp_dynamic[mem_wb_robid_i] <= mem_wb_excp_i;
+            complete[mem_wb_robid_i] <= 1'b1;
+        end
+        if (mdu_wb_valid_i) begin
+            result[mdu_wb_robid_i] <= mdu_wb_data_i;
+            result2[mdu_wb_robid_i] <= mdu_wb_data2_i;
+            complete[mdu_wb_robid_i] <= 1'b1;
+        end
+    end
+end
+
 endmodule

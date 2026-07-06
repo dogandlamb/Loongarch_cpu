@@ -1,17 +1,18 @@
 // ============================================================
-// mul 模块（32x32 流水乘法器，DSP 实现，2~3 级流水）
+// mul 模块（32x32 流水乘法器，推断 DSP 实现，3 级流水）
 // ------------------------------------------------------------
 // 功能：
 // - 完成 32x32 -> 64 位有符号/无符号乘法，供 mul.w / mulh.w / mulh.wu 使用。
-// - 用 FPGA 的 DSP48 硬核：要么直接写 `a*b` 让综合器推断 DSP 并手动
-//   打 2~3 级流水寄存器，要么例化 Vivado mult_gen IP（两种都可以，
-//   推断写法对 chiplab/verilator 仿真更友好，推荐）。
+// - 用 33x33 扩展统一覆盖有符号/无符号乘法；
+// - 直接写 `a*b` 并加 use_dsp 属性，让 Vivado 推断 DSP48 级联；
+// - 固定 3 拍流水：输入寄存 -> 乘积寄存 -> 输出寄存。
 //
 // 端口：
 // - valid_i / a_i / b_i / is_signed_i ：启动一次乘法
 // - result_o / done_o                 ：固定 N 拍后结果有效一拍
 // ============================================================
 
+(* use_dsp = "yes" *)
 module mul(
     input  wire          clk,
     input  wire          reset,
@@ -25,19 +26,36 @@ module mul(
     output wire          done_o         // 结果有效（启动后固定拍数）
 );
 
-//TODO: 推荐实现（综合器推断 DSP + 流水寄存器，约 30 行）：
-//      1) 符号扩展到 33 位：a33 = {is_signed & a[31], a}; b33 同理；
-//      2) 一级寄存输入，二级算 prod <= $signed(a33_r) * $signed(b33_r)，
-//         三级寄存输出 —— 共 3 拍延迟，Vivado 会自动映射 DSP48 级联；
-//      3) done_o 用一个 2~3 位移位寄存器跟踪 valid_i 延迟拍数。
-//
-//TODO: 替代实现（Vivado IP）：
-//      例化 mult_gen（配置 33x33 有符号、流水级 3），端口对接即可；
-//      注意 chiplab/verilator 仿真需要 IP 仿真模型，麻烦，故不推荐。
-//
-//TODO: 坑点提示：
-//      1. mulh.wu 必须按无符号算——用"33 位带符号位扩展"统一处理有/无符号
-//         （无符号时符号位补 0），一个乘法器搞定三条指令。
-//      2. 流水期间 fu_mdu 不会发新请求（非流水包装），不必处理背靠背。
+localparam MUL_LATENCY = 3;
+
+reg signed [32:0] a33_r;
+reg signed [32:0] b33_r;
+(* use_dsp = "yes" *) reg signed [65:0] prod_r;
+reg        [63:0] result_r;
+reg        [MUL_LATENCY-1:0] valid_pipe;
+
+wire signed [32:0] a33 = {is_signed_i & a_i[31], a_i};
+wire signed [32:0] b33 = {is_signed_i & b_i[31], b_i};
+
+always @(posedge clk) begin
+    if (reset) begin
+        a33_r      <= 33'b0;
+        b33_r      <= 33'b0;
+        prod_r     <= 66'b0;
+        result_r   <= 64'b0;
+        valid_pipe <= {MUL_LATENCY{1'b0}};
+    end else begin
+        valid_pipe <= {valid_pipe[MUL_LATENCY-2:0], valid_i};
+        if (valid_i) begin
+            a33_r <= a33;
+            b33_r <= b33;
+        end
+        prod_r   <= a33_r * b33_r;
+        result_r <= prod_r[63:0];
+    end
+end
+
+assign result_o = result_r;
+assign done_o   = valid_pipe[MUL_LATENCY-1];
 
 endmodule

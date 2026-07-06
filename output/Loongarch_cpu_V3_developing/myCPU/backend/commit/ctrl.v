@@ -67,4 +67,20 @@ module ctrl(
 //         快照（同时只允许 1 条在飞分支投机）就能拿到大部分收益。
 //      3. 在此之前，一期的提交级冲刷已保证功能完全正确，可放心先跑分。
 
+reg idle_lock;
+
+always @(posedge clk) begin
+    if (reset) begin
+        idle_lock <= 1'b0;
+    end else if (has_int_i) begin
+        idle_lock <= 1'b0;
+    end else if (idle_commit_i) begin
+        idle_lock <= 1'b1;
+    end
+end
+
+assign flush_o = cmt_flush_req_i | ex_redirect_req_i;
+assign flush_pc_o = cmt_flush_req_i ? cmt_flush_pc_i : ex_redirect_pc_i;
+assign fetch_stall_o = idle_lock;
+
 endmodule

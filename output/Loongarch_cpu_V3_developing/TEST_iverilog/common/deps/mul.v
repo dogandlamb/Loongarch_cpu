@@ -4,9 +4,11 @@
 // 参考实现说明：
 // - 33x33 带符号位扩展统一处理有/无符号（无符号补 0 扩展）；
 // - 一级寄存输入 -> 二级乘积寄存 -> 三级输出寄存，固定 3 拍延迟；
-// - done_o 用 3 位移位寄存器跟踪 valid_i。
+// - done_o 用 3 位移位寄存器跟踪 valid_i；
+// - 加 use_dsp 属性引导 Vivado 映射 DSP48 级联。
 // ============================================================
 
+(* use_dsp = "yes" *)
 module mul(
     input  wire          clk,
     input  wire          reset,
@@ -20,31 +22,36 @@ module mul(
     output wire          done_o         // 结果有效（启动后固定拍数）
 );
 
-// 第 1 级：符号扩展并寄存输入
-reg  signed [32:0] a_r, b_r;
-// 第 2 级：DSP 乘积
-reg  signed [65:0] prod_r;
-// 第 3 级：输出寄存
-reg  [63:0] result_r;
-// 延迟跟踪
-reg  [2:0]  vld_sft;
+localparam MUL_LATENCY = 3;
+
+reg signed [32:0] a33_r;
+reg signed [32:0] b33_r;
+(* use_dsp = "yes" *) reg signed [65:0] prod_r;
+reg        [63:0] result_r;
+reg        [MUL_LATENCY-1:0] valid_pipe;
+
+wire signed [32:0] a33 = {is_signed_i & a_i[31], a_i};
+wire signed [32:0] b33 = {is_signed_i & b_i[31], b_i};
 
 always @(posedge clk) begin
     if (reset) begin
-        vld_sft <= 3'b0;
+        a33_r      <= 33'b0;
+        b33_r      <= 33'b0;
+        prod_r     <= 66'b0;
+        result_r   <= 64'b0;
+        valid_pipe <= {MUL_LATENCY{1'b0}};
     end else begin
-        vld_sft <= {vld_sft[1:0], valid_i};
+        valid_pipe <= {valid_pipe[MUL_LATENCY-2:0], valid_i};
+        if (valid_i) begin
+            a33_r <= a33;
+            b33_r <= b33;
+        end
+        prod_r   <= a33_r * b33_r;
+        result_r <= prod_r[63:0];
     end
 end
 
-always @(posedge clk) begin
-    a_r      <= {is_signed_i & a_i[31], a_i};
-    b_r      <= {is_signed_i & b_i[31], b_i};
-    prod_r   <= a_r * b_r;
-    result_r <= prod_r[63:0];
-end
-
 assign result_o = result_r;
-assign done_o   = vld_sft[2];
+assign done_o   = valid_pipe[MUL_LATENCY-1];
 
 endmodule

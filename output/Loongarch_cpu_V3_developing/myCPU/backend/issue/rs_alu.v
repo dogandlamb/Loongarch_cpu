@@ -126,4 +126,143 @@ module rs_alu(
 //         总线唤醒写入（非阻塞赋值未生效），需要把"本拍唤醒的新值"组合旁路
 //         到 issue_src 上（即 issue 数据 = 旧值与本拍总线值的二选一）。
 
+reg                     valid [0:`RS_ALU_SIZE-1];
+reg [`ROB_W-1:0]        robid [0:`RS_ALU_SIZE-1];
+reg [31:0]              pc [0:`RS_ALU_SIZE-1];
+reg [`ALU_OP_NUM-1:0]   alu_op [0:`RS_ALU_SIZE-1];
+reg [`BR_OP_NUM-1:0]    br_op [0:`RS_ALU_SIZE-1];
+reg                     s0_ready [0:`RS_ALU_SIZE-1];
+reg [31:0]              s0_val [0:`RS_ALU_SIZE-1];
+reg [`ROB_W-1:0]        s0_robid [0:`RS_ALU_SIZE-1];
+reg                     s1_ready [0:`RS_ALU_SIZE-1];
+reg [31:0]              s1_val [0:`RS_ALU_SIZE-1];
+reg [`ROB_W-1:0]        s1_robid [0:`RS_ALU_SIZE-1];
+reg [31:0]              imm [0:`RS_ALU_SIZE-1];
+reg                     use_imm [0:`RS_ALU_SIZE-1];
+reg [31:0]              br_offs [0:`RS_ALU_SIZE-1];
+reg [1:0]               prior [0:`RS_ALU_SIZE-1];
+
+integer i;
+reg [1:0] free_idx;
+reg [1:0] issue_idx;
+reg       issue_sel_valid;
+
+function wb_hit;
+    input [`ROB_W-1:0] rid;
+    begin
+        wb_hit = (wb0_valid_i && (wb0_robid_i == rid)) ||
+                 (wb1_valid_i && (wb1_robid_i == rid)) ||
+                 (wb2_valid_i && (wb2_robid_i == rid)) ||
+                 (wb3_valid_i && (wb3_robid_i == rid));
+    end
+endfunction
+
+function [31:0] wb_data;
+    input [`ROB_W-1:0] rid;
+    begin
+        if (wb0_valid_i && (wb0_robid_i == rid)) begin
+            wb_data = wb0_data_i;
+        end else if (wb1_valid_i && (wb1_robid_i == rid)) begin
+            wb_data = wb1_data_i;
+        end else if (wb2_valid_i && (wb2_robid_i == rid)) begin
+            wb_data = wb2_data_i;
+        end else if (wb3_valid_i && (wb3_robid_i == rid)) begin
+            wb_data = wb3_data_i;
+        end else begin
+            wb_data = 32'b0;
+        end
+    end
+endfunction
+
+assign occupancy_o = {2'b0, valid[0]} + {2'b0, valid[1]} +
+                     {2'b0, valid[2]} + {2'b0, valid[3]};
+assign can_accept_o = (occupancy_o != `RS_ALU_SIZE);
+
+always @(*) begin
+    free_idx = 2'd0;
+    if (!valid[0]) begin
+        free_idx = 2'd0;
+    end else if (!valid[1]) begin
+        free_idx = 2'd1;
+    end else if (!valid[2]) begin
+        free_idx = 2'd2;
+    end else begin
+        free_idx = 2'd3;
+    end
+end
+
+always @(*) begin
+    issue_idx = 2'd0;
+    issue_sel_valid = 1'b0;
+    for (i = 0; i < `RS_ALU_SIZE; i = i + 1) begin
+        if (valid[i] &&
+            (s0_ready[i] || wb_hit(s0_robid[i])) &&
+            (s1_ready[i] || wb_hit(s1_robid[i])) &&
+            (!issue_sel_valid || (prior[i] < prior[issue_idx]))) begin
+            issue_idx = i[1:0];
+            issue_sel_valid = 1'b1;
+        end
+    end
+end
+
+assign issue_valid_o = issue_sel_valid;
+assign issue_robid_o = robid[issue_idx];
+assign issue_pc_o = pc[issue_idx];
+assign issue_alu_op_o = alu_op[issue_idx];
+assign issue_br_op_o = br_op[issue_idx];
+assign issue_src0_o = s0_ready[issue_idx] ? s0_val[issue_idx] : wb_data(s0_robid[issue_idx]);
+assign issue_src1_o = s1_ready[issue_idx] ? s1_val[issue_idx] : wb_data(s1_robid[issue_idx]);
+assign issue_imm_o = imm[issue_idx];
+assign issue_use_imm_o = use_imm[issue_idx];
+assign issue_br_offs_o = br_offs[issue_idx];
+
+always @(posedge clk) begin
+    if (reset || flush_i) begin
+        for (i = 0; i < `RS_ALU_SIZE; i = i + 1) begin
+            valid[i] <= 1'b0;
+            prior[i] <= 2'b0;
+        end
+    end else begin
+        if (issue_sel_valid) begin
+            valid[issue_idx] <= 1'b0;
+            for (i = 0; i < `RS_ALU_SIZE; i = i + 1) begin
+                if (valid[i] && (i[1:0] != issue_idx) && (prior[i] > prior[issue_idx])) begin
+                    prior[i] <= prior[i] - 2'b01;
+                end
+            end
+        end
+
+        for (i = 0; i < `RS_ALU_SIZE; i = i + 1) begin
+            if (valid[i] && !(issue_sel_valid && (i[1:0] == issue_idx))) begin
+                if (!s0_ready[i] && wb_hit(s0_robid[i])) begin
+                    s0_ready[i] <= 1'b1;
+                    s0_val[i] <= wb_data(s0_robid[i]);
+                end
+                if (!s1_ready[i] && wb_hit(s1_robid[i])) begin
+                    s1_ready[i] <= 1'b1;
+                    s1_val[i] <= wb_data(s1_robid[i]);
+                end
+            end
+        end
+
+        if (push_valid_i && can_accept_o) begin
+            valid[free_idx] <= 1'b1;
+            robid[free_idx] <= push_robid_i;
+            pc[free_idx] <= push_pc_i;
+            alu_op[free_idx] <= push_alu_op_i;
+            br_op[free_idx] <= push_br_op_i;
+            s0_ready[free_idx] <= push_src0_ready_i || wb_hit(push_src0_robid_i);
+            s0_val[free_idx] <= push_src0_ready_i ? push_src0_val_i : wb_data(push_src0_robid_i);
+            s0_robid[free_idx] <= push_src0_robid_i;
+            s1_ready[free_idx] <= push_src1_ready_i || wb_hit(push_src1_robid_i);
+            s1_val[free_idx] <= push_src1_ready_i ? push_src1_val_i : wb_data(push_src1_robid_i);
+            s1_robid[free_idx] <= push_src1_robid_i;
+            imm[free_idx] <= push_imm_i;
+            use_imm[free_idx] <= push_use_imm_i;
+            br_offs[free_idx] <= push_br_offs_i;
+            prior[free_idx] <= 2'd3;
+        end
+    end
+end
+
 endmodule

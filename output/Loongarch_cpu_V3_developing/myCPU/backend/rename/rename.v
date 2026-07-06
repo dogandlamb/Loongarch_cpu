@@ -225,16 +225,58 @@ module rename(
 
 //TODO: 实现重命名级（参考：mariver rename.v 145~254 行，结构几乎一一对应）
 //
+wire can_go;  // 本拍放行条件（组合）：IB 有效 && ROB 未满 && 分发级可接收 && !flush
+
+wire [`ROB_W-1:0] robid0;
+wire [`ROB_W-1:0] robid1;
+wire ib0_writes_rf;
+wire ib1_writes_rf;
+wire ib1_src0_raw_from_ib0;
+wire ib1_src1_raw_from_ib0;
+wire src0_0_ready;
+wire src0_1_ready;
+wire src1_0_ready;
+wire src1_1_ready;
+wire [31:0] src0_0_val;
+wire [31:0] src0_1_val;
+wire [31:0] src1_0_val;
+wire [31:0] src1_1_val;
+wire [`ROB_W-1:0] src0_0_robid;
+wire [`ROB_W-1:0] src0_1_robid;
+wire [`ROB_W-1:0] src1_0_robid;
+wire [`ROB_W-1:0] src1_1_robid;
+
+
 //TODO: 第一步——本级放行条件（组合）：
 //      can_go = (ib0_valid_i | ib1_valid_i) && !rob_full_i && dispatch_ready_i && !flush_i;
 //      ib0_ready_o = can_go && ib0_valid_i;  ib1_ready_o = can_go && ib1_valid_i;
 //      rob_alloc_en_o = can_go;   // 恒成对分配（哪怕只有槽 0 有效，也占一对槽位）
 //      注：dispatch_ready_i 为 0 时整级停（IB 不弹出、ROB 不分配、流水寄存器保持）。
 //
+assign can_go = (ib0_valid_i | ib1_valid_i) && !rob_full_i && dispatch_ready_i && !flush_i;
+assign ib0_ready_o = can_go && ib0_valid_i;
+assign ib1_ready_o = can_go && ib1_valid_i;
+assign rob_alloc_en_o = can_go;
+
+assign robid0 = {1'b0, rob_tail_i};
+assign robid1 = {1'b1, rob_tail_i};
+assign ib0_writes_rf = ib0_valid_i && ib0_rf_we_i && (ib0_rd_addr_i != 5'b0);
+assign ib1_writes_rf = ib1_valid_i && ib1_rf_we_i && (ib1_rd_addr_i != 5'b0);
+
 //TODO: 第二步——RAT/ARF 读地址（组合直连）：
 //      rat_raddr0/1 = 槽0 的 src0/src1 地址；rat_raddr2/3 = 槽1 的；
 //      arf_raddr0~3 同地址（RAT 与 ARF 共用读地址，mariver 同款）。
 //
+assign rat_raddr0_o = ib0_src0_addr_i;
+assign rat_raddr1_o = ib0_src1_addr_i;
+assign rat_raddr2_o = ib1_src0_addr_i;
+assign rat_raddr3_o = ib1_src1_addr_i;
+
+assign arf_raddr0_o = ib0_src0_addr_i;
+assign arf_raddr1_o = ib0_src1_addr_i;
+assign arf_raddr2_o = ib1_src0_addr_i;
+assign arf_raddr3_o = ib1_src1_addr_i;
+
 //TODO: 第三步——源操作数就绪判定（组合）：
 //      槽0：src0_ready = !use_src0 || !rat_rbusy0_i;   值 = arf_rdata0_i；
 //           标签 = rat_rnum0_i；（src1 同理）
@@ -244,16 +286,88 @@ module rename(
 //           否则与槽 0 同样查 RAT/ARF。
 //      不使用的源（use_srcX=0）一律 ready=1、值给 0（保证保留站不等假数据）。
 //
+assign ib1_src0_raw_from_ib0 = ib1_use_src0_i && ib0_writes_rf &&
+                               (ib1_src0_addr_i == ib0_rd_addr_i);
+assign ib1_src1_raw_from_ib0 = ib1_use_src1_i && ib0_writes_rf &&
+                               (ib1_src1_addr_i == ib0_rd_addr_i);
+
+assign src0_0_ready = !ib0_use_src0_i || !rat_rbusy0_i;
+assign src0_0_val = ib0_use_src0_i ? arf_rdata0_i : 32'b0;
+assign src0_0_robid = rat_rnum0_i;
+
+assign src0_1_ready = !ib0_use_src1_i || !rat_rbusy1_i;
+assign src0_1_val = ib0_use_src1_i ? arf_rdata1_i : 32'b0;
+assign src0_1_robid = rat_rnum1_i;
+
+assign src1_0_ready = !ib1_use_src0_i ? 1'b1 :
+                      ib1_src0_raw_from_ib0 ? 1'b0 :
+                      !rat_rbusy2_i;
+assign src1_0_val = ib1_use_src0_i ? arf_rdata2_i : 32'b0;
+assign src1_0_robid = ib1_src0_raw_from_ib0 ? robid0 : rat_rnum2_i;
+
+assign src1_1_ready = !ib1_use_src1_i ? 1'b1 :
+                      ib1_src1_raw_from_ib0 ? 1'b0 :
+                      !rat_rbusy3_i;
+assign src1_1_val = ib1_use_src1_i ? arf_rdata3_i : 32'b0;
+assign src1_1_robid = ib1_src1_raw_from_ib0 ? robid0 : rat_rnum3_i;
+
 //TODO: 第四步——RAT 占用写（组合输出，RAT 内部时序写）：
 //      rat_wen0_o = can_go && ib0_valid_i && ib0_rf_we_i && (rd!=r0)；wnum0={1'b0,rob_tail_i}
 //      rat_wen1_o 同理；wnum1={1'b1,rob_tail_i}
 //      同拍 WAW（两槽 rd 相同）：RAT 内部已让槽 1 优先（更年轻），无需额外处理。
 //
+assign rat_wen0_o = can_go && ib0_writes_rf;
+assign rat_waddr0_o = ib0_rd_addr_i;
+assign rat_wnum0_o = robid0;
+assign rat_wen1_o = can_go && ib1_writes_rf;
+assign rat_waddr1_o = ib1_rd_addr_i;
+assign rat_wnum1_o = robid1;
+
 //TODO: 第五步——ROB 静态信息（组合直通 rob_a0_*/rob_a1_*）：
 //      pc/inst/rf_we/rd/futype/is_load/is_store/is_branch/br_type/pred_taken/
 //      is_last/ftq_id/priv_vec/csr_num/cacop_code/excp/is_nop 全部从 ib*_ 输入透传。
 //      ROB 在 alloc_en 时把这些锁进表项（valid 置位、complete 按 is_nop 置位）。
 //
+assign rob_a0_valid_o = can_go && ib0_valid_i;
+assign rob_a0_pc_o = ib0_pc_i;
+assign rob_a0_inst_o = ib0_inst_i;
+assign rob_a0_rf_we_o = ib0_rf_we_i;
+assign rob_a0_rd_o = ib0_rd_addr_i;
+assign rob_a0_futype_o = ib0_futype_i;
+assign rob_a0_is_load_o = ib0_is_load_i;
+assign rob_a0_is_store_o = ib0_is_store_i;
+assign rob_a0_is_branch_o = ib0_is_branch_i;
+assign rob_a0_br_type_o = ib0_br_type_i;
+assign rob_a0_pred_taken_o = ib0_pred_taken_i;
+assign rob_a0_is_last_o = ib0_is_last_i;
+assign rob_a0_ftq_id_o = ib0_ftq_id_i;
+assign rob_a0_priv_vec_o = ib0_priv_vec_i;
+assign rob_a0_csr_num_o = ib0_csr_num_i;
+assign rob_a0_tlb_op_o = ib0_tlb_op_i;
+assign rob_a0_cacop_code_o = ib0_cacop_code_i;
+assign rob_a0_excp_o = ib0_excp_i;
+assign rob_a0_is_nop_o = ib0_is_nop_i;
+
+assign rob_a1_valid_o = can_go && ib1_valid_i;
+assign rob_a1_pc_o = ib1_pc_i;
+assign rob_a1_inst_o = ib1_inst_i;
+assign rob_a1_rf_we_o = ib1_rf_we_i;
+assign rob_a1_rd_o = ib1_rd_addr_i;
+assign rob_a1_futype_o = ib1_futype_i;
+assign rob_a1_is_load_o = ib1_is_load_i;
+assign rob_a1_is_store_o = ib1_is_store_i;
+assign rob_a1_is_branch_o = ib1_is_branch_i;
+assign rob_a1_br_type_o = ib1_br_type_i;
+assign rob_a1_pred_taken_o = ib1_pred_taken_i;
+assign rob_a1_is_last_o = ib1_is_last_i;
+assign rob_a1_ftq_id_o = ib1_ftq_id_i;
+assign rob_a1_priv_vec_o = ib1_priv_vec_i;
+assign rob_a1_csr_num_o = ib1_csr_num_i;
+assign rob_a1_tlb_op_o = ib1_tlb_op_i;
+assign rob_a1_cacop_code_o = ib1_cacop_code_i;
+assign rob_a1_excp_o = ib1_excp_i;
+assign rob_a1_is_nop_o = ib1_is_nop_i;
+
 //TODO: 第六步——流水寄存器（时序，can_go 时锁存，flush_i 清 valid）：
 //      dis*_valid <= can_go && ib*_valid && !ib*_is_nop（NOP 消除：不送分发级）；
 //      其余字段照搬；dis*_robid <= {槽位, rob_tail_i}；
@@ -266,5 +380,56 @@ module rename(
 //      2. is_nop 指令必须照常分配 ROB + 写 RAT？——NOP 不写寄存器（rf_we=0），
 //         不会写 RAT；但 priv 类伪 NOP（dbar/ibar）带 priv_vec 要进 ROB 走提交流程。
 //      3. flush_i 优先级最高：当拍 can_go 必须为 0（不得向 ROB/RAT 发任何写）。
+
+always @(posedge clk) begin
+    if (reset || flush_i) begin
+        dis0_valid_o <= 1'b0;
+        dis1_valid_o <= 1'b0;
+    end else if (can_go) begin
+        dis0_valid_o <= ib0_valid_i && !ib0_is_nop_i;
+        dis0_robid_o <= robid0;
+        dis0_pc_o <= ib0_pc_i;
+        dis0_futype_o <= ib0_futype_i;
+        dis0_alu_op_o <= ib0_alu_op_i;
+        dis0_br_op_o <= ib0_br_op_i;
+        dis0_mem_op_o <= ib0_mem_op_i;
+        dis0_csr_op_o <= ib0_csr_op_i;
+        dis0_tlb_op_o <= ib0_tlb_op_i;
+        dis0_wb_src_op_o <= ib0_wb_src_op_i;
+        dis0_csr_num_o <= ib0_csr_num_i;
+        dis0_is_cacop_o <= ib0_priv_vec_i[`PRIV_CACOP];
+        dis0_src0_ready_o <= src0_0_ready;
+        dis0_src0_val_o <= src0_0_val;
+        dis0_src0_robid_o <= src0_0_robid;
+        dis0_src1_ready_o <= src0_1_ready;
+        dis0_src1_val_o <= src0_1_val;
+        dis0_src1_robid_o <= src0_1_robid;
+        dis0_imm_o <= ib0_imm_i;
+        dis0_use_imm_o <= ib0_use_imm_i;
+        dis0_br_offs_o <= ib0_br_offs_i;
+
+        dis1_valid_o <= ib1_valid_i && !ib1_is_nop_i;
+        dis1_robid_o <= robid1;
+        dis1_pc_o <= ib1_pc_i;
+        dis1_futype_o <= ib1_futype_i;
+        dis1_alu_op_o <= ib1_alu_op_i;
+        dis1_br_op_o <= ib1_br_op_i;
+        dis1_mem_op_o <= ib1_mem_op_i;
+        dis1_csr_op_o <= ib1_csr_op_i;
+        dis1_tlb_op_o <= ib1_tlb_op_i;
+        dis1_wb_src_op_o <= ib1_wb_src_op_i;
+        dis1_csr_num_o <= ib1_csr_num_i;
+        dis1_is_cacop_o <= ib1_priv_vec_i[`PRIV_CACOP];
+        dis1_src0_ready_o <= src1_0_ready;
+        dis1_src0_val_o <= src1_0_val;
+        dis1_src0_robid_o <= src1_0_robid;
+        dis1_src1_ready_o <= src1_1_ready;
+        dis1_src1_val_o <= src1_1_val;
+        dis1_src1_robid_o <= src1_1_robid;
+        dis1_imm_o <= ib1_imm_i;
+        dis1_use_imm_o <= ib1_use_imm_i;
+        dis1_br_offs_o <= ib1_br_offs_i;
+    end
+end
 
 endmodule
