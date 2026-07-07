@@ -872,6 +872,8 @@ axi_crossbar_2x3 u_axi_crossbar_2x3 (
 );
 
 generate if(SIMULATION && `SIMU_USE_DDR==0) begin: sim_ram
+
+
 //axi ram
 axi_wrap_ram u_axi_ram
 (
@@ -1118,4 +1120,3 @@ axi2apb_misc APB_DEV
 );
 
 endmodule
-

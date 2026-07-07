@@ -3,14 +3,14 @@
 // ============================================================
 // icache 模块（L1 指令缓存，整行取指 + 简化冲刷语义）
 // ------------------------------------------------------------
-// 几何（原 TODO 第一步，按宏全量重写）：
+// 几何：
 // - `L1_NWAY(4) 路 × `L1_NSET(128) 组 × `CACHE_LINE_BYTES(32B) 行 = 16KB；
 // - VIPT：index=addr[11:5] 落在 4KB 页内（vaddr/paddr 同值），
 //   接受拍用 vaddr 发 BRAM 索引、LOOKUP 拍用 paddr 比 tag；
 // - 数据阵列每路一块推断 BRAM（128×256b 整行读写）；tag 用 LUTRAM
 //   （异步读），valid 用触发器（一拍判定与失效）。
 //
-// 行为（原 TODO 第二/三步）：
+// 行为：
 // - 整行输出：命中 2 拍出“整行”（IDLE 接受 -> LOOKUP 比对+出行），IFU 按块
 //   偏移自行切指令；
 // - miss：整行读 L2（2 拍 128b，ret_last 末拍），重填后 RESP 拍出行；
@@ -18,19 +18,18 @@
 //   丢弃过期返回（见 ifu.v），本模块的返回与请求严格一一配对，
 //   ifu_cancel_i 恒 0（保留端口以兼容接口约定）。
 //
-// uncached 取指（原 TODO 第四步）：
+// uncached 取指：
 // - 从块起始字逐字单拍读到行末（设备取指/未开 cache 阶段），拼成
 //   "部分有效行"返回——IFU 只按块偏移切割有效部分，恰好不会用到
 //   起始字之前的无效字节。
 //
-// cacop（原 TODO 第五步，commit 提交级一拍脉冲，暂存后插队）：
+// cacop（commit 提交级一拍脉冲，暂存后插队）：
 // - I$ 无脏行，三种 op 都是无效化，一拍完成：
 //   op0(IDX_INV/StoreTag)、op1(HIT_INV/Index) 按 addr 的 {index, way[1:0]}
 //   直接无效；op2(HIT_WB) 按物理地址查命中后无效；
 // - ibar 语义不需要 I$ 全失效：LA32R 自修改代码由软件 cacop 逐行维护 +
 //   ibar 屏障（commit 等 SB 排空 + FLUSH_REFETCH）保证，硬件无额外动作。
 //
-// 二期优化落点说明（原 TODO 最后一条）：
 // - 双 outstanding：已在 L2 + axi_line_bridge 落地（I-miss 引擎走
 //   ARID=0 读通道，与 D 侧 ARID=1 并行在飞），本模块无需感知；
 // - 取指预取：L2 的 next-line I 侧预取已覆盖顺序取指流（本模块 demand

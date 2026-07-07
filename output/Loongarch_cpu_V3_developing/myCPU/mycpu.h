@@ -154,6 +154,8 @@
 `define EXCP_PIS        12   // store 页无效
 `define EXCP_PPI_M      13   // 访存页权限
 `define EXCP_PME        14   // 页修改
+// IFU/MMU 取指阶段产生的异常位（用于与译码 INE 去重）
+`define FETCH_EXCP_MASK 15'b0000_0000_000_1111
 
 /* =====================================================
  * 分支 / 跳转操作码 (br_op) —— 沿用原译码体系
