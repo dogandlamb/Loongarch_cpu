@@ -89,4 +89,39 @@ module rat(
 //      2. 释放比较必须带 ROB 编号（cmt_num==num[i]），只比地址会把
 //         "老指令提交"误清"新指令的占用"——这是队列式重命名最经典的 bug。
 
+reg [31:0] busy;
+reg [`ROB_W-1:0] num [0:31];
+integer i;
+
+assign rbusy0_o = (raddr0_i == 5'b0) ? 1'b0 : busy[raddr0_i];
+assign rbusy1_o = (raddr1_i == 5'b0) ? 1'b0 : busy[raddr1_i];
+assign rbusy2_o = (raddr2_i == 5'b0) ? 1'b0 : busy[raddr2_i];
+assign rbusy3_o = (raddr3_i == 5'b0) ? 1'b0 : busy[raddr3_i];
+
+assign rnum0_o = num[raddr0_i];
+assign rnum1_o = num[raddr1_i];
+assign rnum2_o = num[raddr2_i];
+assign rnum3_o = num[raddr3_i];
+
+always @(posedge clk) begin
+    if (reset || flush_i) begin
+        busy <= 32'b0;
+        for (i = 0; i < 32; i = i + 1) begin
+            num[i] <= {`ROB_W{1'b0}};
+        end
+    end else begin
+        busy[0] <= 1'b0;
+        for (i = 1; i < 32; i = i + 1) begin
+            if ((wen0_i && (waddr0_i == i[4:0])) ||
+                (wen1_i && (waddr1_i == i[4:0]))) begin
+                busy[i] <= 1'b1;
+                num[i] <= (wen1_i && (waddr1_i == i[4:0])) ? wnum1_i : wnum0_i;
+            end else if ((cmt_en0_i && (cmt_addr0_i == i[4:0]) && (cmt_num0_i == num[i])) ||
+                         (cmt_en1_i && (cmt_addr1_i == i[4:0]) && (cmt_num1_i == num[i]))) begin
+                busy[i] <= 1'b0;
+            end
+        end
+    end
+end
+
 endmodule

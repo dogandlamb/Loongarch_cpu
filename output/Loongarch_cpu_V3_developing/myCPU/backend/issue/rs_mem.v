@@ -98,4 +98,118 @@ module rs_mem(
 //      3. 二期若想 load/store 之间乱序（load 越过前面的 store），必须加
 //         store 地址比较（内存消歧）+ 违例恢复，工作量大，务必先评估收益。
 
+reg                     valid [0:`RS_MEM_SIZE-1];
+reg [`ROB_W-1:0]        robid [0:`RS_MEM_SIZE-1];
+reg [31:0]              pc [0:`RS_MEM_SIZE-1];
+reg [`MEM_OP_NUM-1:0]   mem_op [0:`RS_MEM_SIZE-1];
+reg                     is_cacop [0:`RS_MEM_SIZE-1];
+reg                     s0_ready [0:`RS_MEM_SIZE-1];
+reg [31:0]              s0_val [0:`RS_MEM_SIZE-1];
+reg [`ROB_W-1:0]        s0_robid [0:`RS_MEM_SIZE-1];
+reg                     s1_ready [0:`RS_MEM_SIZE-1];
+reg [31:0]              s1_val [0:`RS_MEM_SIZE-1];
+reg [`ROB_W-1:0]        s1_robid [0:`RS_MEM_SIZE-1];
+reg [31:0]              imm [0:`RS_MEM_SIZE-1];
+reg [1:0]               head;
+reg [1:0]               tail;
+reg [2:0]               count;
+
+integer i;
+wire head_ready;
+wire issue_fire;
+
+function wb_hit;
+    input [`ROB_W-1:0] rid;
+    begin
+        wb_hit = (wb0_valid_i && (wb0_robid_i == rid)) ||
+                 (wb1_valid_i && (wb1_robid_i == rid)) ||
+                 (wb2_valid_i && (wb2_robid_i == rid)) ||
+                 (wb3_valid_i && (wb3_robid_i == rid));
+    end
+endfunction
+
+function [31:0] wb_data;
+    input [`ROB_W-1:0] rid;
+    begin
+        if (wb0_valid_i && (wb0_robid_i == rid)) begin
+            wb_data = wb0_data_i;
+        end else if (wb1_valid_i && (wb1_robid_i == rid)) begin
+            wb_data = wb1_data_i;
+        end else if (wb2_valid_i && (wb2_robid_i == rid)) begin
+            wb_data = wb2_data_i;
+        end else if (wb3_valid_i && (wb3_robid_i == rid)) begin
+            wb_data = wb3_data_i;
+        end else begin
+            wb_data = 32'b0;
+        end
+    end
+endfunction
+
+assign occupancy_o = count;
+assign can_accept_o = (count != `RS_MEM_SIZE);
+assign head_ready = (count != 3'b0) && valid[head] &&
+                    (s0_ready[head] || wb_hit(s0_robid[head])) &&
+                    (s1_ready[head] || wb_hit(s1_robid[head]));
+assign issue_valid_o = head_ready && lsu_ready_i;
+assign issue_fire = issue_valid_o;
+
+assign issue_robid_o = robid[head];
+assign issue_pc_o = pc[head];
+assign issue_mem_op_o = mem_op[head];
+assign issue_is_cacop_o = is_cacop[head];
+assign issue_base_o = s0_ready[head] ? s0_val[head] : wb_data(s0_robid[head]);
+assign issue_wdata_o = s1_ready[head] ? s1_val[head] : wb_data(s1_robid[head]);
+assign issue_imm_o = imm[head];
+
+always @(posedge clk) begin
+    if (reset || flush_i) begin
+        head <= 2'b0;
+        tail <= 2'b0;
+        count <= 3'b0;
+        for (i = 0; i < `RS_MEM_SIZE; i = i + 1) begin
+            valid[i] <= 1'b0;
+        end
+    end else begin
+        for (i = 0; i < `RS_MEM_SIZE; i = i + 1) begin
+            if (valid[i] && !(issue_fire && (i[1:0] == head))) begin
+                if (!s0_ready[i] && wb_hit(s0_robid[i])) begin
+                    s0_ready[i] <= 1'b1;
+                    s0_val[i] <= wb_data(s0_robid[i]);
+                end
+                if (!s1_ready[i] && wb_hit(s1_robid[i])) begin
+                    s1_ready[i] <= 1'b1;
+                    s1_val[i] <= wb_data(s1_robid[i]);
+                end
+            end
+        end
+
+        if (issue_fire) begin
+            valid[head] <= 1'b0;
+            head <= head + 2'b01;
+        end
+
+        if (push_valid_i && can_accept_o) begin
+            valid[tail] <= 1'b1;
+            robid[tail] <= push_robid_i;
+            pc[tail] <= push_pc_i;
+            mem_op[tail] <= push_mem_op_i;
+            is_cacop[tail] <= push_is_cacop_i;
+            s0_ready[tail] <= push_src0_ready_i || wb_hit(push_src0_robid_i);
+            s0_val[tail] <= push_src0_ready_i ? push_src0_val_i : wb_data(push_src0_robid_i);
+            s0_robid[tail] <= push_src0_robid_i;
+            s1_ready[tail] <= push_src1_ready_i || wb_hit(push_src1_robid_i);
+            s1_val[tail] <= push_src1_ready_i ? push_src1_val_i : wb_data(push_src1_robid_i);
+            s1_robid[tail] <= push_src1_robid_i;
+            imm[tail] <= push_imm_i;
+            tail <= tail + 2'b01;
+        end
+
+        case ({push_valid_i && can_accept_o, issue_fire})
+            2'b10: count <= count + 3'b001;
+            2'b01: count <= count - 3'b001;
+            default: count <= count;
+        endcase
+    end
+end
+
 endmodule

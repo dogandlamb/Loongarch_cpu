@@ -282,4 +282,194 @@ module commit(
 //      4. mispred 但 br_taken 与 pred 一致、目标也一致 -> 不冲刷（正确预测），
 //         这正是 BPU 命中的收益路径，确保比较逻辑别写反。
 
+wire [`ROB_W-1:0] cmt1_robid = {1'b1, head_robid0_i[`ROB_PAIR_W-1:0]};
+
+wire cmt0_ready = cmt0_valid_i && cmt0_complete_i;
+wire cmt1_ready = cmt1_valid_i && cmt1_complete_i;
+wire cmt0_has_excp = |cmt0_excp_i;
+wire cmt1_has_excp = |cmt1_excp_i;
+wire cmt0_has_priv = |cmt0_priv_vec_i;
+wire cmt1_has_priv = |cmt1_priv_vec_i;
+
+wire int_take = has_int_i && cmt0_valid_i && !uncached_ld_inflight_i;
+wire cmt0_ibar_block = cmt0_ready && cmt0_priv_vec_i[`PRIV_IBAR] && !sb_empty_i;
+wire cmt1_ibar_block = cmt1_ready && cmt1_priv_vec_i[`PRIV_IBAR] && !sb_empty_i;
+wire cmt0_store_block = cmt0_ready && cmt0_is_store_i && sb_full_i && !cmt0_has_excp;
+wire cmt1_store_block = cmt1_ready && cmt1_is_store_i && sb_full_i && !cmt1_has_excp;
+
+wire cmt0_mispred = cmt0_ready && !cmt0_has_excp && !cmt0_has_priv &&
+                    ((cmt0_br_taken_i != cmt0_pred_taken_i) ||
+                     (cmt0_br_taken_i && cmt0_pred_taken_i &&
+                      (cmt0_br_target_i != ftq_blk_target_i)) ||
+                     (!cmt0_is_branch_i && cmt0_pred_taken_i));
+wire cmt1_mispred_head = (!cmt0_valid_i) && cmt1_ready && !cmt1_has_excp && !cmt1_has_priv &&
+                         ((cmt1_br_taken_i != cmt1_pred_taken_i) ||
+                          (cmt1_br_taken_i && cmt1_pred_taken_i &&
+                           (cmt1_br_target_i != ftq_blk_target_i)) ||
+                          (!cmt1_is_branch_i && cmt1_pred_taken_i));
+
+wire cmt0_retire = int_take ||
+                   (cmt0_ready && (cmt0_has_excp ||
+                    (!cmt0_store_block && !cmt0_ibar_block)));
+wire cmt0_effect = cmt0_ready && !int_take && !cmt0_has_excp &&
+                   !cmt0_store_block && !cmt0_ibar_block;
+wire cmt0_flush = int_take || (cmt0_ready && cmt0_has_excp) ||
+                  (cmt0_effect && cmt0_has_priv) || cmt0_mispred;
+
+wire cmt1_head_retire = (!cmt0_valid_i) &&
+                        (cmt1_ready && (cmt1_has_excp ||
+                         (!cmt1_store_block && !cmt1_ibar_block)));
+wire cmt1_head_effect = (!cmt0_valid_i) && cmt1_ready && !cmt1_has_excp &&
+                        !cmt1_store_block && !cmt1_ibar_block;
+wire cmt1_head_flush = (!cmt0_valid_i) &&
+                       ((cmt1_ready && cmt1_has_excp) ||
+                        (cmt1_head_effect && cmt1_has_priv) ||
+                        cmt1_mispred_head);
+
+wire cmt1_single_limit = cmt1_has_excp || cmt1_has_priv || cmt1_is_branch_i ||
+                         (cmt0_is_store_i && cmt1_is_store_i);
+wire cmt1_dual_effect = cmt0_effect && !cmt0_flush && cmt1_ready &&
+                        !cmt1_single_limit && !cmt1_store_block;
+wire cmt1_retire = cmt0_valid_i ? cmt1_dual_effect : cmt1_head_retire;
+wire cmt1_effect = cmt0_valid_i ? cmt1_dual_effect : cmt1_head_effect;
+
+wire take_slot1_for_csr = !cmt0_retire && cmt1_head_retire;
+wire [31:0] sel_pc = take_slot1_for_csr ? cmt1_pc_i : cmt0_pc_i;
+wire [31:0] sel_inst = take_slot1_for_csr ? cmt1_inst_i : cmt0_inst_i;
+wire [31:0] sel_result = take_slot1_for_csr ? cmt1_result_i : cmt0_result_i;
+wire [31:0] sel_result2 = take_slot1_for_csr ? cmt1_result2_i : cmt0_result2_i;
+wire [31:0] sel_paddr = take_slot1_for_csr ? cmt1_paddr_i : cmt0_paddr_i;
+wire [31:0] sel_vaddr = take_slot1_for_csr ? cmt1_vaddr_i : cmt0_vaddr_i;
+wire [4:0]  sel_cacop_code = take_slot1_for_csr ? cmt1_cacop_code_i : cmt0_cacop_code_i;
+wire [13:0] sel_csr_num = take_slot1_for_csr ? cmt1_csr_num_i : cmt0_csr_num_i;
+wire [`TLB_OP_NUM-1:0] sel_tlb_op = take_slot1_for_csr ? cmt1_tlb_op_i : cmt0_tlb_op_i;
+wire [`PRIV_NUM-1:0] sel_priv = take_slot1_for_csr ? cmt1_priv_vec_i : cmt0_priv_vec_i;
+wire [`EXCP_NUM-1:0] sel_excp = take_slot1_for_csr ? cmt1_excp_i : cmt0_excp_i;
+wire sel_is_branch = take_slot1_for_csr ? cmt1_is_branch_i : cmt0_is_branch_i;
+wire sel_pred_taken = take_slot1_for_csr ? cmt1_pred_taken_i : cmt0_pred_taken_i;
+wire sel_br_taken = take_slot1_for_csr ? cmt1_br_taken_i : cmt0_br_taken_i;
+wire [31:0] sel_br_target = take_slot1_for_csr ? cmt1_br_target_i : cmt0_br_target_i;
+wire [`BR_TYPE_W-1:0] sel_br_type = take_slot1_for_csr ? cmt1_br_type_i : cmt0_br_type_i;
+wire [`FTQ_W-1:0] sel_ftq_id = take_slot1_for_csr ? cmt1_ftq_id_i : cmt0_ftq_id_i;
+wire sel_is_last = take_slot1_for_csr ? cmt1_is_last_i : cmt0_is_last_i;
+
+wire selected_effect = take_slot1_for_csr ? cmt1_head_effect : cmt0_effect;
+wire selected_excp_take = int_take || (take_slot1_for_csr ? (cmt1_ready && cmt1_has_excp)
+                                                          : (cmt0_ready && cmt0_has_excp));
+wire selected_priv_flush = selected_effect && (|sel_priv);
+wire selected_mispred = take_slot1_for_csr ? cmt1_mispred_head : cmt0_mispred;
+
+wire mem_excp = sel_excp[`EXCP_ADEM] | sel_excp[`EXCP_ALE] |
+                sel_excp[`EXCP_TLBR_M] | sel_excp[`EXCP_PIL] |
+                sel_excp[`EXCP_PIS] | sel_excp[`EXCP_PPI_M] |
+                sel_excp[`EXCP_PME];
+
+assign rob_clear0_o = cmt0_retire;
+assign rob_clear1_o = cmt1_retire;
+assign rob_pop_o = (cmt0_valid_i || cmt1_valid_i) &&
+                   ((cmt0_valid_i ? rob_clear0_o : 1'b1) &&
+                    (cmt1_valid_i ? rob_clear1_o : 1'b1));
+
+assign arf_we0_o = cmt0_effect && cmt0_rf_we_i && (cmt0_rd_i != 5'b0);
+assign arf_waddr0_o = cmt0_rd_i;
+assign arf_wdata0_o = cmt0_result_i;
+assign arf_we1_o = cmt1_effect && cmt1_rf_we_i && (cmt1_rd_i != 5'b0);
+assign arf_waddr1_o = cmt1_rd_i;
+assign arf_wdata1_o = cmt1_result_i;
+
+assign rat_cmt_en0_o = arf_we0_o;
+assign rat_cmt_addr0_o = cmt0_rd_i;
+assign rat_cmt_num0_o = head_robid0_i;
+assign rat_cmt_en1_o = arf_we1_o;
+assign rat_cmt_addr1_o = cmt1_rd_i;
+assign rat_cmt_num1_o = cmt1_robid;
+
+assign sb_push_valid_o = (cmt0_effect && cmt0_is_store_i) ||
+                         (!cmt0_effect && cmt1_effect && cmt1_is_store_i);
+assign sb_push_paddr_o = (cmt0_effect && cmt0_is_store_i) ? cmt0_paddr_i : cmt1_paddr_i;
+assign sb_push_data_o = (cmt0_effect && cmt0_is_store_i) ? cmt0_result_i : cmt1_result_i;
+assign sb_push_wstrb_o = (cmt0_effect && cmt0_is_store_i) ? cmt0_wstrb_i : cmt1_wstrb_i;
+assign sb_push_size_o = (cmt0_effect && cmt0_is_store_i) ? cmt0_size_i : cmt1_size_i;
+assign sb_push_uncached_o = (cmt0_effect && cmt0_is_store_i) ? cmt0_uncached_i : cmt1_uncached_i;
+
+assign csr_cmt_valid_o = cmt0_retire || cmt1_retire;
+assign csr_cmt_pc_o = sel_pc;
+assign csr_cmt_ex_o = selected_excp_take;
+assign csr_cmt_ertn_o = selected_effect && sel_priv[`PRIV_ERTN];
+assign csr_cmt_vaddr_o = mem_excp ? sel_vaddr : sel_pc;
+assign excp_int_o = int_take;
+assign excp_adef_o = sel_excp[`EXCP_ADEF];
+assign excp_adem_o = sel_excp[`EXCP_ADEM];
+assign excp_ipe_o = sel_excp[`EXCP_IPE];
+assign excp_ale_o = sel_excp[`EXCP_ALE];
+assign excp_sys_o = sel_excp[`EXCP_SYS];
+assign excp_brk_o = sel_excp[`EXCP_BRK];
+assign excp_ine_o = sel_excp[`EXCP_INE];
+assign excp_tlb_vec_o[`TLB_EX_TLBR] = sel_excp[`EXCP_TLBR_F] | sel_excp[`EXCP_TLBR_M];
+assign excp_tlb_vec_o[`TLB_EX_PIF]  = sel_excp[`EXCP_PIF];
+assign excp_tlb_vec_o[`TLB_EX_PPI]  = sel_excp[`EXCP_PPI_F] | sel_excp[`EXCP_PPI_M];
+assign excp_tlb_vec_o[`TLB_EX_PIL]  = sel_excp[`EXCP_PIL];
+assign excp_tlb_vec_o[`TLB_EX_PIS]  = sel_excp[`EXCP_PIS];
+assign excp_tlb_vec_o[`TLB_EX_PME]  = sel_excp[`EXCP_PME];
+
+assign csr_we_o = selected_effect && sel_priv[`PRIV_CSR_WR];
+assign csr_wnum_o = sel_csr_num;
+assign csr_wmask_o = 32'hffff_ffff;
+assign csr_wvalue_o = sel_result2;
+assign ll_set_o = selected_effect && sel_priv[`PRIV_LL];
+assign sc_set_o = selected_effect && sel_priv[`PRIV_SC];
+assign lladdr_o = sel_paddr[31:4];
+
+assign tlb_op_cmt_o = (selected_effect && sel_priv[`PRIV_TLB]) ? sel_tlb_op : {`TLB_OP_NUM{1'b0}};
+assign invtlb_vpn_o = sel_result2[31:13];
+assign invtlb_asid_o = sel_result2[9:0];
+
+assign icacop_valid_o = selected_effect && sel_priv[`PRIV_CACOP] && (sel_cacop_code[2:0] == 3'b000);
+assign dcacop_valid_o = selected_effect && sel_priv[`PRIV_CACOP] && (sel_cacop_code[2:0] == 3'b001);
+assign icacop_op_o = sel_cacop_code[4:3];
+assign dcacop_op_o = sel_cacop_code[4:3];
+assign icacop_addr_o = sel_paddr;
+assign dcacop_addr_o = sel_paddr;
+
+assign ftq_cmt_valid_o = selected_effect || cmt1_dual_effect;
+assign ftq_cmt_id_o = sel_ftq_id;
+assign ftq_cmt_is_last_o = sel_is_last;
+assign ftq_cmt_is_branch_o = sel_is_branch;
+assign ftq_cmt_taken_o = sel_br_taken;
+assign ftq_cmt_mispred_o = selected_mispred;
+assign ftq_cmt_target_o = sel_br_target;
+assign ftq_cmt_br_type_o = sel_br_type;
+assign ftq_cmt_pc_o = sel_pc;
+assign ftq_query_id_o = sel_ftq_id;
+
+assign ras_cmt_call_o = selected_effect && sel_is_branch && (sel_br_type == `BR_TYPE_CALL);
+assign ras_cmt_ret_o = selected_effect && sel_is_branch && (sel_br_type == `BR_TYPE_RET);
+assign ras_cmt_retaddr_o = sel_pc + 32'd4;
+
+assign flush_req_o = selected_excp_take || selected_priv_flush || selected_mispred;
+assign flush_type_o = selected_excp_take ? `FLUSH_EXCP :
+                      (selected_effect && sel_priv[`PRIV_ERTN]) ? `FLUSH_ERTN :
+                      selected_priv_flush ? `FLUSH_REFETCH :
+                      selected_mispred ? `FLUSH_MISPRED :
+                      `FLUSH_NONE;
+assign flush_pc_o = selected_excp_take ? csr_next_pc_i :
+                    (selected_effect && sel_priv[`PRIV_ERTN]) ? csr_next_pc_i :
+                    selected_priv_flush ? (sel_pc + 32'd4) :
+                    selected_mispred ? (sel_br_taken ? sel_br_target : (sel_pc + 32'd4)) :
+                    32'b0;
+assign idle_commit_o = selected_effect && sel_priv[`PRIV_IDLE];
+
+assign debug0_valid_o = cmt0_effect;
+assign debug0_pc_o = cmt0_pc_i;
+assign debug0_rf_wen_o = arf_we0_o ? 4'hf : 4'h0;
+assign debug0_rf_wnum_o = cmt0_rd_i;
+assign debug0_rf_wdata_o = cmt0_result_i;
+assign debug0_inst_o = cmt0_inst_i;
+assign debug1_valid_o = cmt1_effect;
+assign debug1_pc_o = cmt1_pc_i;
+assign debug1_rf_wen_o = arf_we1_o ? 4'hf : 4'h0;
+assign debug1_rf_wnum_o = cmt1_rd_i;
+assign debug1_rf_wdata_o = cmt1_result_i;
+assign debug1_inst_o = cmt1_inst_i;
+
 endmodule

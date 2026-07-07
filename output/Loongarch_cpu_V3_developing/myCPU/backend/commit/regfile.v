@@ -95,7 +95,12 @@ end
 //         if (we1 && waddr1!=0)            rf[waddr1] <= wdata1;
 //         if (we0 && waddr0!=0 && !(we1 && waddr1==waddr0)) rf[waddr0] <= wdata0;
 always @(posedge clk) begin
-    if (we0 && (waddr0 != 5'b0)) rf[waddr0] <= wdata0;
+    if (we1 && (waddr1 != 5'b0)) begin
+        rf[waddr1] <= wdata1;
+    end
+    if (we0 && (waddr0 != 5'b0) && !(we1 && (waddr1 == waddr0))) begin
+        rf[waddr0] <= wdata0;
+    end
 end
 
 //TODO: 读口写穿透改造：原实现对单写口做了"写穿透"（同拍写的值直接出现在读口）。
@@ -105,16 +110,24 @@ end
 //      "提交拍读到旧值"的窗口。照原样把 we/waddr/wdata 换成两组即可。
 // 用 === 与 we===1'b1：地址或写使能含 X 时勿用 `==`/`&&` 产生 X 污染读口（进而污染 CSR 写回链）。
 assign rdata0 = (raddr0 === 5'b0) ? 32'b0 :
-                (((we0 === 1'b1) && (waddr0 === raddr0) && (waddr0 !== 5'b0)) ? wdata0 : rf[raddr0]);
+                (((we1 === 1'b1) && (waddr1 === raddr0) && (waddr1 !== 5'b0)) ? wdata1 :
+                 ((we0 === 1'b1) && (waddr0 === raddr0) && (waddr0 !== 5'b0)) ? wdata0 :
+                 rf[raddr0]);
 
 assign rdata1 = (raddr1 === 5'b0) ? 32'b0 :
-                (((we0 === 1'b1) && (waddr0 === raddr1) && (waddr0 !== 5'b0)) ? wdata0 : rf[raddr1]);
+                (((we1 === 1'b1) && (waddr1 === raddr1) && (waddr1 !== 5'b0)) ? wdata1 :
+                 ((we0 === 1'b1) && (waddr0 === raddr1) && (waddr0 !== 5'b0)) ? wdata0 :
+                 rf[raddr1]);
 
 assign rdata2 = (raddr2 === 5'b0) ? 32'b0 :
-                (((we0 === 1'b1) && (waddr0 === raddr2) && (waddr0 !== 5'b0)) ? wdata0 : rf[raddr2]);
+                (((we1 === 1'b1) && (waddr1 === raddr2) && (waddr1 !== 5'b0)) ? wdata1 :
+                 ((we0 === 1'b1) && (waddr0 === raddr2) && (waddr0 !== 5'b0)) ? wdata0 :
+                 rf[raddr2]);
 
 assign rdata3 = (raddr3 === 5'b0) ? 32'b0 :
-                (((we0 === 1'b1) && (waddr0 === raddr3) && (waddr0 !== 5'b0)) ? wdata0 : rf[raddr3]);
+                (((we1 === 1'b1) && (waddr1 === raddr3) && (waddr1 !== 5'b0)) ? wdata1 :
+                 ((we0 === 1'b1) && (waddr0 === raddr3) && (waddr0 !== 5'b0)) ? wdata0 :
+                 rf[raddr3]);
 
 // 调试端口：直接读寄存器内容（不含写穿透），r0 恒 0
 assign dbg_rdata = (dbg_raddr === 5'b0) ? 32'b0 : rf[dbg_raddr];
@@ -127,7 +140,9 @@ reg [31:0] diff_gpr_r [1:31];
 integer dg;
 always @(posedge clk) begin
     for (dg = 1; dg < 32; dg = dg + 1) begin
-        if ((we0 === 1'b1) && (waddr0 === dg[4:0]) && (waddr0 !== 5'b0))
+        if ((we1 === 1'b1) && (waddr1 === dg[4:0]) && (waddr1 !== 5'b0))
+            diff_gpr_r[dg] <= wdata1;
+        else if ((we0 === 1'b1) && (waddr0 === dg[4:0]) && (waddr0 !== 5'b0))
             diff_gpr_r[dg] <= wdata0;
         else
             diff_gpr_r[dg] <= rf[dg];

@@ -190,4 +190,153 @@ module dispatch(
 //      2. 两槽指令路由进两个 ALU RS 时，槽 0（更老）建议进占用多的站也可以——
 //         顺序无关紧要，RS 内部按 robid 年龄选择发射；负载均衡只为吞吐。
 
+wire dis0_is_alu;
+wire dis0_is_mem;
+wire dis0_is_mdu;
+wire dis1_is_alu;
+wire dis1_is_mem;
+wire dis1_is_mdu;
+
+wire dis0_src0_ready;
+wire dis0_src1_ready;
+wire dis1_src0_ready;
+wire dis1_src1_ready;
+wire [31:0] dis0_src0_val;
+wire [31:0] dis0_src1_val;
+wire [31:0] dis1_src0_val;
+wire [31:0] dis1_src1_val;
+
+wire two_alu;
+wire two_mem;
+wire two_mdu;
+wire single_alu_to_alu0;
+wire slot0_to_alu0;
+wire slot0_to_alu1;
+wire slot1_to_alu0;
+wire slot1_to_alu1;
+wire slot0_to_mem;
+wire slot1_to_mem;
+wire slot0_to_mdu;
+wire slot1_to_mdu;
+wire dis0_can_dispatch;
+wire dis1_can_dispatch;
+
+assign rob_raddr0_o = dis0_src0_robid_i;
+assign rob_raddr1_o = dis0_src1_robid_i;
+assign rob_raddr2_o = dis1_src0_robid_i;
+assign rob_raddr3_o = dis1_src1_robid_i;
+
+assign dis0_src0_ready = dis0_src0_ready_i | rob_rrdy0_i;
+assign dis0_src1_ready = dis0_src1_ready_i | rob_rrdy1_i;
+assign dis1_src0_ready = dis1_src0_ready_i | rob_rrdy2_i;
+assign dis1_src1_ready = dis1_src1_ready_i | rob_rrdy3_i;
+
+assign dis0_src0_val = dis0_src0_ready_i ? dis0_src0_val_i : rob_rdata0_i;
+assign dis0_src1_val = dis0_src1_ready_i ? dis0_src1_val_i : rob_rdata1_i;
+assign dis1_src0_val = dis1_src0_ready_i ? dis1_src0_val_i : rob_rdata2_i;
+assign dis1_src1_val = dis1_src1_ready_i ? dis1_src1_val_i : rob_rdata3_i;
+
+assign dis0_is_alu = dis0_valid_i && dis0_futype_i[`FU_ALU];
+assign dis0_is_mem = dis0_valid_i && dis0_futype_i[`FU_MEM];
+assign dis0_is_mdu = dis0_valid_i && dis0_futype_i[`FU_MDU];
+assign dis1_is_alu = dis1_valid_i && dis1_futype_i[`FU_ALU];
+assign dis1_is_mem = dis1_valid_i && dis1_futype_i[`FU_MEM];
+assign dis1_is_mdu = dis1_valid_i && dis1_futype_i[`FU_MDU];
+
+assign two_alu = dis0_is_alu && dis1_is_alu;
+assign two_mem = dis0_is_mem && dis1_is_mem;
+assign two_mdu = dis0_is_mdu && dis1_is_mdu;
+
+assign dis0_can_dispatch = !dis0_valid_i ? 1'b1 :
+                           dis0_is_alu ? (two_alu ? (rs_alu0_can_accept_i && rs_alu1_can_accept_i)
+                                                   : (rs_alu0_can_accept_i || rs_alu1_can_accept_i)) :
+                           dis0_is_mem ? (rs_mem_can_accept_i && !two_mem) :
+                           dis0_is_mdu ? (rs_mdu_can_accept_i && !two_mdu) :      //只有alu可以两个同时分发
+                           1'b0;
+assign dis1_can_dispatch = !dis1_valid_i ? 1'b1 :
+                           dis1_is_alu ? (two_alu ? (rs_alu0_can_accept_i && rs_alu1_can_accept_i)
+                                                   : (rs_alu0_can_accept_i || rs_alu1_can_accept_i)) :
+                           dis1_is_mem ? (rs_mem_can_accept_i && !two_mem) :
+                           dis1_is_mdu ? (rs_mdu_can_accept_i && !two_mdu) :
+                           1'b0;
+assign dispatch_ready_o = dis0_can_dispatch && dis1_can_dispatch;
+
+assign single_alu_to_alu0 = rs_alu0_can_accept_i &&
+                            (!rs_alu1_can_accept_i ||
+                             (rs_alu0_occupancy_i <= rs_alu1_occupancy_i));
+
+assign slot0_to_alu0 = dis0_is_alu &&
+                       (two_alu ? (rs_alu0_occupancy_i <= rs_alu1_occupancy_i)
+                                : single_alu_to_alu0);
+assign slot0_to_alu1 = dis0_is_alu &&
+                       (two_alu ? (rs_alu0_occupancy_i > rs_alu1_occupancy_i)
+                                : !single_alu_to_alu0);
+assign slot1_to_alu0 = dis1_is_alu &&
+                       (two_alu ? (rs_alu0_occupancy_i > rs_alu1_occupancy_i)
+                                : single_alu_to_alu0);
+assign slot1_to_alu1 = dis1_is_alu &&
+                       (two_alu ? (rs_alu0_occupancy_i <= rs_alu1_occupancy_i)
+                                : !single_alu_to_alu0);
+assign slot0_to_mem = dis0_is_mem && !two_mem;
+assign slot1_to_mem = dis1_is_mem && !two_mem;
+assign slot0_to_mdu = dis0_is_mdu && !two_mdu;
+assign slot1_to_mdu = dis1_is_mdu && !two_mdu;
+
+assign rs_alu0_push_valid_o = dispatch_ready_o && (slot0_to_alu0 || slot1_to_alu0);
+assign rs_alu0_push_robid_o = slot1_to_alu0 ? dis1_robid_i : dis0_robid_i;
+assign rs_alu0_push_pc_o = slot1_to_alu0 ? dis1_pc_i : dis0_pc_i;
+assign rs_alu0_push_alu_op_o = slot1_to_alu0 ? dis1_alu_op_i : dis0_alu_op_i;
+assign rs_alu0_push_br_op_o = slot1_to_alu0 ? dis1_br_op_i : dis0_br_op_i;
+assign rs_alu0_push_src0_ready_o = slot1_to_alu0 ? dis1_src0_ready : dis0_src0_ready;
+assign rs_alu0_push_src0_val_o = slot1_to_alu0 ? dis1_src0_val : dis0_src0_val;
+assign rs_alu0_push_src0_robid_o = slot1_to_alu0 ? dis1_src0_robid_i : dis0_src0_robid_i;
+assign rs_alu0_push_src1_ready_o = slot1_to_alu0 ? dis1_src1_ready : dis0_src1_ready;
+assign rs_alu0_push_src1_val_o = slot1_to_alu0 ? dis1_src1_val : dis0_src1_val;
+assign rs_alu0_push_src1_robid_o = slot1_to_alu0 ? dis1_src1_robid_i : dis0_src1_robid_i;
+assign rs_alu0_push_imm_o = slot1_to_alu0 ? dis1_imm_i : dis0_imm_i;
+assign rs_alu0_push_use_imm_o = slot1_to_alu0 ? dis1_use_imm_i : dis0_use_imm_i;
+assign rs_alu0_push_br_offs_o = slot1_to_alu0 ? dis1_br_offs_i : dis0_br_offs_i;
+
+assign rs_alu1_push_valid_o = dispatch_ready_o && (slot0_to_alu1 || slot1_to_alu1);
+assign rs_alu1_push_robid_o = slot1_to_alu1 ? dis1_robid_i : dis0_robid_i;
+assign rs_alu1_push_pc_o = slot1_to_alu1 ? dis1_pc_i : dis0_pc_i;
+assign rs_alu1_push_alu_op_o = slot1_to_alu1 ? dis1_alu_op_i : dis0_alu_op_i;
+assign rs_alu1_push_br_op_o = slot1_to_alu1 ? dis1_br_op_i : dis0_br_op_i;
+assign rs_alu1_push_src0_ready_o = slot1_to_alu1 ? dis1_src0_ready : dis0_src0_ready;
+assign rs_alu1_push_src0_val_o = slot1_to_alu1 ? dis1_src0_val : dis0_src0_val;
+assign rs_alu1_push_src0_robid_o = slot1_to_alu1 ? dis1_src0_robid_i : dis0_src0_robid_i;
+assign rs_alu1_push_src1_ready_o = slot1_to_alu1 ? dis1_src1_ready : dis0_src1_ready;
+assign rs_alu1_push_src1_val_o = slot1_to_alu1 ? dis1_src1_val : dis0_src1_val;
+assign rs_alu1_push_src1_robid_o = slot1_to_alu1 ? dis1_src1_robid_i : dis0_src1_robid_i;
+assign rs_alu1_push_imm_o = slot1_to_alu1 ? dis1_imm_i : dis0_imm_i;
+assign rs_alu1_push_use_imm_o = slot1_to_alu1 ? dis1_use_imm_i : dis0_use_imm_i;
+assign rs_alu1_push_br_offs_o = slot1_to_alu1 ? dis1_br_offs_i : dis0_br_offs_i;
+
+assign rs_mem_push_valid_o = dispatch_ready_o && (slot0_to_mem || slot1_to_mem);
+assign rs_mem_push_robid_o = slot1_to_mem ? dis1_robid_i : dis0_robid_i;
+assign rs_mem_push_pc_o = slot1_to_mem ? dis1_pc_i : dis0_pc_i;
+assign rs_mem_push_mem_op_o = slot1_to_mem ? dis1_mem_op_i : dis0_mem_op_i;
+assign rs_mem_push_is_cacop_o = slot1_to_mem ? dis1_is_cacop_i : dis0_is_cacop_i;
+assign rs_mem_push_src0_ready_o = slot1_to_mem ? dis1_src0_ready : dis0_src0_ready;
+assign rs_mem_push_src0_val_o = slot1_to_mem ? dis1_src0_val : dis0_src0_val;
+assign rs_mem_push_src0_robid_o = slot1_to_mem ? dis1_src0_robid_i : dis0_src0_robid_i;
+assign rs_mem_push_src1_ready_o = slot1_to_mem ? dis1_src1_ready : dis0_src1_ready;
+assign rs_mem_push_src1_val_o = slot1_to_mem ? dis1_src1_val : dis0_src1_val;
+assign rs_mem_push_src1_robid_o = slot1_to_mem ? dis1_src1_robid_i : dis0_src1_robid_i;
+assign rs_mem_push_imm_o = slot1_to_mem ? dis1_imm_i : dis0_imm_i;
+
+assign rs_mdu_push_valid_o = dispatch_ready_o && (slot0_to_mdu || slot1_to_mdu);
+assign rs_mdu_push_robid_o = slot1_to_mdu ? dis1_robid_i : dis0_robid_i;
+assign rs_mdu_push_alu_op_o = slot1_to_mdu ? dis1_alu_op_i : dis0_alu_op_i;
+assign rs_mdu_push_csr_op_o = slot1_to_mdu ? dis1_csr_op_i : dis0_csr_op_i;
+assign rs_mdu_push_csr_num_o = slot1_to_mdu ? dis1_csr_num_i : dis0_csr_num_i;
+assign rs_mdu_push_tlb_op_o = slot1_to_mdu ? dis1_tlb_op_i : dis0_tlb_op_i;
+assign rs_mdu_push_wb_src_op_o = slot1_to_mdu ? dis1_wb_src_op_i : dis0_wb_src_op_i;
+assign rs_mdu_push_src0_ready_o = slot1_to_mdu ? dis1_src0_ready : dis0_src0_ready;
+assign rs_mdu_push_src0_val_o = slot1_to_mdu ? dis1_src0_val : dis0_src0_val;
+assign rs_mdu_push_src0_robid_o = slot1_to_mdu ? dis1_src0_robid_i : dis0_src0_robid_i;
+assign rs_mdu_push_src1_ready_o = slot1_to_mdu ? dis1_src1_ready : dis0_src1_ready;
+assign rs_mdu_push_src1_val_o = slot1_to_mdu ? dis1_src1_val : dis0_src1_val;
+assign rs_mdu_push_src1_robid_o = slot1_to_mdu ? dis1_src1_robid_i : dis0_src1_robid_i;
+
 endmodule
