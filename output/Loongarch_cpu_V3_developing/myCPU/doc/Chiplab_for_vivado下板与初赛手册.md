@@ -1,9 +1,9 @@
-# Chiplab_for_vivado下板兼启动linux手册
+# Chiplab_for_vivado下板与初赛手册
 
-> V1.0 2026.6.8 by dogandlamb
+> V1.1 2026.6.8 by dogandlamb
 
 ## 1. 前言
-这个手册是用来指导vivado仿真、上板验证与启动linux内核的。myCPU应该先经过chiplab_for_sim的仿真验证（func_lab19与run_7_seeds.sh）与linux仿真后，再来此chiplab_for_vivado进行最后的功能测试与性能测试，及至最后的启动linux。
+这个手册是用来指导vivado仿真、上板验证的。myCPU应该先经过chiplab_for_sim的仿真验证（func_lab19与run_7_seeds.sh）与linux仿真后，再来此chiplab_for_vivado进行最后的功能测试与性能测试，及至最后的启动linux。
 
 参考了chiplab的nscscc_readme.md
 

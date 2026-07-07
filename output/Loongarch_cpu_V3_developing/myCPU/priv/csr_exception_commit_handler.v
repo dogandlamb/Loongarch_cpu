@@ -15,15 +15,18 @@
 //    FLUSH_ERTN 用 csr_next_pc=ERA），由 ctrl 统一广播
 // 5) csr_rnum/csr_rvalue 读口：新架构由 fu_mdu 的 CSR 读口驱动（执行级读旧值）
 //
-//TODO: 本模块已通过 79 个功能点验证，逻辑保持不动；对接新架构只需确认：
-//      1. csr_we 一拍脉冲来自 commit（csrwr/csrxchg 单提交拍），csrxchg 的
-//         新值已在 fu_mdu 合成（csr_wvalue=ROB result2，csr_wmask=全1），
-//         本模块按普通掩码写即可；
-//      2. has_int 输出给 commit 做"中断附着"（不再附着在 ID 级）；
-//      3. flush_pipeline 输出在新架构中仅作参考（真正冲刷由 commit->ctrl），
-//         可在顶层悬空或接 commit 做断言对比；
-//      4. 原注释中提到的 IPE/ADEM 未接入问题：新架构 decoder 已检测 IPE，
-//         commit 会真正驱动 IPE_valid，确认 ESTAT 写入路径无遗漏。
+// 新架构对接确认结论（原 TODO 四项，均已逐条核实，逻辑保持不动）：
+// 1. csr_we：commit 在 csrwr/csrxchg 单提交拍给出一拍脉冲；csrxchg 的新值
+//    已在 fu_mdu 按 (old & ~mask) | (wval & mask) 合成后随 ROB 带到提交级，
+//    到本模块时 csr_wvalue=最终值、csr_wmask=全 1，按普通掩码写正确。
+// 2. has_int：输出给 commit 做"中断附着"（附着在下一条将提交的指令上，
+//    不再附着 ID 级）——ESTAT.IS 与 ECFG.LIE 逐位与后再看 CRMD.IE。
+// 3. flush_pipeline：新架构真正的冲刷由 commit -> ctrl 统一广播，本输出
+//    仅作参考/断言对比用，顶层已接 lint 吸收（csr_flush_pipeline_unused）。
+// 4. IPE/ADEM 写入路径：decoder 检测 IPE、tlb_manager/mmu 检测 ADEM，
+//    commit 打包驱动 IPE_valid/ADEM_valid 到本模块——exception_Decoder
+//    的链式优先级含两者，ESTAT.Ecode/Esubcode 与 BADV（wb_ex_addr_err
+//    含 ADEM_ECODE）写入路径均无遗漏；IPE 无地址语义，不写 BADV，正确。
 // ============================================================
 module csr_exception_commit_handler (
     input  wire        clk,
@@ -214,7 +217,8 @@ module csr_exception_commit_handler (
 
 
     // CRMD 的 DA、PG、DATF、DATM 域
-    // 还没有实现MMU全部功能，暂时置为常值
+    // 复位进直接地址翻译（DA=1,PG=0）；TLBR 例外硬件切 DA、ertn 自 TLBR
+    // 返回时切回 PG（手册 6.2.1 TLB 重填例外的翻译模式切换）
     reg csr_crmd_da;
     reg csr_crmd_pg;
     reg [1:0] csr_crmd_datf;

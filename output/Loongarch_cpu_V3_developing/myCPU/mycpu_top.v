@@ -1485,7 +1485,7 @@ module core_top #(
     wire [1:0]  mmu_d_mat;
     wire [`TLB_EX_NUM-1:0] mmu_d_tlb_ex;
     wire        mmu_d_adem;
-    // LSU <-> DCache load 口
+    // LSU <-> DCache load 口（含非阻塞 miss 扩展通道）
     wire        lsu_dc_req;
     wire [31:0] lsu_dc_vaddr;
     wire [31:0] lsu_dc_paddr;
@@ -1495,8 +1495,12 @@ module core_top #(
     wire        dc_lsu_data_ok;
     wire [31:0] dc_lsu_rdata;
     wire        lsu_dc_cancel;
+    wire        dc_lsu_miss;         // load 移入 MSHR（hit-under-miss）
+    wire        dc_lsu_mshr_ok;      // MSHR 重填数据返回（CWF-lite 提前回）
+    wire [31:0] dc_lsu_mshr_rdata;
     // LSU <-> store buffer 前递查询
     wire [31:0] lsu_sb_qpaddr;
+    wire        lsu_sb_quncached;    // 查询来自 uncached load（设备写序保证）
     wire        sb_q_hit;
     wire [31:0] sb_q_data;
     wire        sb_q_partial;
@@ -1533,7 +1537,11 @@ module core_top #(
         .dc_data_ok_i     (dc_lsu_data_ok),
         .dc_rdata_i       (dc_lsu_rdata),
         .dc_cancel_o      (lsu_dc_cancel),
+        .dc_miss_i        (dc_lsu_miss),
+        .dc_mshr_data_ok_i(dc_lsu_mshr_ok),
+        .dc_mshr_rdata_i  (dc_lsu_mshr_rdata),
         .sb_query_paddr_o (lsu_sb_qpaddr),
+        .sb_query_uncached_o(lsu_sb_quncached),
         .sb_query_hit_i   (sb_q_hit),
         .sb_query_data_i  (sb_q_data),
         .sb_query_partial_i(sb_q_partial),
@@ -1594,6 +1602,7 @@ module core_top #(
         .dc_wr_addr_ok_i (dc_sb_addr_ok),
         .dc_wr_done_i    (dc_sb_done),
         .query_paddr_i   (lsu_sb_qpaddr),
+        .query_uncached_i(lsu_sb_quncached),
         .query_hit_o     (sb_q_hit),
         .query_data_o    (sb_q_data),
         .query_partial_o (sb_q_partial)
@@ -1965,8 +1974,8 @@ module core_top #(
 
 
 //--------------------------------------------------
-// 地址翻译子系统（mmu + tlb_manager(内含 tlb)）
-// 注：l1_tlb.v 为二期加速组件，插入点在 tlb_manager 内部（见其 TODO）
+// 地址翻译子系统（mmu + tlb_manager(内含主 tlb + I/D 两份 l1_tlb 微表)）
+// l1_tlb 微表已在 tlb_manager 内部例化（二期加速：8 项组合命中 + fence 失效）
 //--------------------------------------------------
     // CSR -> 翻译通路
     wire        csr_crmd_da, csr_crmd_pg;
@@ -1984,9 +1993,11 @@ module core_top #(
     wire [31:0] mmu_tlbm_data_vaddr;
     wire [31:0] tlbm_inst_paddr;
     wire [1:0]  tlbm_inst_mat;
+    wire        tlbm_inst_ex_adef;   // PLV3 取指越界（ADEF 特权子情形）
     wire        tlbm_inst_ex_tlbr, tlbm_inst_ex_pif, tlbm_inst_ex_ppi;
     wire [31:0] tlbm_data_paddr;
     wire [1:0]  tlbm_data_mat;
+    wire        tlbm_data_ex_adem;   // PLV3 访存越界（ADEM）
     wire        tlbm_data_ex_tlbr, tlbm_data_ex_pil, tlbm_data_ex_pis;
     wire        tlbm_data_ex_ppi,  tlbm_data_ex_pme;
     // tlb_manager -> CSR（tlbsrch/tlbrd 回读）
@@ -2023,6 +2034,7 @@ module core_top #(
         .tlbm_data_vaddr_o (mmu_tlbm_data_vaddr),
         .tlbm_inst_paddr_i (tlbm_inst_paddr),
         .tlbm_inst_mat_i   (tlbm_inst_mat),
+        .tlbm_inst_ex_adef_i(tlbm_inst_ex_adef),
         .tlbm_inst_ex_tlbr_i(tlbm_inst_ex_tlbr),
         .tlbm_inst_ex_pif_i(tlbm_inst_ex_pif),
         .tlbm_inst_ex_ppi_i(tlbm_inst_ex_ppi),
@@ -2032,7 +2044,8 @@ module core_top #(
         .tlbm_data_ex_pil_i(tlbm_data_ex_pil),
         .tlbm_data_ex_pis_i(tlbm_data_ex_pis),
         .tlbm_data_ex_ppi_i(tlbm_data_ex_ppi),
-        .tlbm_data_ex_pme_i(tlbm_data_ex_pme)
+        .tlbm_data_ex_pme_i(tlbm_data_ex_pme),
+        .tlbm_data_ex_adem_i(tlbm_data_ex_adem)
     );
 
     tlb_manager #(.TLBNUM(TLBNUM)) u_tlb_manager(
@@ -2063,11 +2076,13 @@ module core_top #(
         .invtlb_vpn     (cmt_invtlb_vpn),
         .inst_paddr     (tlbm_inst_paddr),
         .inst_mat       (tlbm_inst_mat),
+        .inst_ex_adef   (tlbm_inst_ex_adef),
         .inst_ex_tlbr   (tlbm_inst_ex_tlbr),
         .inst_ex_pif    (tlbm_inst_ex_pif),
         .inst_ex_ppi    (tlbm_inst_ex_ppi),
         .data_paddr     (tlbm_data_paddr),
         .data_mat       (tlbm_data_mat),
+        .data_ex_adem   (tlbm_data_ex_adem),
         .data_ex_tlbr   (tlbm_data_ex_tlbr),
         .data_ex_pil    (tlbm_data_ex_pil),
         .data_ex_pis    (tlbm_data_ex_pis),
@@ -2214,7 +2229,7 @@ module core_top #(
     wire [127:0] dc_l2_wr_data;
     wire         dc_l2_wr_cacop;
     wire         l2_dc_wr_rdy;
-    // L2 <-> AXI 桥互联
+    // L2 <-> AXI 桥互联（读口 0：D 侧/旁路，走桥 dc 通道 ARID=1）
     wire         l2_mem_rd_req;
     wire [2:0]   l2_mem_rd_type;
     wire [31:0]  l2_mem_rd_addr;
@@ -2222,6 +2237,14 @@ module core_top #(
     wire         mem_l2_ret_valid;
     wire         mem_l2_ret_last;
     wire [127:0] mem_l2_ret_data;
+    // L2 <-> AXI 桥互联（读口 1：I-miss 引擎，走桥 ic 通道 ARID=0）
+    wire         l2_mem2_rd_req;
+    wire [2:0]   l2_mem2_rd_type;
+    wire [31:0]  l2_mem2_rd_addr;
+    wire         mem2_l2_rd_rdy;
+    wire         mem2_l2_ret_valid;
+    wire         mem2_l2_ret_last;
+    wire [127:0] mem2_l2_ret_data;
     wire         l2_mem_wr_req;
     wire [2:0]   l2_mem_wr_type;
     wire [31:0]  l2_mem_wr_addr;
@@ -2240,6 +2263,7 @@ module core_top #(
     wire         axi_wlast_line;
     wire         axi_bready_line;
     wire         axi_arvalid_line;
+    wire [3:0]   axi_arid_line;
     wire [31:0]  axi_araddr_line;
     wire [2:0]   axi_arburst_line;
     wire [3:0]   axi_arlen_line;
@@ -2258,6 +2282,9 @@ module core_top #(
         .ld_data_ok_o   (dc_lsu_data_ok),
         .ld_rdata_o     (dc_lsu_rdata),
         .ld_cancel_i    (lsu_dc_cancel),
+        .ld_miss_o      (dc_lsu_miss),
+        .ld_mshr_data_ok_o(dc_lsu_mshr_ok),
+        .ld_mshr_rdata_o(dc_lsu_mshr_rdata),
         .st_req_i       (sb_dc_wr_req),
         .st_paddr_i     (sb_dc_wr_paddr),
         .st_data_i      (sb_dc_wr_data),
@@ -2316,6 +2343,14 @@ module core_top #(
         .mem_ret_valid (mem_l2_ret_valid),
         .mem_ret_last  (mem_l2_ret_last),
         .mem_ret_data  (mem_l2_ret_data),
+        // I-miss 引擎专用读口（接桥 ic 通道，双 outstanding）
+        .mem2_rd_req   (l2_mem2_rd_req),
+        .mem2_rd_type  (l2_mem2_rd_type),
+        .mem2_rd_addr  (l2_mem2_rd_addr),
+        .mem2_rd_rdy   (mem2_l2_rd_rdy),
+        .mem2_ret_valid(mem2_l2_ret_valid),
+        .mem2_ret_last (mem2_l2_ret_last),
+        .mem2_ret_data (mem2_l2_ret_data),
         .mem_wr_req    (l2_mem_wr_req),
         .mem_wr_type   (l2_mem_wr_type),
         .mem_wr_addr   (l2_mem_wr_addr),
@@ -2327,14 +2362,14 @@ module core_top #(
     axi_line_bridge u_axi_line_bridge(
         .clk           (clk),
         .resetn        (aresetn),
-        // ic 通道闲置（L2 已统一 I/D 流量；二期双 outstanding 时启用，见桥 TODO）
-        .ic_rd_req     (1'b0),
-        .ic_rd_type    (3'b000),
-        .ic_rd_addr    (32'b0),
-        .ic_rd_rdy     (),
-        .ic_ret_valid  (),
-        .ic_ret_last   (),
-        .ic_ret_data   (),
+        // ic 通道：L2 的 I-miss 引擎读口（ARID=0，与 dc 通道双 outstanding）
+        .ic_rd_req     (l2_mem2_rd_req),
+        .ic_rd_type    (l2_mem2_rd_type),
+        .ic_rd_addr    (l2_mem2_rd_addr),
+        .ic_rd_rdy     (mem2_l2_rd_rdy),
+        .ic_ret_valid  (mem2_l2_ret_valid),
+        .ic_ret_last   (mem2_l2_ret_last),
+        .ic_ret_data   (mem2_l2_ret_data),
         .dc_rd_req     (l2_mem_rd_req),
         .dc_rd_type    (l2_mem_rd_type),
         .dc_rd_addr    (l2_mem_rd_addr),
@@ -2363,12 +2398,14 @@ module core_top #(
         .axi_bresp     (bresp),
         .axi_bready    (axi_bready_line),
         .axi_arvalid   (axi_arvalid_line),
+        .axi_arid      (axi_arid_line),
         .axi_araddr    (axi_araddr_line),
         .axi_arburst   (axi_arburst_line),
         .axi_arlen     (axi_arlen_line),
         .axi_arsize    (axi_arsize_line),
         .axi_arready   (arready),
         .axi_rvalid    (rvalid),
+        .axi_rid       (rid),
         .axi_rdata     (rdata),
         .axi_rresp     (rresp),
         .axi_rlast     (rlast),
@@ -2376,7 +2413,8 @@ module core_top #(
     );
 
     // AXI 引脚固定属性（与 chiplab SoC 对接约定一致）
-    assign arid    = 4'b0000;
+    // arid 由桥给出：0=取指（L2 I-miss 引擎）、1=数据——R 通道按 rid 分流
+    assign arid    = axi_arid_line;
     assign araddr  = axi_araddr_line;
     assign arlen   = {4'b0000, axi_arlen_line};
     assign arsize  = axi_arsize_line;

@@ -24,6 +24,7 @@ module mmu_tb;
   wire [31:0] tlbm_data_vaddr_o;
   reg [31:0] tlbm_inst_paddr_i;
   reg [1:0] tlbm_inst_mat_i;
+  reg  tlbm_inst_ex_adef_i;
   reg  tlbm_inst_ex_tlbr_i;
   reg  tlbm_inst_ex_pif_i;
   reg  tlbm_inst_ex_ppi_i;
@@ -34,6 +35,7 @@ module mmu_tb;
   reg  tlbm_data_ex_pis_i;
   reg  tlbm_data_ex_ppi_i;
   reg  tlbm_data_ex_pme_i;
+  reg  tlbm_data_ex_adem_i;
   mmu uut(
     .i_req_i(i_req_i),
     .i_vaddr_i(i_vaddr_i),
@@ -55,6 +57,7 @@ module mmu_tb;
     .tlbm_data_vaddr_o(tlbm_data_vaddr_o),
     .tlbm_inst_paddr_i(tlbm_inst_paddr_i),
     .tlbm_inst_mat_i(tlbm_inst_mat_i),
+    .tlbm_inst_ex_adef_i(tlbm_inst_ex_adef_i),
     .tlbm_inst_ex_tlbr_i(tlbm_inst_ex_tlbr_i),
     .tlbm_inst_ex_pif_i(tlbm_inst_ex_pif_i),
     .tlbm_inst_ex_ppi_i(tlbm_inst_ex_ppi_i),
@@ -64,7 +67,8 @@ module mmu_tb;
     .tlbm_data_ex_pil_i(tlbm_data_ex_pil_i),
     .tlbm_data_ex_pis_i(tlbm_data_ex_pis_i),
     .tlbm_data_ex_ppi_i(tlbm_data_ex_ppi_i),
-    .tlbm_data_ex_pme_i(tlbm_data_ex_pme_i)
+    .tlbm_data_ex_pme_i(tlbm_data_ex_pme_i),
+    .tlbm_data_ex_adem_i(tlbm_data_ex_adem_i)
   );
   initial clk=0; always #5 clk=~clk;
   initial begin

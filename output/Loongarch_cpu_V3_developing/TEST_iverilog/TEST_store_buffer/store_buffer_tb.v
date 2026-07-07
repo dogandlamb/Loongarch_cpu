@@ -8,6 +8,7 @@ module store_buffer_tb;
   reg [3:0] push_wstrb_i;
   reg [2:0] push_size_i;
   reg push_uncached_i;
+  reg query_uncached_i;
   wire sb_full_o, sb_empty_o, dc_wr_req_o, query_hit_o, query_partial_o;
   wire [31:0] dc_wr_paddr_o, dc_wr_data_o, query_data_o;
   wire [3:0] dc_wr_strb_o;
@@ -21,12 +22,13 @@ module store_buffer_tb;
     .dc_wr_req_o(dc_wr_req_o), .dc_wr_paddr_o(dc_wr_paddr_o), .dc_wr_data_o(dc_wr_data_o),
     .dc_wr_strb_o(dc_wr_strb_o), .dc_wr_size_o(dc_wr_size_o), .dc_wr_uncached_o(dc_wr_uncached_o),
     .dc_wr_addr_ok_i(dc_wr_addr_ok_i), .dc_wr_done_i(dc_wr_done_i),
-    .query_paddr_i(query_paddr_i), .query_hit_o(query_hit_o),
+    .query_paddr_i(query_paddr_i), .query_uncached_i(query_uncached_i),
+    .query_hit_o(query_hit_o),
     .query_data_o(query_data_o), .query_partial_o(query_partial_o));
   initial clk=0; always #5 clk=~clk;
   initial begin
     reset=1; push_valid_i=0; dc_wr_addr_ok_i=0; dc_wr_done_i=0;
-    push_wstrb_i=4'hf; push_size_i=3'd2; push_uncached_i=0;
+    push_wstrb_i=4'hf; push_size_i=3'd2; push_uncached_i=0; query_uncached_i=0;
     push_paddr_i=0; push_data_i=0; query_paddr_i=0;
     @(posedge clk); reset=0;
     `TB_CHECK(sb_empty_o, "sb empty after reset");

@@ -12,6 +12,9 @@ module dcache_tb;
   wire  ld_addr_ok_o;
   wire  ld_data_ok_o;
   wire [31:0] ld_rdata_o;
+  wire  ld_miss_o;
+  wire  ld_mshr_data_ok_o;
+  wire [31:0] ld_mshr_rdata_o;
   reg  ld_cancel_i;
   reg  st_req_i;
   reg [31:0] st_paddr_i;
@@ -50,6 +53,9 @@ module dcache_tb;
     .ld_data_ok_o(ld_data_ok_o),
     .ld_rdata_o(ld_rdata_o),
     .ld_cancel_i(ld_cancel_i),
+    .ld_miss_o(ld_miss_o),
+    .ld_mshr_data_ok_o(ld_mshr_data_ok_o),
+    .ld_mshr_rdata_o(ld_mshr_rdata_o),
     .st_req_i(st_req_i),
     .st_paddr_i(st_paddr_i),
     .st_data_i(st_data_i),

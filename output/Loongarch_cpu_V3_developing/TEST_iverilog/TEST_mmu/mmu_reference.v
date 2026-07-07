@@ -35,6 +35,7 @@ module mmu (
 
     input  wire [31:0] tlbm_inst_paddr_i,    // <- tlb_manager.inst_paddr
     input  wire [1:0]  tlbm_inst_mat_i,
+    input  wire        tlbm_inst_ex_adef_i,  // <- tlb_manager.inst_ex_adef（PLV3 取指越界）
     input  wire        tlbm_inst_ex_tlbr_i,
     input  wire        tlbm_inst_ex_pif_i,
     input  wire        tlbm_inst_ex_ppi_i,
@@ -44,7 +45,8 @@ module mmu (
     input  wire        tlbm_data_ex_pil_i,
     input  wire        tlbm_data_ex_pis_i,
     input  wire        tlbm_data_ex_ppi_i,
-    input  wire        tlbm_data_ex_pme_i
+    input  wire        tlbm_data_ex_pme_i,
+    input  wire        tlbm_data_ex_adem_i   // <- tlb_manager.data_ex_adem（PLV3 越界）
 );
 
 // ---------------- 请求透传 ----------------
@@ -57,10 +59,12 @@ assign tlbm_data_vaddr_o    = d_vaddr_i;
 // ---------------- 结果透传与本地异常 ----------------
 assign i_paddr_o     = tlbm_inst_paddr_i;
 assign i_mat_o       = tlbm_inst_mat_i;
-assign i_excp_adef_o = (i_req_i === 1'b1) && (i_vaddr_i[1:0] != 2'b00);
+// ADEF = 取指非对齐（本地）| PLV3 越界（tlb_manager 检测透传）
+assign i_excp_adef_o = ((i_req_i === 1'b1) && (i_vaddr_i[1:0] != 2'b00))
+                     || ((i_req_i === 1'b1) && (tlbm_inst_ex_adef_i === 1'b1));
 assign d_paddr_o     = tlbm_data_paddr_i;
 assign d_mat_o       = tlbm_data_mat_i;
-assign d_excp_adem_o = 1'b0;   // 一期不做 ADEM 检测
+assign d_excp_adem_o = (d_req_i === 1'b1) && (tlbm_data_ex_adem_i === 1'b1);
 
 // ---------------- 异常向量打包（req 门控防 X）----------------
 wire i_req_ok = (i_req_i === 1'b1);
