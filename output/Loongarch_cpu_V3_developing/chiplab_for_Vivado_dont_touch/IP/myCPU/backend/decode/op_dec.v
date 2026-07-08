@@ -98,8 +98,8 @@ module op_dec(
 
     assign alu_op[`ALU_OP_ADD] = inst_add_w | inst_addi_w | inst_jirl | inst_bl
                                | inst_ld_w | inst_ld_h | inst_ld_b | inst_ld_hu | inst_ld_bu
-                               | inst_st_w | inst_st_b | inst_st_h | inst_pcaddu12i
-                               | inst_ll_w | inst_sc_w | inst_pcaddi | inst_preld;
+                               | inst_st_w | inst_st_b | inst_st_h
+                               | inst_ll_w | inst_sc_w | inst_preld;
     assign alu_op[`ALU_OP_SUB] = inst_sub_w;
     assign alu_op[`ALU_OP_SLT] = inst_slt | inst_slti;
     assign alu_op[`ALU_OP_SLTU] = inst_sltu | inst_sltui;
@@ -120,6 +120,7 @@ module op_dec(
     assign alu_op[`ALU_OP_MOD_WU] = inst_mod_wu;
     assign alu_op[`ALU_OP_ANDN] = inst_andn;
     assign alu_op[`ALU_OP_ORN]  = inst_orn;
+    assign alu_op[`ALU_OP_PCADD] = inst_pcaddu12i | inst_pcaddi;
 
 //分支跳转操作码生成
 //inst_b 无条件跳转到目标地址，地址偏移值为i26offs26逻辑左移两位再符号拓展
