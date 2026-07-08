@@ -65,11 +65,6 @@ reg [`IB_W-1:0]   head;
 reg [`IB_W-1:0]   tail;
 reg [`IB_W:0]     count;
 
-reg [ENTRY_W-1:0] pop0_entry_r;
-reg [ENTRY_W-1:0] pop1_entry_r;
-reg               pop0_valid_r;
-reg               pop1_valid_r;
-
 wire [ENTRY_W-1:0] push0_entry = {push0_excp_i, push0_ftq_id_i, push0_is_last_i,
                                   push0_pred_taken_i, push0_inst_i, push0_pc_i};
 wire [ENTRY_W-1:0] push1_entry = {push1_excp_i, push1_ftq_id_i, push1_is_last_i,
@@ -81,9 +76,15 @@ wire [ENTRY_W-1:0] push3_entry = {push3_excp_i, push3_ftq_id_i, push3_is_last_i,
 
 wire [2:0] push_n = {2'b0, push0_valid_i} + {2'b0, push1_valid_i}
                   + {2'b0, push2_valid_i} + {2'b0, push3_valid_i};
-wire pop0_fire = pop0_ready_i && pop0_valid_r;
-wire pop1_fire = pop0_fire && pop1_ready_i && pop1_valid_r;
+wire pop0_valid_c = (count != {(`IB_W+1){1'b0}});
+wire pop1_valid_c = (count >= {{(`IB_W-1){1'b0}}, 2'd2});
+wire pop0_fire = (pop0_ready_i === 1'b1) && pop0_valid_c;
+wire pop1_fire = pop0_fire && (pop1_ready_i === 1'b1) && pop1_valid_c;
 wire [1:0] pop_n = {1'b0, pop0_fire} + {1'b0, pop1_fire};
+
+wire [`IB_W:0] push_cnt_n = can_push_o ? {2'b0, push_n} : {(`IB_W+1){1'b0}};
+wire [`IB_W:0] count_next   = count + push_cnt_n - {{(`IB_W-1){1'b0}}, pop_n};
+wire           ib_empty_next = (count_next == {(`IB_W+1){1'b0}});
 
 assign can_push_o = (count + {2'b0, push_n}) <= `IB_SIZE;
 
@@ -92,52 +93,52 @@ wire [`IB_W-1:0] tail_plus1 = tail + {{(`IB_W-1){1'b0}}, 1'b1};
 wire [`IB_W-1:0] tail_plus2 = tail + {{(`IB_W-2){1'b0}}, 2'd2};
 wire [`IB_W-1:0] tail_plus3 = tail + {{(`IB_W-2){1'b0}}, 2'd3};
 
+// 出队数据必须与 head 同拍组合读出。原实现将 mem[head] 打一拍进
+// pop0_entry_r，但 valid（count!=0）是组合的：push 当拍 count 已非 0、
+// 而 entry_r 里还是旧数据 —— rename 会拿着"旧 PC/旧指令"配上"新 valid"
+// 消费一条幽灵指令，真正的新指令则被 head+1 静默丢弃（曾表现为
+// idle_1s 入口 lu12i/addi 对被吞、ld.w 用到陈旧 ARF 基址 -> 假 ALE）。
 assign {pop0_excp_o, pop0_ftq_id_o, pop0_is_last_o, pop0_pred_taken_o,
-        pop0_inst_o, pop0_pc_o} = pop0_entry_r;
+        pop0_inst_o, pop0_pc_o} = mem[head];
 assign {pop1_excp_o, pop1_ftq_id_o, pop1_is_last_o, pop1_pred_taken_o,
-        pop1_inst_o, pop1_pc_o} = pop1_entry_r;
-assign pop0_valid_o = pop0_valid_r;
-assign pop1_valid_o = pop1_valid_r;
+        pop1_inst_o, pop1_pc_o} = mem[head_plus1];
+assign pop0_valid_o = pop0_valid_c;
+assign pop1_valid_o = pop1_valid_c;
 
 integer i;
 initial begin
     head = {`IB_W{1'b0}};
     tail = {`IB_W{1'b0}};
     count = {(`IB_W+1){1'b0}};
-    pop0_entry_r = {ENTRY_W{1'b0}};
-    pop1_entry_r = {ENTRY_W{1'b0}};
-    pop0_valid_r = 1'b0;
-    pop1_valid_r = 1'b0;
     for (i = 0; i < `IB_SIZE; i = i + 1)
         mem[i] = {ENTRY_W{1'b0}};
 end
 
-always @(posedge clk or posedge reset or posedge flush_i) begin
+always @(posedge clk) begin
     if (reset || flush_i) begin
         head <= {`IB_W{1'b0}};
         tail <= {`IB_W{1'b0}};
         count <= {(`IB_W+1){1'b0}};
-        pop0_entry_r <= {ENTRY_W{1'b0}};
-        pop1_entry_r <= {ENTRY_W{1'b0}};
-        pop0_valid_r <= 1'b0;
-        pop1_valid_r <= 1'b0;
     end else begin
-        pop0_entry_r <= mem[head];
-        pop1_entry_r <= mem[head_plus1];
-        pop0_valid_r <= (count != {(`IB_W+1){1'b0}});
-        pop1_valid_r <= (count >= {{(`IB_W-1){1'b0}}, 2'd2});
-
         if (can_push_o) begin
             if (push0_valid_i) mem[tail]      <= push0_entry;
             if (push1_valid_i) mem[tail_plus1] <= push1_entry;
             if (push2_valid_i) mem[tail_plus2] <= push2_entry;
             if (push3_valid_i) mem[tail_plus3] <= push3_entry;
-            tail <= tail + {1'b0,push_n[`IB_W-2:0]};
         end
 
-        head <= head + {{(`IB_W-2){1'b0}}, pop_n};
-        count <= count + (can_push_o ? {2'b0, push_n} : {(`IB_W+1){1'b0}})
-                       - {{(`IB_W-1){1'b0}}, pop_n};
+        if (ib_empty_next) begin
+            head <= {`IB_W{1'b0}};
+            if (can_push_o)
+                tail <= {1'b0, push_n[`IB_W-2:0]};
+            else
+                tail <= {`IB_W{1'b0}};
+        end else begin
+            head <= head + {{(`IB_W-2){1'b0}}, pop_n};
+            if (can_push_o)
+                tail <= tail + {1'b0, push_n[`IB_W-2:0]};
+        end
+        count <= count_next;
     end
 end
 

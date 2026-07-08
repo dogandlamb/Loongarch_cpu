@@ -171,6 +171,8 @@ module core_top #(
     wire [`BPU_META_W-1:0]    ftq_train_meta;
     // IFU 预译码自重定向（-> BPU + FTQ）
     wire                      predec_redirect;
+    wire                      predec_fixup_only;
+    wire                      predec_update_pc;
     wire [31:0]               predec_redirect_pc;
     wire [`FTQ_W-1:0]         predec_redirect_id;
     wire [`BLK_LEN_W-1:0]     predec_length;
@@ -215,6 +217,7 @@ module core_top #(
     wire                      cmt_ftq_valid;
     wire [`FTQ_W-1:0]         cmt_ftq_id;
     wire                      cmt_ftq_is_last;
+    wire [1:0]                cmt_ftq_release;
     wire                      cmt_ftq_is_branch;
     wire                      cmt_ftq_taken;
     wire                      cmt_ftq_mispred;
@@ -236,6 +239,7 @@ module core_top #(
         .flush_i              (flush),
         .flush_pc_i           (flush_pc),
         .predec_redirect_i    (predec_redirect),
+        .predec_update_pc_i   (predec_update_pc),
         .predec_redirect_pc_i (predec_redirect_pc),
         // FTQ 满或 idle 睡眠都要冻结取指 PC
         .ftq_full_i           (ftq_full | fetch_stall),
@@ -295,6 +299,7 @@ module core_top #(
         .ifu_ftq_id_o         (ftq_ifu_id),
         .ifu_accept_i         (ifu_ftq_accept),
         .predec_redirect_i    (predec_redirect),
+        .predec_fixup_only_i  (predec_fixup_only),
         .predec_redirect_id_i (predec_redirect_id),
         .predec_length_i      (predec_length),
         .predec_taken_i       (predec_taken),
@@ -303,6 +308,7 @@ module core_top #(
         .cmt_valid_i          (cmt_ftq_valid),
         .cmt_ftq_id_i         (cmt_ftq_id),
         .cmt_is_last_i        (cmt_ftq_is_last),
+        .cmt_release_i        (cmt_ftq_release),
         .cmt_is_branch_i      (cmt_ftq_is_branch),
         .cmt_taken_i          (cmt_ftq_taken),
         .cmt_mispred_i        (cmt_ftq_mispred),
@@ -351,6 +357,8 @@ module core_top #(
         .ic_rline_i           (ic_ifu_rline),
         .ic_cancel_o          (ifu_ic_cancel),
         .predec_redirect_o    (predec_redirect),
+        .predec_fixup_only_o  (predec_fixup_only),
+        .predec_update_pc_o   (predec_update_pc),
         .predec_redirect_pc_o (predec_redirect_pc),
         .predec_redirect_id_o (predec_redirect_id),
         .predec_length_o      (predec_length),
@@ -1953,6 +1961,7 @@ module core_top #(
         .ftq_cmt_valid_o   (cmt_ftq_valid),
         .ftq_cmt_id_o      (cmt_ftq_id),
         .ftq_cmt_is_last_o (cmt_ftq_is_last),
+        .ftq_cmt_release_o (cmt_ftq_release),
         .ftq_cmt_is_branch_o(cmt_ftq_is_branch),
         .ftq_cmt_taken_o   (cmt_ftq_taken),
         .ftq_cmt_mispred_o (cmt_ftq_mispred),

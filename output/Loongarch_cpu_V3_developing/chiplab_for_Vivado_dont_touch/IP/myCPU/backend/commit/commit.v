@@ -162,6 +162,7 @@ module commit(
     output wire                       ftq_cmt_valid_o,     // 本拍有指令提交（推进 cmt_ptr/产生训练）
     output wire [`FTQ_W-1:0]          ftq_cmt_id_o,
     output wire                       ftq_cmt_is_last_o,
+    output wire [1:0]                 ftq_cmt_release_o,   // 本拍释放 FTQ 块数（0/1/2）
     output wire                       ftq_cmt_is_branch_o,
     output wire                       ftq_cmt_taken_o,
     output wire                       ftq_cmt_mispred_o,
@@ -284,8 +285,8 @@ module commit(
 
 wire [`ROB_W-1:0] cmt1_robid = {1'b1, head_robid0_i[`ROB_PAIR_W-1:0]};
 
-wire cmt0_ready = cmt0_valid_i && cmt0_complete_i;
-wire cmt1_ready = cmt1_valid_i && cmt1_complete_i;
+assign cmt0_ready = cmt0_valid_i && (cmt0_complete_i === 1'b1);
+assign cmt1_ready = cmt1_valid_i && (cmt1_complete_i === 1'b1);
 wire cmt0_has_excp = |cmt0_excp_i;
 wire cmt1_has_excp = |cmt1_excp_i;
 wire cmt0_has_priv = |cmt0_priv_vec_i;
@@ -326,8 +327,10 @@ wire cmt1_head_flush = (!cmt0_valid_i) &&
                         (cmt1_head_effect && cmt1_has_priv) ||
                         cmt1_mispred_head);
 
+wire cmt0_taken_br = cmt0_effect && cmt0_is_branch_i && cmt0_br_taken_i && !cmt0_is_last_i;
+
 wire cmt1_single_limit = cmt1_has_excp || cmt1_has_priv || cmt1_is_branch_i ||
-                         (cmt0_is_store_i && cmt1_is_store_i);
+                         (cmt0_is_store_i && cmt1_is_store_i) || cmt0_taken_br;
 wire cmt1_dual_effect = cmt0_effect && !cmt0_flush && cmt1_ready &&
                         !cmt1_single_limit && !cmt1_store_block;
 wire cmt1_retire = cmt0_valid_i ? cmt1_dual_effect : cmt1_head_retire;
@@ -367,8 +370,8 @@ wire mem_excp = sel_excp[`EXCP_ADEM] | sel_excp[`EXCP_ALE] |
 assign rob_clear0_o = cmt0_retire;
 assign rob_clear1_o = cmt1_retire;
 assign rob_pop_o = (cmt0_valid_i || cmt1_valid_i) &&
-                   ((cmt0_valid_i ? rob_clear0_o : 1'b1) &&
-                    (cmt1_valid_i ? rob_clear1_o : 1'b1));
+                   ((cmt0_valid_i === 1'b1) ? rob_clear0_o : 1'b1) &&
+                   ((cmt1_valid_i === 1'b1) ? rob_clear1_o : 1'b1);
 
 assign arf_we0_o = cmt0_effect && cmt0_rf_we_i && (cmt0_rd_i != 5'b0);
 assign arf_waddr0_o = cmt0_rd_i;
@@ -431,9 +434,15 @@ assign dcacop_op_o = sel_cacop_code[4:3];
 assign icacop_addr_o = sel_paddr;
 assign dcacop_addr_o = sel_paddr;
 
+wire ftq_s0_last = cmt0_effect && (cmt0_is_last_i ||
+                    (cmt0_is_branch_i && cmt0_br_taken_i));
+wire ftq_s1_last = cmt1_effect && (cmt1_is_last_i ||
+                    (cmt1_is_branch_i && cmt1_br_taken_i));
+
 assign ftq_cmt_valid_o = selected_effect || cmt1_dual_effect;
 assign ftq_cmt_id_o = sel_ftq_id;
-assign ftq_cmt_is_last_o = sel_is_last;
+assign ftq_cmt_is_last_o = ftq_s0_last || ftq_s1_last;
+assign ftq_cmt_release_o = {1'b0, ftq_s0_last} + {1'b0, ftq_s1_last};
 assign ftq_cmt_is_branch_o = sel_is_branch;
 assign ftq_cmt_taken_o = sel_br_taken;
 assign ftq_cmt_mispred_o = selected_mispred;

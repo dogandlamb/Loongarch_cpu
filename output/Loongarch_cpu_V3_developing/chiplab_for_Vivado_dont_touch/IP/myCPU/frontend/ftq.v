@@ -46,6 +46,7 @@ module ftq(
 
     // ---------------- IFU 预译码重定向 ----------------
     input  wire                       predec_redirect_i,    // 预译码发现漏预测的直接跳转
+    input  wire                       predec_fixup_only_i,  // 1=仅修正块元数据（cond 截断），不回滚指针
     input  wire [`FTQ_W-1:0]          predec_redirect_id_i, // 出错块的 FTQ 编号
     input  wire [`BLK_LEN_W-1:0]      predec_length_i,      // 修正后的块长（截断到跳转指令）
     input  wire                       predec_taken_i,       // 修正后的方向（恒 1）
@@ -55,7 +56,8 @@ module ftq(
     // ---------------- 提交信息入口（来自 commit）----------------
     input  wire                       cmt_valid_i,          // 本拍有指令提交
     input  wire [`FTQ_W-1:0]          cmt_ftq_id_i,         // 提交指令所在块编号
-    input  wire                       cmt_is_last_i,        // 是否为块内最后一条（整块提交完毕->cmt_ptr++）
+    input  wire                       cmt_is_last_i,        // 是否为块内最后一条（训练/兼容）
+    input  wire [1:0]                 cmt_release_i,        // 本拍释放的 FTQ 块数（0/1/2，双提交可结束两块）
     input  wire                       cmt_is_branch_i,      // 提交的是分支
     input  wire                       cmt_taken_i,          // 实际方向
     input  wire                       cmt_mispred_i,        // 是否误预测
@@ -108,8 +110,22 @@ end
 
 wire [`FTQ_W-1:0] bpu_prev = bpu_ptr - {{(`FTQ_W-1){1'b0}}, 1'b1};
 
+function automatic [`FTQ_W-1:0] ftq_ptr_add;
+    input [`FTQ_W-1:0] base;
+    input [`FTQ_W:0]   offset;
+    reg [`FTQ_W:0] sum;
+    begin
+        sum = {1'b0, base} + offset;
+        ftq_ptr_add = sum[`FTQ_W-1:0];
+    end
+endfunction
+
 // ---------------- 满/空 ----------------
-assign ftq_full_o = ((bpu_ptr + {{(`FTQ_W-1){1'b0}}, 1'b1}) == cmt_ptr);
+// almost-full（预留 2 槽）：配合 BPU 两拍冻结（满洋式 ftq_full_delay）——
+// full 首拍 P0 仍可写最后 1 个可用槽，连续两拍满才真正冻结，
+// 避免满边界抖动吞掉 P1 覆盖/浪费取指拍
+assign ftq_full_o = ((bpu_ptr + {{(`FTQ_W-1){1'b0}}, 1'b1}) == cmt_ptr)
+                 || ((bpu_ptr + {{(`FTQ_W-2){1'b0}}, 2'd2}) == cmt_ptr);
 
 // ---------------- IFU 取块口 ----------------
 // 上一拍刚写入的块要等 P1 覆盖安定后才发出
@@ -124,9 +140,20 @@ assign ifu_ftq_id_o = ifu_ptr;
 // ---------------- commit 查询口 ----------------
 assign cmt_blk_target_o = blk_target[cmt_query_id_i];
 
+// cmt_ptr 只随提交释放推进。predec 重定向不动 cmt_ptr：
+// 重定向块 R 的指令本拍才入 IB，提交序上 cmt_ptr 恒 <= R < R+1，
+// 被 squash 的推测块 (R, bpu_ptr) 尚未也永不会被提交侧走到
+// （旧 redir_cmt_skip 的无符号 >= 比较在环形回绕处会误判、假释活块，已移除）
+wire [`FTQ_W:0] cmt_adv = (|cmt_release_i) ? {1'b0, cmt_release_i} : {(`FTQ_W+1){1'b0}};
+
 // ---------------- 指针与块写入 ----------------
 always @(posedge clk) begin
-    if (reset || flush_i) begin
+    if (reset) begin
+        bpu_ptr    <= {`FTQ_W{1'b0}};
+        ifu_ptr    <= {`FTQ_W{1'b0}};
+        cmt_ptr    <= {`FTQ_W{1'b0}};
+        p0_wrote_r <= 1'b0;
+    end else if (flush_i) begin
         bpu_ptr    <= {`FTQ_W{1'b0}};
         ifu_ptr    <= {`FTQ_W{1'b0}};
         cmt_ptr    <= {`FTQ_W{1'b0}};
@@ -138,7 +165,13 @@ always @(posedge clk) begin
             blk_taken[predec_redirect_id_i]  <= predec_taken_i;
             blk_target[predec_redirect_id_i] <= predec_target_i;
             blk_btype[predec_redirect_id_i]  <= predec_br_type_i;
-            bpu_ptr    <= predec_redirect_id_i + 1'b1;
+            if (!predec_fixup_only_i) begin
+                bpu_ptr    <= predec_redirect_id_i + 1'b1;
+                // 丢弃 redirect 之后的推测块。IFU 两级流水最多领先 redirect 块
+                // 2 个（错误路径块已被 IFU predec_kill 丢弃），且 ifu_ptr 环序上
+                // 恒不落后于 redirect_id+1，故无条件回卷（原 '>' 比较回绕处漏判）
+                ifu_ptr <= predec_redirect_id_i + 1'b1;
+            end
             p0_wrote_r <= 1'b0;
         end else begin
             p0_wrote_r <= p0_valid_i;
@@ -169,9 +202,9 @@ always @(posedge clk) begin
         if (ifu_accept_i && ifu_valid_o)
             ifu_ptr <= ifu_ptr + 1'b1;
 
-        // 提交释放
-        if (cmt_valid_i && cmt_is_last_i)
-            cmt_ptr <= cmt_ptr + 1'b1;
+        // 提交释放（与 predec 独立，避免 cond 截断同拍吞掉 release）
+        if (|cmt_adv)
+            cmt_ptr <= ftq_ptr_add(cmt_ptr, cmt_adv);
     end
 end
 

@@ -19,22 +19,3 @@ Thumbs.db
 *.vcd
 *.str
 
-# =========================
-# Vivado / xsim generated artifacts
-# (keep RTL sources, ignore generated run outputs)
-# =========================
-output/vivado_cpu_origin/soc_verify/**/run_vivado/project/**/*.cache/**
-output/vivado_cpu_origin/soc_verify/**/run_vivado/project/**/*.gen/**
-output/vivado_cpu_origin/soc_verify/**/run_vivado/project/**/*.sim/**
-output/vivado_cpu_origin/soc_verify/**/run_vivado/project/**/*.runs/**
-output/vivado_cpu_origin/soc_verify/**/run_vivado/project/**/*.ip_user_files/**
-output/vivado_cpu_origin/soc_verify/**/run_vivado/project/**/*.xpr
-
-# Icarus / simulation runtime files
-output/vivado_cpu_origin/soc_verify/**/testbench/dump.vcd
-output/vivado_cpu_origin/soc_verify/**/testbench/project/**/gettrace
-
-*.vcd
-*.vcd
-output/vivado_cpu_origin/soc_verify/soc_bram/run_vivado/project/loongson.sim/sim_1/behav/xsim/dump.vcd
-output/vivado_cpu_origin/soc_verify/soc_bram/run_vivado/project/loongson.sim/sim_1/behav/xsim/dump.vcd

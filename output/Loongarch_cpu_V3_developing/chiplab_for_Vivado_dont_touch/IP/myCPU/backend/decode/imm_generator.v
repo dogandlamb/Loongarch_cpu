@@ -98,7 +98,7 @@ module imm_generator (
     
     assign alu_imm = (src2_is_4 ? 32'h4 :
                      need_si20_shl2 ? {{10{i20[19]}}, i20[19:0], 2'b00} :
-                     need_si20 ? {i20[19:0] , 12'b0} :
+                     need_si20 ? {{12{i20[19]}}, i20[19:0], 12'b0} :
                      (inst_andi | inst_ori | inst_xori) ? {20'b0, i12[11:0]} :
                      need_si14_shl2 ? {{16{i14[13]}}, i14[13:0], 2'b00} :
                      need_si12 ? {{20{i12[11]}} , i12[11:0]} :

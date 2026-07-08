@@ -40,8 +40,8 @@
 `define SB_SIZE         8   // store buffer 项数（提交后写缓冲）
 `define SB_W            3   // $clog2(SB_SIZE)
 
-`define FTQ_SIZE        8   // 取指目标队列项数（8 块 x 4 条 = 32 条，与 ROB_SIZE 对齐）
-`define FTQ_W           3   // $clog2(FTQ_SIZE)
+`define FTQ_SIZE        16  // 取指目标队列项数（需 > BPU 推测深度，避免 I$ 慢时 ftq_full 死锁）
+`define FTQ_W           4   // $clog2(FTQ_SIZE)
 
 `define IB_SIZE         16  // 指令缓冲项数（入口<=4条/拍，出口 2条/拍）
 `define IB_W            4   // $clog2(IB_SIZE)

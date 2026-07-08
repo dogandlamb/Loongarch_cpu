@@ -1,0 +1,22 @@
+1.马家沟核的cpu、soc、report、linux。马家沟核是神！！！！！！！！！！！
+https://github.com/HIT-MaRiver-mips
+
+2.21年其他学长的外设设计经验（也许有参考意义）
+https://lxbchong.github.io/long_xin_bei/competition/%E5%A4%96%E8%AE%BE%E9%83%A8%E5%88%86%E8%AE%BE%E8%AE%A1/#235-lcdvga
+
+3.【龙芯开发板启动linux流程】B站视频
+https://www.bilibili.com/video/BV12ncgeAEc1/?share_source=copy_web&vd_source=3af3024b4a934aa636a26fca6499e9b2
+
+4.【哈尔滨工业大学	马家沟河】B站视频（可以学习linux的命令，以及如何用他们的soc、linux）
+https://www.bilibili.com/video/BV1Dx4y1f7s3/?share_source=copy_web&vd_source=3af3024b4a934aa636a26fca6499e9b2
+
+5.chiplab手册（里面有更详细的linux启动方法）
+https://chiplab.readthedocs.io/zh-cn/latest/Quick-Start.html
+
+6.doc里面有 nscscc_readme.md Chiplab_for_vivado下板与初赛手册.md 可以给初赛上版提供指导
+.\Loongarch_cpu\output\Loongarch_cpu_V3_developing\myCPU\doc
+同时，里面的各个手册也要写
+
+7.【复旦大学-打完龙芯去送外卖】 里面的linux命令更清晰，也可参考
+https://www.bilibili.com/video/BV1F8eteoEhV/?share_source=copy_web&vd_source=3af3024b4a934aa636a26fca6499e9b2
+

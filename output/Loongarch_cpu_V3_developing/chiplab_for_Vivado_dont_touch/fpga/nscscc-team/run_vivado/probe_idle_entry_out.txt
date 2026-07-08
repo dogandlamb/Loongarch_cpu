@@ -1,0 +1,3 @@
+403890 ns C0 v=1 pc=0x1c0102b0 i=02bffdef en=f r0f=015553ff | C1 v=0 pc=0x1c0102b4 i=2880018e en=0 r0e=00000000
+404850 ns C0 v=1 pc=0x1c0102b0 i=02bffdef en=f r0f=015553fe | C1 v=0 pc=0x1c0102b4 i=2880018e en=0 r0e=00000000
+404860 ns C0 v=1 pc=0x1c0102b0 i=02bffdef en=f r0f=015553fe | C1 v=0 pc=0x1c0102b4 i=2880018e en=0 r0e=00000000

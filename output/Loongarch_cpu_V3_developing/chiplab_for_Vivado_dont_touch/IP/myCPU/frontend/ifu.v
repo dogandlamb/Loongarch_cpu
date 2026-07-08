@@ -3,8 +3,10 @@
 // ------------------------------------------------------------
 // 参考实现说明：
 // - 2 段流水：PRE（收 FTQ 块 + MMU 翻译 + 发 ICache）/ IF（等返回 + 切割 + 入 IB）；
-// - 取指异常整块占位（inst=0，不打 ICache）；冲刷用 drop_rsp 丢弃过期 data_ok；
-// - 预译码识别 B/BL 直接跳转，漏预测时截断块并 predec_redirect；
+//   最多 2 块在途；I$ 严格单请求在途（ic_outstanding），过期应答自然丢弃，
+//   数据在 PRE 滞留期间返回被弃时由 if_replay_req 重发兜底；
+// - 取指异常整块占位（inst=0，不打 ICache）；
+// - 预译码仅识别 B/BL 直接跳转，漏预测时截断块并全量 predec_redirect；
 // - ic_cancel_o 恒 0（I$ 忽略 cancel，本模块自行丢弃）。
 // ============================================================
 `include "mycpu.h"
@@ -39,6 +41,8 @@ module ifu(
     output wire                       ic_cancel_o,
 
     output wire                       predec_redirect_o,
+    output wire                       predec_fixup_only_o,
+    output wire                       predec_update_pc_o,
     output wire [31:0]                predec_redirect_pc_o,
     output wire [`FTQ_W-1:0]          predec_redirect_id_o,
     output wire [`BLK_LEN_W-1:0]      predec_length_o,
@@ -127,55 +131,37 @@ reg [`FTQ_W-1:0] if_id;
 reg        if_excp;
 reg [`EXCP_NUM-1:0] if_excp_vec;
 reg        if_wait_data;
+reg [31:0] if_paddr;
+reg        if_uncached;
 reg [`CACHE_LINE_BITS-1:0] if_rline;
 
 initial begin
     if_rline = {`CACHE_LINE_BITS{1'b0}};
 end
 
-reg drop_rsp;
 reg ic_outstanding;
 
 initial begin
-    drop_rsp       = 1'b0;
     ic_outstanding = 1'b0;
 end
 
+// I$ 严格单请求在途：addr_ok 置位、data_ok 清零。
+// flush/predec 丢弃 PRE/IF 块时【不】清该标志：在途应答返回前禁止发新请求，
+// 旧应答返回时无人处于等待态（新请求尚未发出），自然被丢弃——
+// 从机制上杜绝“旧应答喂错新块”，也无需 drop_rsp 标记。
 always @(posedge clk) begin
     if (reset) begin
-        drop_rsp       <= 1'b0;
-        ic_outstanding <= 1'b0;
-    end else if (flush_i) begin
-        // 冲刷后 IF/PRE 已清空，不必保留 drop_rsp；否则可能出现：
-        // flush 置 drop_rsp -> 旧 data_ok 仅清 drop_rsp 而不喂 IF ->
-        // 新取指 if_wait_data=1 但 I$ 不再回第二次 data_ok -> 前端永久死锁
-        drop_rsp       <= 1'b0;
         ic_outstanding <= 1'b0;
     end else begin
-        if (ftq_accept_o)
-            drop_rsp <= 1'b0;
         if (ic_req_o && (ic_addr_ok_i === 1'b1))
             ic_outstanding <= 1'b1;
-        if (ic_data_ok_i === 1'b1) begin
+        if (ic_data_ok_i === 1'b1)
             ic_outstanding <= 1'b0;
-            if (drop_rsp)
-                drop_rsp <= 1'b0;
-        end
     end
 end
 
 wire pre_excp_now = mmu_i_excp_adef_i || |mmu_i_tlb_ex_i;
 wire [`EXCP_NUM-1:0] pre_excp_vec_now = pack_if_excp(mmu_i_excp_adef_i, mmu_i_tlb_ex_i);
-
-wire pre_ready_go = (pre_v === 1'b1) && (pre_excp || (pre_ic_sent === 1'b1));
-
-wire pre_allow_in = (pre_v !== 1'b1) && (pre_ready_go !== 1'b1);
-wire if_block_ftq = (if_v === 1'b1) && (if_wait_data === 1'b1);
-wire if_allow_in  = (if_v !== 1'b1)
-                  || ((if_ready_go === 1'b1) && (predec_redirect_o !== 1'b1));
-wire if_allow_in_eff = if_allow_in && !if_block_ftq;
-
-assign ftq_accept_o = (ftq_valid_i === 1'b1) && pre_allow_in && if_allow_in_eff && (flush_i !== 1'b1);
 
 function [`BLK_LEN_W-1:0] safe_blk_len;
     input [`BLK_LEN_W-1:0] len;
@@ -189,19 +175,43 @@ endfunction
 
 wire [`BLK_LEN_W-1:0] if_len_eff = safe_blk_len(if_len);
 wire ib_can_push = (ib_can_push_i === 1'b1);
-wire if_ic_hit   = (if_wait_data === 1'b1) && (ic_data_ok_i === 1'b1) && (drop_rsp !== 1'b1);
+// if_wait_data=1 时唯一在途请求必属本块（PRE 被 !ic_outstanding/!if_replay_req
+// 挡住，发不出新请求），data_ok 可直接消费
+wire if_ic_hit   = (if_wait_data === 1'b1) && (ic_data_ok_i === 1'b1);
 wire if_line_ready = (if_excp === 1'b1)
                   || if_ic_hit
                   || ((if_wait_data !== 1'b1) && (if_v === 1'b1) && (|if_rline));
 wire if_ready_go = (if_v === 1'b1) && ib_can_push && if_line_ready;
 
+// PRE/IF 两级流水：最多 2 块在途。
+// 仅当 PRE 占用且本拍无法前进（IF 占用未走 / PRE 请求未发出）时反压 FTQ；
+// predec 全量重定向当拍不接新块（FTQ 正回滚 ifu_ptr/bpu_ptr），
+// 且 PRE 中的错误路径块被丢弃（见 predec_kill）。
+wire pre_done     = (pre_v === 1'b1) && (pre_excp || (pre_ic_sent === 1'b1));
+wire if_allow_in  = (if_v !== 1'b1) || if_ready_go;
+wire pre_ready_go = pre_done && if_allow_in;
+wire predec_kill  = predec_redirect_o && (predec_fixup_only_o !== 1'b1);
+wire pre_to_if    = pre_ready_go && !predec_kill;
+assign ftq_accept_o = (ftq_valid_i === 1'b1)
+                   && ((pre_v !== 1'b1) || pre_ready_go)
+                   && !predec_kill && (flush_i !== 1'b1);
+
 assign mmu_i_req_o   = (ftq_accept_o || (pre_v === 1'b1)) && (flush_i !== 1'b1);
 assign mmu_i_vaddr_o = ftq_accept_o ? ftq_pc_i : pre_pc;
 
-assign ic_req_o     = pre_v && !pre_excp && !pre_ic_sent && !flush_i;
-assign ic_vaddr_o   = pre_pc;
-assign ic_paddr_o   = pre_paddr;
-assign ic_uncached_o= pre_uncached;
+// IF 等数据但请求已丢（数据在 PRE 滞留期间返回被弃）时重放
+wire if_replay_req = (if_v === 1'b1) && (if_wait_data === 1'b1) && (ic_outstanding !== 1'b1)
+                   && (if_excp !== 1'b1) && (flush_i !== 1'b1);
+
+// PRE 发请求的前提：I$ 无在途请求、IF 不在重放、本块非错误路径
+wire pre_ic_req = (pre_v === 1'b1) && !pre_excp && (pre_ic_sent !== 1'b1)
+               && (ic_outstanding !== 1'b1) && !if_replay_req
+               && !predec_kill && (flush_i !== 1'b1);
+
+assign ic_req_o      = pre_ic_req || if_replay_req;
+assign ic_vaddr_o    = if_replay_req ? if_pc : pre_pc;
+assign ic_paddr_o    = if_replay_req ? if_paddr : pre_paddr;
+assign ic_uncached_o = if_replay_req ? if_uncached : pre_uncached;
 
 always @(posedge clk) begin
     if (reset || flush_i) begin
@@ -212,10 +222,9 @@ always @(posedge clk) begin
         if_rline     <= {`CACHE_LINE_BITS{1'b0}};
         if_pc        <= 32'b0;
     end else begin
-        if (pre_ready_go) begin
-            pre_v       <= 1'b0;
-            pre_ic_sent <= 1'b0;
-        end else if (ftq_accept_o) begin
+        // ---- PRE 级：接收新块 > 前进/被杀 > 记录请求已发 ----
+        // ftq_accept_o 已保证：PRE 空或本拍 pre_ready_go（成对进出）
+        if (ftq_accept_o) begin
             pre_v        <= 1'b1;
             pre_pc       <= ftq_pc_i;
             pre_len      <= safe_blk_len(ftq_length_i);
@@ -227,11 +236,15 @@ always @(posedge clk) begin
             pre_excp     <= pre_excp_now;
             pre_excp_vec <= pre_excp_vec_now;
             pre_ic_sent  <= 1'b0;
-        end else if (pre_v && !pre_excp && ic_req_o && (ic_addr_ok_i === 1'b1)) begin
+        end else if (pre_to_if || predec_kill) begin
+            pre_v       <= 1'b0;
+            pre_ic_sent <= 1'b0;
+        end else if (pre_ic_req && (ic_addr_ok_i === 1'b1)) begin
             pre_ic_sent <= 1'b1;
         end
 
-        if (pre_ready_go) begin
+        // ---- IF 级：装载 > 弹出 > 等数据 ----
+        if (pre_to_if) begin
             if_v         <= 1'b1;
             if_pc        <= pre_pc;
             if_len       <= pre_len;
@@ -240,33 +253,30 @@ always @(posedge clk) begin
             if_id        <= pre_id;
             if_excp      <= pre_excp;
             if_excp_vec  <= pre_excp_vec;
+            if_paddr     <= pre_paddr;
+            if_uncached  <= pre_uncached;
             if (pre_excp) begin
                 if_wait_data <= 1'b0;
-            end else if ((ic_data_ok_i === 1'b1) && !drop_rsp) begin
+            end else if (ic_data_ok_i === 1'b1) begin
+                // 过渡拍返回的 data_ok 必属本块（唯一在途请求）
                 if_rline     <= ic_rline_i;
                 if_wait_data <= 1'b0;
             end else begin
                 if_wait_data <= 1'b1;
             end
-        end else begin
-            if (if_ready_go === 1'b1) begin
-                if_v         <= 1'b0;
-                if_wait_data <= 1'b0;
-            end else if (if_v && if_wait_data && (ic_data_ok_i === 1'b1) && !drop_rsp) begin
-                if_rline     <= ic_rline_i;
-                if_wait_data <= 1'b0;
-            end
-            if (predec_redirect_o) begin
-                pre_v       <= 1'b0;
-                pre_ic_sent <= 1'b0;
-            end
+        end else if (if_ready_go === 1'b1) begin
+            if_v         <= 1'b0;
+            if_wait_data <= 1'b0;
+        end else if (if_v && if_wait_data && (ic_data_ok_i === 1'b1)) begin
+            if_rline     <= ic_rline_i;
+            if_wait_data <= 1'b0;
         end
     end
 end
 
 // ---------------- 指令切割 ----------------
 wire [`CACHE_LINE_W-1:0] line_off = if_pc[`CACHE_LINE_W-1:2];
-wire [`CACHE_LINE_BITS-1:0] if_rline_eff = (if_v && if_wait_data && ic_data_ok_i && !drop_rsp)
+wire [`CACHE_LINE_BITS-1:0] if_rline_eff = (if_v && if_wait_data && ic_data_ok_i)
                                            ? ic_rline_i : if_rline;
 
 wire [31:0] cut_inst [0:3];
@@ -293,6 +303,13 @@ function is_direct_br;
     end
 endfunction
 
+function is_cond_br;
+    input [5:0] opc;
+    begin
+        is_cond_br = (opc >= 6'b010110) && (opc <= 6'b011011);
+    end
+endfunction
+
 function [31:0] br_target;
     input [31:0] pc;
     input [31:0] inst;
@@ -302,10 +319,15 @@ function [31:0] br_target;
 endfunction
 
 wire [3:0] imm_br;
+wire [3:0] cond_br;
 assign imm_br[0] = is_direct_br(opc0);
 assign imm_br[1] = is_direct_br(opc1);
 assign imm_br[2] = is_direct_br(opc2);
 assign imm_br[3] = is_direct_br(opc3);
+assign cond_br[0] = is_cond_br(opc0);
+assign cond_br[1] = is_cond_br(opc1);
+assign cond_br[2] = is_cond_br(opc2);
+assign cond_br[3] = is_cond_br(opc3);
 
 wire [31:0] imm_tgt [0:3];
 assign imm_tgt[0] = br_target(cut_pc[0], cut_inst[0]);
@@ -313,18 +335,32 @@ assign imm_tgt[1] = br_target(cut_pc[1], cut_inst[1]);
 assign imm_tgt[2] = br_target(cut_pc[2], cut_inst[2]);
 assign imm_tgt[3] = br_target(cut_pc[3], cut_inst[3]);
 
-// 找最早漏预测的直接跳转
+// 截断块内最早的关键分支，两类都做【全量】重定向（FTQ 回滚 bpu/ifu 指针 +
+// BPU 改 PC，predec_fixup_only 恒 0）：
+// - 漏预测的直接跳转（B/BL）：重定向到立即数目标；
+// - 块中部的条件分支：重定向到分支后一条指令（截断块的 fall-through），
+//   不跳过任何指令；预测不跳且实际不跳时无缝衔接，其余情形由提交级
+//   误预测冲刷纠正。保证"每块至多一条分支且在块末"的 FTQ 训练不变式。
+// （旧 fixup_only 模式只改元数据不改 PC，会跳过截断点到原块尾之间的指令，
+//   属功能错误，已弃用。）
 reg [1:0] predec_idx;
 reg       predec_found;
+reg       predec_is_direct;
 integer pi;
 always @(*) begin
-    predec_found = 1'b0;
-    predec_idx   = 2'd0;
+    predec_found     = 1'b0;
+    predec_idx       = 2'd0;
+    predec_is_direct = 1'b0;
     for (pi = 0; pi < 4; pi = pi + 1) begin
-        if (!predec_found && (pi < if_len_eff) && imm_br[pi]) begin
-            if ((pi < if_len_eff - 1) || !if_taken) begin
-                predec_found = 1'b1;
-                predec_idx   = pi[1:0];
+        if (!predec_found && (pi < if_len_eff)) begin
+            if (imm_br[pi] && ((pi < if_len_eff - 1) || !if_taken)) begin
+                predec_found     = 1'b1;
+                predec_idx       = pi[1:0];
+                predec_is_direct = 1'b1;
+            end else if (cond_br[pi] && (pi < if_len_eff - 1)) begin
+                predec_found     = 1'b1;
+                predec_idx       = pi[1:0];
+                predec_is_direct = 1'b0;
             end
         end
     end
@@ -333,7 +369,9 @@ end
 wire [`BLK_LEN_W-1:0] out_len = predec_found ? (predec_idx + 1'b1) : if_len_eff;
 wire push_en = if_ready_go;
 
-// pred_taken 只标在推送块末指令：直接 B/BL 或 FTQ 块级 taken（非 predec 截断）
+// pred_taken 只标在推送块末指令：直接 B/BL 恒 1；cond 截断恒 0（前端实际
+// 走 fall-through，若实际 taken 由提交级 br_taken!=pred_taken 冲刷，
+// 不依赖目标比对，避免目标撞车漏检）；未截断块末用 FTQ 块级 taken
 function slot_pred_taken;
     input [1:0] idx;
     input [`BLK_LEN_W-1:0] olen;
@@ -342,20 +380,30 @@ function slot_pred_taken;
         if ((idx + 1'b1) == olen[`BLK_LEN_W-1:0]) begin
             if (imm_br[idx])
                 slot_pred_taken = 1'b1;
-            else if (if_taken && !predec_found && ((idx + 1'b1) == if_len_eff))
+            else if (predec_found && !predec_is_direct)
+                slot_pred_taken = 1'b0;
+            else if (if_taken && (cond_br[idx] ||
+                     (!predec_found && ((idx + 1'b1) == if_len_eff))))
                 slot_pred_taken = 1'b1;
         end
     end
 endfunction
 
 assign predec_redirect_o    = push_en && predec_found && !if_excp;
-assign predec_redirect_pc_o = imm_tgt[predec_idx];
+assign predec_fixup_only_o  = 1'b0;   // 两类截断均全量重定向（回滚指针 + 改 PC）
+assign predec_update_pc_o   = 1'b1;
+// 直接跳转：去立即数目标；cond 截断：去截断块 fall-through（不跳过指令）
+assign predec_redirect_pc_o = predec_is_direct ? imm_tgt[predec_idx]
+                                               : (if_pc + {27'b0, out_len, 2'b00});
 assign predec_redirect_id_o = if_id;
 assign predec_length_o      = out_len;
-assign predec_taken_o       = 1'b1;
-assign predec_target_o      = imm_tgt[predec_idx];
-assign predec_br_type_o     = (cut_inst[predec_idx][31:26] == 6'b010101) ?
-                              `BR_TYPE_CALL : `BR_TYPE_UNCOND;
+// cond 截断块按"不跳"出口（前端实际走 fall-through），taken=0；
+// target 与 redirect_pc 一致（pred_taken=0 时提交级不比对 target，仅记录）
+assign predec_taken_o       = predec_is_direct;
+assign predec_target_o      = predec_redirect_pc_o;
+assign predec_br_type_o     = predec_is_direct ?
+                              ((cut_inst[predec_idx][31:26] == 6'b010101) ? `BR_TYPE_CALL : `BR_TYPE_UNCOND) :
+                              `BR_TYPE_COND;
 
 // ---------------- IB 输出 ----------------
 assign ib_push0_valid_o     = push_en && (out_len >= 3'd1);

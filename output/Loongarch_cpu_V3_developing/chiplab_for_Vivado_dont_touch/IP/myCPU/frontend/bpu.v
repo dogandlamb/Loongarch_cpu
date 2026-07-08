@@ -17,6 +17,7 @@ module bpu(
     input  wire                       flush_i,
     input  wire [31:0]                flush_pc_i,
     input  wire                       predec_redirect_i,
+    input  wire                       predec_update_pc_i,
     input  wire [31:0]                predec_redirect_pc_i,
 
     input  wire                       ftq_full_i,
@@ -57,6 +58,7 @@ reg [31:0] pc_r;
 reg        flush_r;
 reg [31:0] flush_pc_r;
 reg        ftq_full_r;
+reg        ftq_freeze_r;
 reg        p0_wrote_r;
 reg [31:0] p0_pc_r;
 reg [`BLK_LEN_W-1:0] p0_length_r;
@@ -68,11 +70,16 @@ initial begin
     flush_pc_r  = 32'h1c000000;
 end
 
+// 满洋式两拍冻结：FTQ almost-full（留 2 槽）首拍照常查询/写入，
+// 连续两拍满才冻结 PC/查询——满边界不丢 P1 覆盖、不浪费取指拍
+wire ftq_freeze = ftq_full_i && ftq_full_r;
+
 always @(posedge clk) begin
     if (flush_i)
         flush_pc_r <= flush_pc_i;
-    flush_r     <= flush_i;
-    ftq_full_r  <= ftq_full_i;
+    flush_r      <= flush_i;
+    ftq_full_r   <= ftq_full_i;
+    ftq_freeze_r <= ftq_freeze;
     if (flush_i)
         p0_wrote_r <= 1'b0;
     else
@@ -104,7 +111,7 @@ wire [`BPU_META_W-1:0]     tage_meta;
 wire [31:0]                ras_top;
 wire                       ras_empty;
 
-wire query_en = ~ftq_full_i && ~flush_i;
+wire query_en = ~ftq_freeze && ~flush_i;
 
 wire [`BLK_LEN_W-1:0] ubtb_train_len = (train_fall_through_i - train_pc_i) >> 2;
 
@@ -182,7 +189,10 @@ wire                  p0_taken_c = ubtb_hit && ubtb_taken;
 wire [31:0]           p0_target_c = ubtb_target;
 wire [`BR_TYPE_W-1:0] p0_btype_c = ubtb_hit ? ubtb_btype : `BR_TYPE_COND;
 
-assign p0_valid_o   = query_en && !predec_redirect_i;
+// P1 覆盖拍必须压掉 P0：此拍的 pc 是被 P1 否定的错误路径延续，
+// 若照写会在 FTQ 中留下一个"元数据不跳、取指流却已跳走"的幽灵块，
+// 提交级误预测检查察觉不到（pred_taken=0 且非分支），导致错误路径静默提交
+assign p0_valid_o   = query_en && !p1_diff && !(predec_redirect_i && predec_update_pc_i);
 assign p0_pc_o      = pc;
 assign p0_length_o  = p0_len_c;
 assign p0_taken_o   = p0_taken_c;
@@ -201,7 +211,7 @@ wire p1_taken_c = (ftb_btype == `BR_TYPE_COND) ? tage_taken : 1'b1;
 wire [31:0] p1_target_c = (ftb_btype == `BR_TYPE_RET && !ras_empty) ? ras_top :
                           (ftb_btype == `BR_TYPE_RET) ? ftb_fall : ftb_target;
 
-wire p1_diff = ftb_hit && p0_wrote_r && !ftq_full_r && !flush_r && !flush_i &&
+wire p1_diff = ftb_hit && p0_wrote_r && !ftq_freeze_r && !flush_r && !flush_i &&
                ((p1_len_c != p0_length_r) || (p1_taken_c != p0_taken_r) ||
                 (p1_target_c != p0_target_r));
 
@@ -226,12 +236,32 @@ always @(posedge clk) begin
         pc <= flush_pc_i;
     else if (flush_r)
         pc <= flush_pc_r;
-    else if (predec_redirect_i)
+    else if (predec_redirect_i && predec_update_pc_i)
         pc <= predec_redirect_pc_i;
     else if (p1_diff)
         pc <= p1_next;
-    else if (!ftq_full_i)
+    else if (!ftq_freeze)
         pc <= p0_next;
 end
+
+// synthesis translate_off
+// 临时调试：捕获 PC 离开 1c 代码段的时刻（调通后删除）
+always @(posedge clk) begin
+    if (!reset && (pc[31:24] == 8'h1c)) begin
+        if (flush_i && (flush_pc_i[31:24] != 8'h1c))
+            $display("[%0t] BPU_DBG flush -> %h", $time, flush_pc_i);
+        else if (!flush_i && flush_r && (flush_pc_r[31:24] != 8'h1c))
+            $display("[%0t] BPU_DBG flush_r -> %h", $time, flush_pc_r);
+        else if (!flush_i && !flush_r && predec_redirect_i && predec_update_pc_i && (predec_redirect_pc_i[31:24] != 8'h1c))
+            $display("[%0t] BPU_DBG predec -> %h (pc=%h)", $time, predec_redirect_pc_i, pc);
+        else if (!flush_i && !flush_r && !(predec_redirect_i && predec_update_pc_i) && p1_diff && (p1_next[31:24] != 8'h1c))
+            $display("[%0t] BPU_DBG p1 -> %h (pc_r=%h taken=%b tgt=%h fall=%h btype=%b rasE=%b)", $time,
+                     p1_next, pc_r, p1_taken_c, ftb_target, ftb_fall, ftb_btype, ras_empty);
+        else if (!flush_i && !flush_r && !(predec_redirect_i && predec_update_pc_i) && !p1_diff && !ftq_freeze && (p0_next[31:24] != 8'h1c))
+            $display("[%0t] BPU_DBG p0 -> %h (pc=%h ubtb=%b taken=%b tgt=%h)", $time,
+                     p0_next, pc, ubtb_hit, p0_taken_c, p0_target_c);
+    end
+end
+// synthesis translate_on
 
 endmodule
