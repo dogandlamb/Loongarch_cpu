@@ -3,10 +3,9 @@
 // ------------------------------------------------------------
 // 功能：
 // - 接收 rename 流水寄存器中的两条指令，做两件事：
-//   1) 操作数补全：源操作数 ready=0 的，用其 ROB 编号读 ROB ——
-//      若该编号的指令已写回（ROB ready），直接取到值（ready 变 1）；
-//      仍未写回的，带着编号进保留站等唤醒。
-//   2) 按 futype 路由进 4 个保留站：
+//   1) 操作数：只推 rename 时刻的 ready_i + val_i + robid_i；
+//      未就绪的由 RS 用 robid 等 wb 唤醒（不在本级合并 rob_rrdy）。
+//   2) 按 futype 路由进 4 个保留站（不等操作数 ready 即可 fire）：
 //      FU_ALU -> rs_alu0 / rs_alu1（双 ALU 负载均衡：选剩余容量大的）
 //      FU_MEM -> rs_mem（一拍最多进 1 条）
 //      FU_MDU -> rs_mdu（一拍最多进 1 条）
@@ -235,19 +234,6 @@ assign rob_raddr1_o = dis0_src1_robid_i;
 assign rob_raddr2_o = dis1_src0_robid_i;
 assign rob_raddr3_o = dis1_src1_robid_i;
 
-assign dis0_src0_ready = dis0_src0_ready_i | rob_rrdy0_i;
-assign dis0_src1_ready = dis0_src1_ready_i | rob_rrdy1_i;
-assign dis1_src0_ready = dis1_src0_ready_i | rob_rrdy2_i;
-assign dis1_src1_ready = dis1_src1_ready_i | rob_rrdy3_i;
-
-assign dis0_src0_val = dis0_src0_ready_i ? dis0_src0_val_i : rob_rdata0_i;
-assign dis0_src1_val = dis0_src1_ready_i ? dis0_src1_val_i : rob_rdata1_i;
-assign dis1_src0_val = dis1_src0_ready_i ? dis1_src0_val_i : rob_rdata2_i;
-assign dis1_src1_val = dis1_src1_ready_i ? dis1_src1_val_i : rob_rdata3_i;
-
-assign dis0_ops_ready = dis0_src0_ready && dis0_src1_ready;
-assign dis1_ops_ready = dis1_src0_ready && dis1_src1_ready;
-
 assign dis0_is_alu = dis0_valid_i && dis0_futype_i[`FU_ALU];
 assign dis0_is_mem = dis0_valid_i && dis0_futype_i[`FU_MEM];
 assign dis0_is_mdu = dis0_valid_i && dis0_futype_i[`FU_MDU];
@@ -280,10 +266,10 @@ assign slot1_to_mem = dis1_is_mem;
 assign slot0_to_mdu = dis0_is_mdu;
 assign slot1_to_mdu = dis1_is_mdu;
 
-assign dis0_will_take_alu0 = dis0_valid_i && dis0_ops_ready && dis0_is_alu && slot0_to_alu0;
-assign dis0_will_take_alu1 = dis0_valid_i && dis0_ops_ready && dis0_is_alu && slot0_to_alu1;
-assign dis0_will_take_mem  = dis0_valid_i && dis0_ops_ready && dis0_is_mem;
-assign dis0_will_take_mdu  = dis0_valid_i && dis0_ops_ready && dis0_is_mdu;
+assign dis0_will_take_alu0 = dis0_valid_i && dis0_is_alu && slot0_to_alu0;
+assign dis0_will_take_alu1 = dis0_valid_i && dis0_is_alu && slot0_to_alu1;
+assign dis0_will_take_mem  = dis0_valid_i && dis0_is_mem;
+assign dis0_will_take_mdu  = dis0_valid_i && dis0_is_mdu;
 
 assign dis0_rs_ok = dis0_is_alu ? (slot0_to_alu0 ? rs_alu0_can_accept_i : rs_alu1_can_accept_i) :
                     dis0_is_mem ? rs_mem_can_accept_i :
@@ -295,11 +281,12 @@ assign dis1_rs_ok = dis1_is_alu ? (slot1_to_alu0 ? (rs_alu0_can_accept_i && !dis
                     dis1_is_mdu ? (rs_mdu_can_accept_i && !dis0_will_take_mdu) :
                     1'b0;
 
-assign dis0_can_dispatch = dis0_valid_i && dis0_ops_ready && dis0_rs_ok;
-assign dis1_can_dispatch = dis1_valid_i && dis1_ops_ready && dis1_rs_ok;
+assign dis0_can_dispatch = dis0_valid_i && dis0_rs_ok;
+assign dis1_can_dispatch = dis1_valid_i && dis1_rs_ok;
 
 assign dis0_fire_o = dis0_can_dispatch;
-assign dis1_fire_o = dis1_can_dispatch;
+// 槽 1 只能在槽 0 已空后入站，避免同 rename 对内乱序
+assign dis1_fire_o = dis1_can_dispatch && !dis0_valid_i;
 assign dispatch_ready_o = !dis0_valid_i && !dis1_valid_i;
 
 wire rs_alu0_from_slot1 = slot1_to_alu0 && dis1_fire_o;
@@ -312,11 +299,11 @@ assign rs_alu0_push_robid_o = rs_alu0_from_slot1 ? dis1_robid_i : dis0_robid_i;
 assign rs_alu0_push_pc_o = rs_alu0_from_slot1 ? dis1_pc_i : dis0_pc_i;
 assign rs_alu0_push_alu_op_o = rs_alu0_from_slot1 ? dis1_alu_op_i : dis0_alu_op_i;
 assign rs_alu0_push_br_op_o = rs_alu0_from_slot1 ? dis1_br_op_i : dis0_br_op_i;
-assign rs_alu0_push_src0_ready_o = rs_alu0_from_slot1 ? dis1_src0_ready : dis0_src0_ready;
-assign rs_alu0_push_src0_val_o = rs_alu0_from_slot1 ? dis1_src0_val : dis0_src0_val;
+assign rs_alu0_push_src0_ready_o = rs_alu0_from_slot1 ? dis1_src0_ready_i : dis0_src0_ready_i;
+assign rs_alu0_push_src0_val_o = rs_alu0_from_slot1 ? dis1_src0_val_i : dis0_src0_val_i;
 assign rs_alu0_push_src0_robid_o = rs_alu0_from_slot1 ? dis1_src0_robid_i : dis0_src0_robid_i;
-assign rs_alu0_push_src1_ready_o = rs_alu0_from_slot1 ? dis1_src1_ready : dis0_src1_ready;
-assign rs_alu0_push_src1_val_o = rs_alu0_from_slot1 ? dis1_src1_val : dis0_src1_val;
+assign rs_alu0_push_src1_ready_o = rs_alu0_from_slot1 ? dis1_src1_ready_i : dis0_src1_ready_i;
+assign rs_alu0_push_src1_val_o = rs_alu0_from_slot1 ? dis1_src1_val_i : dis0_src1_val_i;
 assign rs_alu0_push_src1_robid_o = rs_alu0_from_slot1 ? dis1_src1_robid_i : dis0_src1_robid_i;
 assign rs_alu0_push_imm_o = rs_alu0_from_slot1 ? dis1_imm_i : dis0_imm_i;
 assign rs_alu0_push_use_imm_o = rs_alu0_from_slot1 ? dis1_use_imm_i : dis0_use_imm_i;
@@ -327,11 +314,11 @@ assign rs_alu1_push_robid_o = rs_alu1_from_slot1 ? dis1_robid_i : dis0_robid_i;
 assign rs_alu1_push_pc_o = rs_alu1_from_slot1 ? dis1_pc_i : dis0_pc_i;
 assign rs_alu1_push_alu_op_o = rs_alu1_from_slot1 ? dis1_alu_op_i : dis0_alu_op_i;
 assign rs_alu1_push_br_op_o = rs_alu1_from_slot1 ? dis1_br_op_i : dis0_br_op_i;
-assign rs_alu1_push_src0_ready_o = rs_alu1_from_slot1 ? dis1_src0_ready : dis0_src0_ready;
-assign rs_alu1_push_src0_val_o = rs_alu1_from_slot1 ? dis1_src0_val : dis0_src0_val;
+assign rs_alu1_push_src0_ready_o = rs_alu1_from_slot1 ? dis1_src0_ready_i : dis0_src0_ready_i;
+assign rs_alu1_push_src0_val_o = rs_alu1_from_slot1 ? dis1_src0_val_i : dis0_src0_val_i;
 assign rs_alu1_push_src0_robid_o = rs_alu1_from_slot1 ? dis1_src0_robid_i : dis0_src0_robid_i;
-assign rs_alu1_push_src1_ready_o = rs_alu1_from_slot1 ? dis1_src1_ready : dis0_src1_ready;
-assign rs_alu1_push_src1_val_o = rs_alu1_from_slot1 ? dis1_src1_val : dis0_src1_val;
+assign rs_alu1_push_src1_ready_o = rs_alu1_from_slot1 ? dis1_src1_ready_i : dis0_src1_ready_i;
+assign rs_alu1_push_src1_val_o = rs_alu1_from_slot1 ? dis1_src1_val_i : dis0_src1_val_i;
 assign rs_alu1_push_src1_robid_o = rs_alu1_from_slot1 ? dis1_src1_robid_i : dis0_src1_robid_i;
 assign rs_alu1_push_imm_o = rs_alu1_from_slot1 ? dis1_imm_i : dis0_imm_i;
 assign rs_alu1_push_use_imm_o = rs_alu1_from_slot1 ? dis1_use_imm_i : dis0_use_imm_i;
@@ -342,11 +329,11 @@ assign rs_mem_push_robid_o = rs_mem_from_slot1 ? dis1_robid_i : dis0_robid_i;
 assign rs_mem_push_pc_o = rs_mem_from_slot1 ? dis1_pc_i : dis0_pc_i;
 assign rs_mem_push_mem_op_o = rs_mem_from_slot1 ? dis1_mem_op_i : dis0_mem_op_i;
 assign rs_mem_push_is_cacop_o = rs_mem_from_slot1 ? dis1_is_cacop_i : dis0_is_cacop_i;
-assign rs_mem_push_src0_ready_o = rs_mem_from_slot1 ? dis1_src0_ready : dis0_src0_ready;
-assign rs_mem_push_src0_val_o = rs_mem_from_slot1 ? dis1_src0_val : dis0_src0_val;
+assign rs_mem_push_src0_ready_o = rs_mem_from_slot1 ? dis1_src0_ready_i : dis0_src0_ready_i;
+assign rs_mem_push_src0_val_o = rs_mem_from_slot1 ? dis1_src0_val_i : dis0_src0_val_i;
 assign rs_mem_push_src0_robid_o = rs_mem_from_slot1 ? dis1_src0_robid_i : dis0_src0_robid_i;
-assign rs_mem_push_src1_ready_o = rs_mem_from_slot1 ? dis1_src1_ready : dis0_src1_ready;
-assign rs_mem_push_src1_val_o = rs_mem_from_slot1 ? dis1_src1_val : dis0_src1_val;
+assign rs_mem_push_src1_ready_o = rs_mem_from_slot1 ? dis1_src1_ready_i : dis0_src1_ready_i;
+assign rs_mem_push_src1_val_o = rs_mem_from_slot1 ? dis1_src1_val_i : dis0_src1_val_i;
 assign rs_mem_push_src1_robid_o = rs_mem_from_slot1 ? dis1_src1_robid_i : dis0_src1_robid_i;
 assign rs_mem_push_imm_o = rs_mem_from_slot1 ? dis1_imm_i : dis0_imm_i;
 
@@ -357,11 +344,11 @@ assign rs_mdu_push_csr_op_o = rs_mdu_from_slot1 ? dis1_csr_op_i : dis0_csr_op_i;
 assign rs_mdu_push_csr_num_o = rs_mdu_from_slot1 ? dis1_csr_num_i : dis0_csr_num_i;
 assign rs_mdu_push_tlb_op_o = rs_mdu_from_slot1 ? dis1_tlb_op_i : dis0_tlb_op_i;
 assign rs_mdu_push_wb_src_op_o = rs_mdu_from_slot1 ? dis1_wb_src_op_i : dis0_wb_src_op_i;
-assign rs_mdu_push_src0_ready_o = rs_mdu_from_slot1 ? dis1_src0_ready : dis0_src0_ready;
-assign rs_mdu_push_src0_val_o = rs_mdu_from_slot1 ? dis1_src0_val : dis0_src0_val;
+assign rs_mdu_push_src0_ready_o = rs_mdu_from_slot1 ? dis1_src0_ready_i : dis0_src0_ready_i;
+assign rs_mdu_push_src0_val_o = rs_mdu_from_slot1 ? dis1_src0_val_i : dis0_src0_val_i;
 assign rs_mdu_push_src0_robid_o = rs_mdu_from_slot1 ? dis1_src0_robid_i : dis0_src0_robid_i;
-assign rs_mdu_push_src1_ready_o = rs_mdu_from_slot1 ? dis1_src1_ready : dis0_src1_ready;
-assign rs_mdu_push_src1_val_o = rs_mdu_from_slot1 ? dis1_src1_val : dis0_src1_val;
+assign rs_mdu_push_src1_ready_o = rs_mdu_from_slot1 ? dis1_src1_ready_i : dis0_src1_ready_i;
+assign rs_mdu_push_src1_val_o = rs_mdu_from_slot1 ? dis1_src1_val_i : dis0_src1_val_i;
 assign rs_mdu_push_src1_robid_o = rs_mdu_from_slot1 ? dis1_src1_robid_i : dis0_src1_robid_i;
 
 endmodule
