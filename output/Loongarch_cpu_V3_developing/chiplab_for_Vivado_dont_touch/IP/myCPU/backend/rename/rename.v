@@ -176,7 +176,9 @@ module rename(
     output wire                       rob_a1_is_nop_o,
 
     // =============== 到分发级的流水寄存器输出（执行所需信息） ===============
-    input  wire                       dispatch_ready_i,      // 分发级本拍可接收新的一对
+    input  wire                       dispatch_ready_i,      // 分发级两槽均已空
+    input  wire                       dis0_fire_i,           // 本拍槽 0 已入 RS
+    input  wire                       dis1_fire_i,           // 本拍槽 1 已入 RS
 
     output reg                        dis0_valid_o,
     output reg  [`ROB_W-1:0]          dis0_robid_o,
@@ -261,7 +263,7 @@ wire dual_issue_ok = !((ib0_eff_v && ib1_eff_v && ib0_futype_i[`FU_MEM] && ib1_f
 
 assign can_go = (ib0_valid_i | ib1_valid_i) && !rob_full_i && dispatch_ready_i && !flush_i;
 assign ib0_ready_o = can_go && ib0_valid_i;
-assign ib1_ready_o = can_go && ib1_valid_i && dual_issue_ok;
+assign ib1_ready_o = can_go && ib1_valid_i && dual_issue_ok && !ib1_raw_from_ib0;
 assign rob_alloc_en_o = can_go;
 
 wire ib0_null_bubble = ib0_valid_i && (ib0_inst_i == 32'b0) && !(|ib0_excp_i);
@@ -299,6 +301,7 @@ assign ib1_src0_raw_from_ib0 = ib1_use_src0_i && ib0_writes_rf &&
                                (ib1_src0_addr_i == ib0_rd_addr_i);
 assign ib1_src1_raw_from_ib0 = ib1_use_src1_i && ib0_writes_rf &&
                                (ib1_src1_addr_i == ib0_rd_addr_i);
+wire ib1_raw_from_ib0 = ib1_src0_raw_from_ib0 || ib1_src1_raw_from_ib0;
 
 assign src0_0_ready = !ib0_use_src0_i || !rat_rbusy0_i;
 assign src0_0_val = ib0_use_src0_i ? arf_rdata0_i : 32'b0;
@@ -328,7 +331,7 @@ assign src1_1_robid = ib1_src1_raw_from_ib0 ? robid0 : rat_rnum3_i;
 assign rat_wen0_o = can_go && ib0_writes_rf;
 assign rat_waddr0_o = ib0_rd_addr_i;
 assign rat_wnum0_o = robid0;
-assign rat_wen1_o = can_go && ib1_writes_rf && dual_issue_ok;
+assign rat_wen1_o = can_go && ib1_writes_rf && dual_issue_ok && !ib1_raw_from_ib0;
 assign rat_waddr1_o = ib1_rd_addr_i;
 assign rat_wnum1_o = robid1;
 
@@ -357,7 +360,7 @@ assign rob_a0_cacop_code_o = ib0_cacop_code_i;
 assign rob_a0_excp_o = ib0_null_bubble ? {`EXCP_NUM{1'b0}} : ib0_excp_i;
 assign rob_a0_is_nop_o = ib0_is_nop_i | ib0_null_bubble;
 
-assign rob_a1_valid_o = can_go && ib1_valid_i && dual_issue_ok;
+assign rob_a1_valid_o = can_go && ib1_valid_i && dual_issue_ok && !ib1_raw_from_ib0;
 assign rob_a1_pc_o = ib1_pc_i;
 assign rob_a1_inst_o = ib1_inst_i;
 assign rob_a1_rf_we_o = ib1_rf_we_i;
@@ -417,7 +420,7 @@ always @(posedge clk) begin
         dis0_use_imm_o <= ib0_use_imm_i;
         dis0_br_offs_o <= ib0_br_offs_i;
 
-        dis1_valid_o <= ib1_valid_i && !ib1_is_nop_i && dual_issue_ok;
+        dis1_valid_o <= ib1_valid_i && !ib1_is_nop_i && dual_issue_ok && !ib1_raw_from_ib0;
         dis1_robid_o <= robid1;
         dis1_pc_o <= ib1_pc_i;
         dis1_futype_o <= ib1_futype_i;
@@ -438,10 +441,11 @@ always @(posedge clk) begin
         dis1_imm_o <= ib1_imm_i;
         dis1_use_imm_o <= ib1_use_imm_i;
         dis1_br_offs_o <= ib1_br_offs_i;
-    end else if (dispatch_ready_i && (dis0_valid_o || dis1_valid_o)) begin
-        // 分发级本拍已接收（RS 在 posedge 采样 push）：清 dis，下一拍可继续从 IB 取指
-        dis0_valid_o <= 1'b0;
-        dis1_valid_o <= 1'b0;
+    end else begin
+        if (dis0_fire_i)
+            dis0_valid_o <= 1'b0;
+        if (dis1_fire_i)
+            dis1_valid_o <= 1'b0;
     end
 end
 

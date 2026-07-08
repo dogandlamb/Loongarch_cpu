@@ -698,6 +698,8 @@ module core_top #(
     wire                      dis0_use_imm, dis1_use_imm;
     wire [31:0]               dis0_br_offs, dis1_br_offs;
     wire                      dispatch_ready;
+    wire                      dis0_fire;
+    wire                      dis1_fire;
     // dispatch <-> ROB 操作数读口
     wire [`ROB_W-1:0]         dsp_rob_raddr0, dsp_rob_raddr1, dsp_rob_raddr2, dsp_rob_raddr3;
     wire                      rob_rrdy0, rob_rrdy1, rob_rrdy2, rob_rrdy3;
@@ -848,6 +850,8 @@ module core_top #(
         .rob_a1_is_nop_o   (rn_a1_is_nop),
         // 分发级
         .dispatch_ready_i  (dispatch_ready),
+        .dis0_fire_i       (dis0_fire),
+        .dis1_fire_i       (dis1_fire),
         .dis0_valid_o      (dis0_valid),
         .dis0_robid_o      (dis0_robid),
         .dis0_pc_o         (dis0_pc),
@@ -1134,6 +1138,8 @@ module core_top #(
         .dis1_use_imm_i      (dis1_use_imm),
         .dis1_br_offs_i      (dis1_br_offs),
         .dispatch_ready_o    (dispatch_ready),
+        .dis0_fire_o         (dis0_fire),
+        .dis1_fire_o         (dis1_fire),
         .rob_raddr0_o        (dsp_rob_raddr0),
         .rob_rrdy0_i         (rob_rrdy0),
         .rob_rdata0_i        (rob_rdata0),

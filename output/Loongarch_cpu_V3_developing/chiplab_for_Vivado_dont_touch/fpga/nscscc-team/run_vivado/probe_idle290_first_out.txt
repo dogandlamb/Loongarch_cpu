@@ -1,0 +1,90 @@
+394220 ns IB cnt=04 head=0 tail=4 pop0 v=1 r=1 pc=1c016660 i=15ffff8b | pop1 v=1 r=0 pc=1c016664 i=0281396b
+  RN ib0 v=1 rdy=1 pc=1c016660 i=15ffff8b | ib1 v=1 rdy=0 pc=1c016664 i=0281396b | can=1 dio=1
+
+394240 ns IB cnt=03 head=1 tail=4 pop0 v=1 r=1 pc=1c016664 i=0281396b | pop1 v=1 r=1 pc=1c016668 i=0048c18a
+  RN ib0 v=1 rdy=1 pc=1c016664 i=0281396b | ib1 v=1 rdy=1 pc=1c016668 i=0048c18a | can=1 dio=1
+
+394260 ns IB cnt=01 head=3 tail=4 pop0 v=1 r=1 pc=1c01666c i=5c1be54b | pop1 v=0 r=0 pc=00000000 i=00000000
+  RN ib0 v=1 rdy=1 pc=1c01666c i=5c1be54b | ib1 v=0 rdy=0 pc=00000000 i=00000000 | can=1 dio=1
+  CMT C0 v=1 pc=1c016660 i=15ffff8b en=f r0b=ffffc000 | C1 v=0 pc=1c016664 i=0281396b en=0 r0b=00000000 | r12=c04efccc
+
+395010 ns IB cnt=04 head=0 tail=4 pop0 v=1 r=1 pc=1c016670 i=15ad8cec | pop1 v=1 r=0 pc=1c016674 i=0288018c
+  RN ib0 v=1 rdy=1 pc=1c016670 i=15ad8cec | ib1 v=1 rdy=0 pc=1c016674 i=0288018c | can=1 dio=1
+
+395030 ns IB cnt=03 head=1 tail=4 pop0 v=1 r=1 pc=1c016674 i=0288018c | pop1 v=1 r=1 pc=1c016678 i=1400000b
+  RN ib0 v=1 rdy=1 pc=1c016674 i=0288018c | ib1 v=1 rdy=1 pc=1c016678 i=1400000b | can=1 dio=1
+
+395050 ns IB cnt=01 head=3 tail=4 pop0 v=1 r=1 pc=1c01667c i=02b5b16b | pop1 v=0 r=0 pc=00000000 i=00000000
+  RN ib0 v=1 rdy=1 pc=1c01667c i=02b5b16b | ib1 v=0 rdy=0 pc=00000000 i=00000000 | can=1 dio=1
+  CMT C0 v=1 pc=1c016670 i=15ad8cec en=f r0c=d6c67000 | C1 v=0 pc=1c016674 i=0288018c en=0 r0c=00000000 | r12=c04efccc
+
+396550 ns IB cnt=02 head=0 tail=2 pop0 v=1 r=1 pc=1c016680 i=0048d18a | pop1 v=1 r=0 pc=1c016684 i=5c1bcd4b
+  RN ib0 v=1 rdy=1 pc=1c016680 i=0048d18a | ib1 v=1 rdy=0 pc=1c016684 i=5c1bcd4b | can=1 dio=1
+
+396570 ns IB cnt=01 head=1 tail=2 pop0 v=1 r=1 pc=1c016684 i=5c1bcd4b | pop1 v=0 r=0 pc=1c016678 i=1400000b
+  RN ib0 v=1 rdy=1 pc=1c016684 i=5c1bcd4b | ib1 v=0 rdy=0 pc=1c016678 i=1400000b | can=1 dio=1
+
+397740 ns IB cnt=04 head=0 tail=4 pop0 v=1 r=1 pc=1c016688 i=146cdd4c | pop1 v=1 r=0 pc=1c01668c i=0283f98c
+  RN ib0 v=1 rdy=1 pc=1c016688 i=146cdd4c | ib1 v=1 rdy=0 pc=1c01668c i=0283f98c | can=1 dio=1
+
+397760 ns IB cnt=03 head=1 tail=4 pop0 v=1 r=1 pc=1c01668c i=0283f98c | pop1 v=1 r=1 pc=1c016690 i=1400000b
+  RN ib0 v=1 rdy=1 pc=1c01668c i=0283f98c | ib1 v=1 rdy=1 pc=1c016690 i=1400000b | can=1 dio=1
+
+397780 ns IB cnt=01 head=3 tail=4 pop0 v=1 r=1 pc=1c016694 i=0280016b | pop1 v=0 r=0 pc=00000000 i=00000000
+  RN ib0 v=1 rdy=1 pc=1c016694 i=0280016b | ib1 v=0 rdy=0 pc=00000000 i=00000000 | can=1 dio=1
+  CMT C0 v=1 pc=1c016688 i=146cdd4c en=f r0c=366ea000 | C1 v=0 pc=1c01668c i=0283f98c en=0 r0c=00000000 | r12=d6c67200
+
+398160 ns IB cnt=02 head=0 tail=2 pop0 v=1 r=1 pc=1c016698 i=0048f98a | pop1 v=1 r=0 pc=1c01669c i=5c1bb54b
+  RN ib0 v=1 rdy=1 pc=1c016698 i=0048f98a | ib1 v=1 rdy=0 pc=1c01669c i=5c1bb54b | can=1 dio=1
+
+398180 ns IB cnt=01 head=1 tail=2 pop0 v=1 r=1 pc=1c01669c i=5c1bb54b | pop1 v=0 r=0 pc=1c016690 i=1400000b
+  RN ib0 v=1 rdy=1 pc=1c01669c i=5c1bb54b | ib1 v=0 rdy=0 pc=1c016690 i=1400000b | can=1 dio=1
+
+399710 ns IB cnt=04 head=0 tail=4 pop0 v=1 r=1 pc=1c0166a0 i=1494686c | pop1 v=1 r=0 pc=1c0166a4 i=029f018c
+  RN ib0 v=1 rdy=1 pc=1c0166a0 i=1494686c | ib1 v=1 rdy=0 pc=1c0166a4 i=029f018c | can=1 dio=1
+
+399730 ns IB cnt=03 head=1 tail=4 pop0 v=1 r=1 pc=1c0166a4 i=029f018c | pop1 v=1 r=1 pc=1c0166a8 i=140128eb
+  RN ib0 v=1 rdy=1 pc=1c0166a4 i=029f018c | ib1 v=1 rdy=1 pc=1c0166a8 i=140128eb | can=1 dio=1
+
+399750 ns IB cnt=01 head=3 tail=4 pop0 v=1 r=1 pc=1c0166ac i=02a1bd6b | pop1 v=0 r=0 pc=00000000 i=00000000
+  RN ib0 v=1 rdy=1 pc=1c0166ac i=02a1bd6b | ib1 v=0 rdy=0 pc=00000000 i=00000000 | can=1 dio=1
+  CMT C0 v=1 pc=1c0166a0 i=1494686c en=f r0c=4a343000 | C1 v=0 pc=1c0166a4 i=029f018c en=0 r0c=00000000 | r12=366ea0fe
+
+400490 ns IB cnt=02 head=0 tail=2 pop0 v=1 r=1 pc=1c0166b0 i=00489d8a | pop1 v=1 r=0 pc=1c0166b4 i=5c1b9d4b
+  RN ib0 v=1 rdy=1 pc=1c0166b0 i=00489d8a | ib1 v=1 rdy=0 pc=1c0166b4 i=5c1b9d4b | can=1 dio=1
+
+400510 ns IB cnt=01 head=1 tail=2 pop0 v=1 r=1 pc=1c0166b4 i=5c1b9d4b | pop1 v=0 r=0 pc=1c0166a8 i=140128eb
+  RN ib0 v=1 rdy=1 pc=1c0166b4 i=5c1b9d4b | ib1 v=0 rdy=0 pc=1c0166a8 i=140128eb | can=1 dio=1
+
+400930 ns IB cnt=02 head=0 tail=2 pop0 v=1 r=1 pc=1c0166b8 i=146aba4c | pop1 v=1 r=0 pc=1c0166bc i=0296818c
+  RN ib0 v=1 rdy=1 pc=1c0166b8 i=146aba4c | ib1 v=1 rdy=0 pc=1c0166bc i=0296818c | can=1 dio=1
+
+400950 ns IB cnt=01 head=1 tail=2 pop0 v=1 r=1 pc=1c0166bc i=0296818c | pop1 v=0 r=0 pc=1c0166a8 i=140128eb
+  RN ib0 v=1 rdy=1 pc=1c0166bc i=0296818c | ib1 v=0 rdy=0 pc=1c0166a8 i=140128eb | can=1 dio=1
+
+402470 ns IB cnt=04 head=0 tail=4 pop0 v=1 r=1 pc=1c0166c0 i=1400000b | pop1 v=1 r=0 pc=1c0166c4 i=029aad6b
+  RN ib0 v=1 rdy=1 pc=1c0166c0 i=1400000b | ib1 v=1 rdy=0 pc=1c0166c4 i=029aad6b | can=1 dio=1
+
+402490 ns IB cnt=03 head=1 tail=4 pop0 v=1 r=1 pc=1c0166c4 i=029aad6b | pop1 v=1 r=1 pc=1c0166c8 i=0048cd8a
+  RN ib0 v=1 rdy=1 pc=1c0166c4 i=029aad6b | ib1 v=1 rdy=1 pc=1c0166c8 i=0048cd8a | can=1 dio=1
+
+402510 ns IB cnt=01 head=3 tail=4 pop0 v=1 r=1 pc=1c0166cc i=5c1b854b | pop1 v=0 r=0 pc=00000000 i=00000000
+  RN ib0 v=1 rdy=1 pc=1c0166cc i=5c1b854b | ib1 v=0 rdy=0 pc=00000000 i=00000000 | can=1 dio=1
+  CMT C0 v=1 pc=1c0166c0 i=1400000b en=f r0b=00000000 | C1 v=0 pc=1c0166c4 i=029aad6b en=0 r0b=00000000 | r12=355d25a0
+
+403260 ns IB cnt=04 head=0 tail=4 pop0 v=1 r=1 pc=1c0166d0 i=14735bec | pop1 v=1 r=0 pc=1c0166d4 i=029b458c
+  RN ib0 v=1 rdy=1 pc=1c0166d0 i=14735bec | ib1 v=1 rdy=0 pc=1c0166d4 i=029b458c | can=1 dio=1
+
+403280 ns IB cnt=03 head=1 tail=4 pop0 v=1 r=1 pc=1c0166d4 i=029b458c | pop1 v=1 r=1 pc=1c0166d8 i=1400736b
+  RN ib0 v=1 rdy=1 pc=1c0166d4 i=029b458c | ib1 v=1 rdy=1 pc=1c0166d8 i=1400736b | can=1 dio=1
+
+403300 ns IB cnt=01 head=3 tail=4 pop0 v=1 r=1 pc=1c0166dc i=02b7d96b | pop1 v=0 r=0 pc=00000000 i=00000000
+  RN ib0 v=1 rdy=1 pc=1c0166dc i=02b7d96b | ib1 v=0 rdy=0 pc=00000000 i=00000000 | can=1 dio=1
+  CMT C0 v=1 pc=1c0166d0 i=14735bec en=f r0c=39adf000 | C1 v=0 pc=1c0166d4 i=029b458c en=0 r0c=00000000 | r12=355d25a0
+
+404800 ns IB cnt=02 head=0 tail=2 pop0 v=1 r=1 pc=1c0166e0 i=0048a18a | pop1 v=1 r=0 pc=1c0166e4 i=5c1b6d4b
+  RN ib0 v=1 rdy=1 pc=1c0166e0 i=0048a18a | ib1 v=1 rdy=0 pc=1c0166e4 i=5c1b6d4b | can=1 dio=1
+
+404820 ns IB cnt=01 head=1 tail=2 pop0 v=1 r=1 pc=1c0166e4 i=5c1b6d4b | pop1 v=0 r=0 pc=1c0166d8 i=1400736b
+  RN ib0 v=1 rdy=1 pc=1c0166e4 i=5c1b6d4b | ib1 v=0 rdy=0 pc=1c0166d8 i=1400736b | can=1 dio=1
+
