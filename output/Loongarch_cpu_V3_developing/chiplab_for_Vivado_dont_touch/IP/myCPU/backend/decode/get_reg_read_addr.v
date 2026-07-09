@@ -128,11 +128,10 @@ assign need_rk = inst_add_w | inst_sub_w | inst_slt | inst_sltu
                | inst_div_w | inst_div_wu | inst_mod_w | inst_mod_wu
                | inst_andn  | inst_orn;
 
-assign src1_reg_is_rd = inst_csrwr;
-// sc.w 的写数据来自 rd（与 store 类似），同时 rj 已经用于 src1
+assign src1_reg_is_rd = 1'b0;
 assign src2_reg_is_rd = inst_st_w | inst_beq | inst_bne | inst_st_b | inst_st_h
                       | inst_blt | inst_bge | inst_bltu | inst_bgeu
-                      | inst_csrxchg | inst_sc_w;
+                      | inst_csrwr | inst_csrxchg | inst_sc_w;
 
 assign rf_raddr1 = src1_reg_is_rd ? rd
                  : (need_rj ? rj : (5'd0 | (5'd0 & {5{grra_unused_inputs}})));

@@ -128,14 +128,20 @@ wire [31:0]     s1_wbdat [0:`RS_MEM_SIZE-1];
 genvar gw;
 generate
 for (gw = 0; gw < `RS_MEM_SIZE; gw = gw + 1) begin : g_wake
-    assign s0_wbhit[gw] = (wb0_valid_i && (wb0_robid_i == s0_robid[gw])) ||
-                          (wb1_valid_i && (wb1_robid_i == s0_robid[gw])) ||
-                          (wb2_valid_i && (wb2_robid_i == s0_robid[gw])) ||
-                          (wb3_valid_i && (wb3_robid_i == s0_robid[gw]));
-    assign s1_wbhit[gw] = (wb0_valid_i && (wb0_robid_i == s1_robid[gw])) ||
-                          (wb1_valid_i && (wb1_robid_i == s1_robid[gw])) ||
-                          (wb2_valid_i && (wb2_robid_i == s1_robid[gw])) ||
-                          (wb3_valid_i && (wb3_robid_i == s1_robid[gw]));
+    // 关键修复：已 ready 的操作数必须"冻结"，绝不能再被唤醒覆盖。
+    // ready-from-ARF 操作数的 tag 是 don't-care（常为 0，而 0 是合法 robid），
+    // 会与真实的 robid=0 写回误匹配 -> 把正确的 ARF 值覆盖成写回数据（n42 store base 被污染即此）。
+    // 故命中判定必须带 !ready 门控（覆盖 clocked 唤醒环 / issue 旁路 / head_ready 三处）。
+    assign s0_wbhit[gw] = !s0_ready[gw] &&
+                          ((wb0_valid_i && (wb0_robid_i == s0_robid[gw])) ||
+                           (wb1_valid_i && (wb1_robid_i == s0_robid[gw])) ||
+                           (wb2_valid_i && (wb2_robid_i == s0_robid[gw])) ||
+                           (wb3_valid_i && (wb3_robid_i == s0_robid[gw])));
+    assign s1_wbhit[gw] = !s1_ready[gw] &&
+                          ((wb0_valid_i && (wb0_robid_i == s1_robid[gw])) ||
+                           (wb1_valid_i && (wb1_robid_i == s1_robid[gw])) ||
+                           (wb2_valid_i && (wb2_robid_i == s1_robid[gw])) ||
+                           (wb3_valid_i && (wb3_robid_i == s1_robid[gw])));
     assign s0_wbdat[gw] = (wb0_valid_i && (wb0_robid_i == s0_robid[gw])) ? wb0_data_i :
                           (wb1_valid_i && (wb1_robid_i == s0_robid[gw])) ? wb1_data_i :
                           (wb2_valid_i && (wb2_robid_i == s0_robid[gw])) ? wb2_data_i :
@@ -148,14 +154,18 @@ end
 endgenerate
 
 // push 口的唤醒命中/旁路（参数是端口信号，非数组变址；同样内联以彻底去除 function）
-wire        push_s0_wbhit = (wb0_valid_i && (wb0_robid_i == push_src0_robid_i)) ||
+// push 同理带 !push_srcX_ready 门控：ready-from-ARF 的入站操作数直接取 push_srcX_val，
+// 不允许被 tag=0 的误命中改写。
+wire        push_s0_wbhit = !push_src0_ready_i &&
+                           ((wb0_valid_i && (wb0_robid_i == push_src0_robid_i)) ||
                             (wb1_valid_i && (wb1_robid_i == push_src0_robid_i)) ||
                             (wb2_valid_i && (wb2_robid_i == push_src0_robid_i)) ||
-                            (wb3_valid_i && (wb3_robid_i == push_src0_robid_i));
-wire        push_s1_wbhit = (wb0_valid_i && (wb0_robid_i == push_src1_robid_i)) ||
+                            (wb3_valid_i && (wb3_robid_i == push_src0_robid_i)));
+wire        push_s1_wbhit = !push_src1_ready_i &&
+                           ((wb0_valid_i && (wb0_robid_i == push_src1_robid_i)) ||
                             (wb1_valid_i && (wb1_robid_i == push_src1_robid_i)) ||
                             (wb2_valid_i && (wb2_robid_i == push_src1_robid_i)) ||
-                            (wb3_valid_i && (wb3_robid_i == push_src1_robid_i));
+                            (wb3_valid_i && (wb3_robid_i == push_src1_robid_i)));
 wire [31:0] push_s0_wbdat = (wb0_valid_i && (wb0_robid_i == push_src0_robid_i)) ? wb0_data_i :
                             (wb1_valid_i && (wb1_robid_i == push_src0_robid_i)) ? wb1_data_i :
                             (wb2_valid_i && (wb2_robid_i == push_src0_robid_i)) ? wb2_data_i :
