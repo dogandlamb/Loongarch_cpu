@@ -41,7 +41,6 @@ upgrade_ip -quiet [get_ips]
 add_files -fileset constrs_1 -quiet ../constraints
 
 set_property top soc_top [current_fileset]
-set_property verilog_define {CPU_2CMT} [get_filesets sim_1]
 set_property -name "top" -value "tb_top" -objects  [get_filesets sim_1]
 set_property -name {xsim.simulate.log_all_signals} -value {true} -objects [get_filesets sim_1]
 set_property strategy Flow_PerfOptimized_high [get_runs synth_1]

@@ -127,12 +127,6 @@ wire [31:0] debug_wb_pc;
 wire [3 :0] debug_wb_rf_wen;
 wire [4 :0] debug_wb_rf_wnum;
 wire [31:0] debug_wb_rf_wdata;
-`ifdef CPU_2CMT
-wire [31:0] debug1_wb_pc;
-wire [3 :0] debug1_wb_rf_wen;
-wire [4 :0] debug1_wb_rf_wnum;
-wire [31:0] debug1_wb_rf_wdata;
-`endif
 
 //clk and resetn
 reg clk_91m;
@@ -590,13 +584,6 @@ core_top u_cpu(
     .debug0_wb_rf_wen   (debug_wb_rf_wen    ),
     .debug0_wb_rf_wnum  (debug_wb_rf_wnum   ),
     .debug0_wb_rf_wdata (debug_wb_rf_wdata  )
-    `ifdef CPU_2CMT
-    ,
-    .debug1_wb_pc       (debug1_wb_pc       ),
-    .debug1_wb_rf_wen   (debug1_wb_rf_wen   ),
-    .debug1_wb_rf_wnum  (debug1_wb_rf_wnum  ),
-    .debug1_wb_rf_wdata (debug1_wb_rf_wdata )
-    `endif
 );
 
 axi3_to_axi4_bridge #(

@@ -177,7 +177,6 @@ endfunction
 assign occupancy_o = {2'b0, valid[0]} + {2'b0, valid[1]} +
                      {2'b0, valid[2]} + {2'b0, valid[3]};
 assign can_accept_o = (occupancy_o != `RS_ALU_SIZE);
-wire [2:0] push_prior_next = occupancy_o - {2'b0, issue_sel_valid};
 
 always @(*) begin
     free_idx = 2'd0;
@@ -261,8 +260,7 @@ always @(posedge clk) begin
             imm[free_idx] <= push_imm_i;
             use_imm[free_idx] <= push_use_imm_i;
             br_offs[free_idx] <= push_br_offs_i;
-            // prior[free_idx] <= 2'd3;
-            prior[free_idx] <= push_prior_next[1:0];
+            prior[free_idx] <= 2'd3;
         end
     end
 end

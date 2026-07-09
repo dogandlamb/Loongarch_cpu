@@ -299,8 +299,7 @@ assign dis0_can_dispatch = dis0_valid_i && dis0_ops_ready && dis0_rs_ok;
 assign dis1_can_dispatch = dis1_valid_i && dis1_ops_ready && dis1_rs_ok;
 
 assign dis0_fire_o = dis0_can_dispatch;
-// 槽 1 只能在槽 0 已空后入站，避免同 rename 对内乱序
-assign dis1_fire_o = dis1_can_dispatch && !dis0_valid_i;
+assign dis1_fire_o = dis1_can_dispatch;
 assign dispatch_ready_o = !dis0_valid_i && !dis1_valid_i;
 
 wire rs_alu0_from_slot1 = slot1_to_alu0 && dis1_fire_o;

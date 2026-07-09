@@ -263,9 +263,7 @@ wire dual_issue_ok = !((ib0_eff_v && ib1_eff_v && ib0_futype_i[`FU_MEM] && ib1_f
 
 assign can_go = (ib0_valid_i | ib1_valid_i) && !rob_full_i && dispatch_ready_i && !flush_i;
 assign ib0_ready_o = can_go && ib0_valid_i;
-// 同拍 RAW（ib1 源 == ib0 目的）不再阻塞 ib1：
-// 强制走 ROB 唤醒路径（src ready=0，tag=robid0，见下方第三步旁路），不信 ARF ready
-assign ib1_ready_o = can_go && ib1_valid_i && dual_issue_ok;
+assign ib1_ready_o = can_go && ib1_valid_i && dual_issue_ok && !ib1_raw_from_ib0;
 assign rob_alloc_en_o = can_go;
 
 wire ib0_null_bubble = ib0_valid_i && (ib0_inst_i == 32'b0) && !(|ib0_excp_i);
@@ -333,8 +331,7 @@ assign src1_1_robid = ib1_src1_raw_from_ib0 ? robid0 : rat_rnum3_i;
 assign rat_wen0_o = can_go && ib0_writes_rf;
 assign rat_waddr0_o = ib0_rd_addr_i;
 assign rat_wnum0_o = robid0;
-// WAW 同拍（两槽同 rd）：rat 内部槽 1 优先（更年轻），RAW 不再阻塞占用写
-assign rat_wen1_o = can_go && ib1_writes_rf && dual_issue_ok;
+assign rat_wen1_o = can_go && ib1_writes_rf && dual_issue_ok && !ib1_raw_from_ib0;
 assign rat_waddr1_o = ib1_rd_addr_i;
 assign rat_wnum1_o = robid1;
 
@@ -363,7 +360,7 @@ assign rob_a0_cacop_code_o = ib0_cacop_code_i;
 assign rob_a0_excp_o = ib0_null_bubble ? {`EXCP_NUM{1'b0}} : ib0_excp_i;
 assign rob_a0_is_nop_o = ib0_is_nop_i | ib0_null_bubble;
 
-assign rob_a1_valid_o = can_go && ib1_valid_i && dual_issue_ok;
+assign rob_a1_valid_o = can_go && ib1_valid_i && dual_issue_ok && !ib1_raw_from_ib0;
 assign rob_a1_pc_o = ib1_pc_i;
 assign rob_a1_inst_o = ib1_inst_i;
 assign rob_a1_rf_we_o = ib1_rf_we_i;
@@ -423,7 +420,7 @@ always @(posedge clk) begin
         dis0_use_imm_o <= ib0_use_imm_i;
         dis0_br_offs_o <= ib0_br_offs_i;
 
-        dis1_valid_o <= ib1_valid_i && !ib1_is_nop_i && dual_issue_ok;
+        dis1_valid_o <= ib1_valid_i && !ib1_is_nop_i && dual_issue_ok && !ib1_raw_from_ib0;
         dis1_robid_o <= robid1;
         dis1_pc_o <= ib1_pc_i;
         dis1_futype_o <= ib1_futype_i;

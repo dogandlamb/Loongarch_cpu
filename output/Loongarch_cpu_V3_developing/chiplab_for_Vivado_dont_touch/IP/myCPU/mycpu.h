@@ -173,9 +173,9 @@
 
 /* =====================================================
  * ALU 操作码 (alu_op)
- * 22 位独热；MUL/DIV/MOD 类由 decoder 标记 futype=FU_MDU
+ * 21 位独热；MUL/DIV/MOD 类由 decoder 标记 futype=FU_MDU
  * ===================================================== */
-`define ALU_OP_NUM      22
+`define ALU_OP_NUM      21
 `define ALU_OP_ADD      0
 `define ALU_OP_SUB      1
 `define ALU_OP_SLT      2
@@ -197,7 +197,6 @@
 `define ALU_OP_MOD_WU   18
 `define ALU_OP_ANDN     19
 `define ALU_OP_ORN      20
-`define ALU_OP_PCADD    21
 
 /* =====================================================
  * 访存操作码 (mem_op)

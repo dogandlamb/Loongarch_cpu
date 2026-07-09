@@ -33,14 +33,12 @@ wire op_sra  = alu_op[`ALU_OP_SRA];
 wire op_lui  = alu_op[`ALU_OP_LUI];
 wire op_andn = alu_op[`ALU_OP_ANDN];
 wire op_orn  = alu_op[`ALU_OP_ORN];
-wire op_pcadd = alu_op[`ALU_OP_PCADD];
 
-wire [31:0] adder_a   = op_pcadd ? exe_pc : alu_src1;
 wire [31:0] adder_b   = (op_sub | op_slt | op_sltu) ? ~alu_src2 : alu_src2;
 wire        adder_cin = (op_sub | op_slt | op_sltu);
 wire [31:0] adder_result;
 wire        adder_cout;
-assign {adder_cout, adder_result} = adder_a + adder_b + {31'b0, adder_cin};
+assign {adder_cout, adder_result} = alu_src1 + adder_b + {31'b0, adder_cin};
 
 wire [31:0] add_sub_result = adder_result;
 wire [31:0] slt_result     = {31'b0, (alu_src1[31] & ~alu_src2[31])
@@ -67,7 +65,6 @@ assign alu_result = ({32{op_add | op_sub}} & add_sub_result)
                   | ({32{op_lui}}  & lui_result)
                   | ({32{op_andn}} & andn_result)
                   | ({32{op_orn}}  & orn_result)
-                  | ({32{op_pcadd}} & add_sub_result)
                   | ({32{op_sll}}  & sll_result)
                   | ({32{op_srl | op_sra}} & sr_result);
 
