@@ -139,10 +139,10 @@ assign debug_wb_rf_wen   = u_soc_top.debug_wb_rf_wen;
 assign debug_wb_rf_wnum  = u_soc_top.debug_wb_rf_wnum;
 assign debug_wb_rf_wdata = u_soc_top.debug_wb_rf_wdata;
 
-// [PROBE] trace every flush/redirect in the n41 window (38.940-38.980ms)
+// [PROBE] trace every flush/redirect in the n42 window (40.340-40.370ms)
 // flush_type: 1=MISPRED 2=EXCP 3=ERTN 4=REFETCH
 always @(posedge cpu_clk) begin
-    if (resetn && ($time > 64'd38940000) && ($time < 64'd38980000)) begin
+    if (resetn && ($time > 64'd40340000) && ($time < 64'd40370000)) begin
         if (u_soc_top.u_cpu.flush)
             $display("[FLUSH %t] flush_pc=0x%08h type=%0d cmt_flush_pc=0x%08h cmt_req=%b",
                      $time, u_soc_top.u_cpu.flush_pc, u_soc_top.u_cpu.cmt_flush_type,

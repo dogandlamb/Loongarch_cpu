@@ -20,3 +20,8 @@ https://chiplab.readthedocs.io/zh-cn/latest/Quick-Start.html
 7.【复旦大学-打完龙芯去送外卖】 里面的linux命令更清晰，也可参考
 https://www.bilibili.com/video/BV1F8eteoEhV/?share_source=copy_web&vd_source=3af3024b4a934aa636a26fca6499e9b2
 
+8.【清华大学	NOP-哔哩哔哩】 清华大学NOP的soc何linux内核较好移植，可以作为学会原生chiplab soc后的进阶soc，之后再迁移mariver
+https://b23.tv/6wmLzEd
+https://github.com/NOP-Processor
+
+
