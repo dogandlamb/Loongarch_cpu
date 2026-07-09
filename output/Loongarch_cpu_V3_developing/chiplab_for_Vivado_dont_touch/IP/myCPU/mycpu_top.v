@@ -85,6 +85,15 @@ module core_top #(
     output wire [ 4:0] debug0_wb_rf_wnum,
     output wire [31:0] debug0_wb_rf_wdata,
     output wire [31:0] debug0_wb_inst
+
+    `ifdef CPU_2CMT
+    ,
+    output wire [31:0] debug1_wb_pc,
+    output wire [ 3:0] debug1_wb_rf_wen,
+    output wire [ 4:0] debug1_wb_rf_wnum,
+    output wire [31:0] debug1_wb_rf_wdata,
+    output wire [31:0] debug1_wb_inst
+    `endif
 );
 
     // 把 aclk、aresetn 改为 clk、reset（同步高有效）
@@ -2481,6 +2490,13 @@ module core_top #(
     assign debug0_wb_rf_wnum  = cmt_dbg0_wnum;
     assign debug0_wb_rf_wdata = cmt_dbg0_wdata;
     assign debug0_wb_inst     = cmt_dbg0_inst;
+    `ifdef CPU_2CMT
+    assign debug1_wb_pc       = cmt_dbg1_pc;
+    assign debug1_wb_rf_wen   = cmt_dbg1_wen;
+    assign debug1_wb_rf_wnum  = cmt_dbg1_wnum;
+    assign debug1_wb_rf_wdata = cmt_dbg1_wdata;
+    assign debug1_wb_inst     = cmt_dbg1_inst;
+    `endif
 
     // INE 定位探针（log_vcd u_cpu/* 可见）
     wire        dbg_rob_cmt0_valid    = rob_cmt0_valid;
@@ -2502,7 +2518,9 @@ module core_top #(
                            | csr_flush_pipeline_unused
                            | (|csr_crmd_live_unused) | (|csr_lladdr_unused)
                            | (|rsm_occupancy) | (|rsd_occupancy)
+`ifndef CPU_2CMT
                            | cmt_dbg1_valid
+`endif
                            | dbg_rob_cmt0_valid | dbg_rob_cmt0_complete
                            | (|dbg_rob_cmt0_excp) | (|dbg_ib_pop0_excp)
                            | (|dbg_dec0_excp) | (|dbg_rn_ib0_excp)
