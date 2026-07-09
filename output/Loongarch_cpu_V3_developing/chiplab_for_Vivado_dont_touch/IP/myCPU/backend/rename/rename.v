@@ -17,10 +17,13 @@
 // - ib0/ib1_*      ：来自 IB+decoder 的两槽指令（decoder 在顶层例化，组合插在中间）
 // - ib0/ib1_ready  ：收走使能（反压 IB）
 // - rat_*          ：RAT 查询/占用口
-// - arf_raddr/rdata：ARF 4 读口
+// - arf_raddr/rdata：ARF 4 读口（rename 级取源）
 // - rob_alloc_*    ：ROB 成对分配口（静态信息）
-// - dis0/dis1_*    ：到分发级的流水寄存器输出
-// - dispatch_ready_i：分发级可接收（RS 满反压）
+// - rename↔dispatch：反压/发射反馈、驻留唤醒回读、流水寄存器输出、旁路查询地址
+// - dispatch_ready_i / dis*_fire_i：分发级反压与发射反馈
+// - rob_rrdy*/dis_rat_rbusy*/dis_arf_rdata*：驻留唤醒（ROB/RAT/ARF 回灌 rename）
+// - dis0/dis1_*_o    ：流水寄存器输出 → dispatch（执行所需信息）
+// - dis*_src*_addr_o ：驻留旁路查询地址 → RAT/ARF 口 4~7（不直接进 dispatch）
 // - flush_i        ：全局冲刷（清空本级流水寄存器）
 // ============================================================
 `include "mycpu.h"
@@ -175,11 +178,33 @@ module rename(
     output wire [`EXCP_NUM-1:0]       rob_a1_excp_o,
     output wire                       rob_a1_is_nop_o,
 
-    // =============== 到分发级的流水寄存器输出（执行所需信息） ===============
-    input  wire                       dispatch_ready_i,      // 分发级两槽均已空
+    // =============== rename ↔ dispatch 接口 ===============
+    // 反压与发射反馈（来自 dispatch）
+    input  wire                       dispatch_ready_i,      // 分发级两槽均已空，可接收新指令
     input  wire                       dis0_fire_i,           // 本拍槽 0 已入 RS
     input  wire                       dis1_fire_i,           // 本拍槽 1 已入 RS
 
+    // 驻留唤醒反馈（指令卡在 rename 流水寄存器时，从 ROB/RAT/ARF 回读操作数）
+    // ROB 读口：robid 仍 busy 时取推测值；与 dispatch 共用 raddr=dis*_src*_robid
+    input  wire                       rob_rrdy0_i,           // dis0 src0 对应 ROB 项已就绪
+    input  wire [31:0]                rob_rdata0_i,
+    input  wire                       rob_rrdy1_i,           // dis0 src1
+    input  wire [31:0]                rob_rdata1_i,
+    input  wire                       rob_rrdy2_i,           // dis1 src0
+    input  wire [31:0]                rob_rdata2_i,
+    input  wire                       rob_rrdy3_i,           // dis1 src1
+    input  wire [31:0]                rob_rdata3_i,
+    // ARF 旁路：RAT busy 清 0 → 前序已提交，ARF 为权威；查 RAT/ARF 口 4~7
+    input  wire                       dis_rat_rbusy0_i,      // dis0 src0 当前 RAT busy
+    input  wire                       dis_rat_rbusy1_i,      // dis0 src1
+    input  wire                       dis_rat_rbusy2_i,      // dis1 src0
+    input  wire                       dis_rat_rbusy3_i,      // dis1 src1
+    input  wire [31:0]                dis_arf_rdata0_i,      // dis0 src0 ARF 权威值
+    input  wire [31:0]                dis_arf_rdata1_i,      // dis0 src1
+    input  wire [31:0]                dis_arf_rdata2_i,      // dis1 src0
+    input  wire [31:0]                dis_arf_rdata3_i,      // dis1 src1
+
+    // 流水寄存器输出 → dispatch（执行所需信息）
     output reg                        dis0_valid_o,
     output reg  [`ROB_W-1:0]          dis0_robid_o,
     output reg  [31:0]                dis0_pc_o,
@@ -222,7 +247,13 @@ module rename(
     output reg  [`ROB_W-1:0]          dis1_src1_robid_o,
     output reg  [31:0]                dis1_imm_o,
     output reg                        dis1_use_imm_o,
-    output reg  [31:0]                dis1_br_offs_o
+    output reg  [31:0]                dis1_br_offs_o,
+
+    // 驻留旁路查询地址（锁存逻辑寄存器号 → RAT/ARF 口 4~7，供上述唤醒路径用）
+    output wire [4:0]                 dis0_src0_addr_o,
+    output wire [4:0]                 dis0_src1_addr_o,
+    output wire [4:0]                 dis1_src0_addr_o,
+    output wire [4:0]                 dis1_src1_addr_o
 );
 
 //TODO: 实现重命名级（参考：mariver rename.v 145~254 行，结构几乎一一对应）
@@ -248,6 +279,19 @@ wire [`ROB_W-1:0] src0_1_robid;
 wire [`ROB_W-1:0] src1_0_robid;
 wire [`ROB_W-1:0] src1_1_robid;
 
+reg        dis0_src0_use_r;
+reg        dis0_src1_use_r;
+reg        dis1_src0_use_r;
+reg        dis1_src1_use_r;
+reg [4:0]  dis0_src0_addr_r;
+reg [4:0]  dis0_src1_addr_r;
+reg [4:0]  dis1_src0_addr_r;
+reg [4:0]  dis1_src1_addr_r;
+
+assign dis0_src0_addr_o = dis0_src0_addr_r;
+assign dis0_src1_addr_o = dis0_src1_addr_r;
+assign dis1_src0_addr_o = dis1_src0_addr_r;
+assign dis1_src1_addr_o = dis1_src1_addr_r;
 
 //TODO: 第一步——本级放行条件（组合）：
 //      can_go = (ib0_valid_i | ib1_valid_i) && !rob_full_i && dispatch_ready_i && !flush_i;
@@ -422,6 +466,10 @@ always @(posedge clk) begin
         dis0_imm_o <= ib0_imm_i;
         dis0_use_imm_o <= ib0_use_imm_i;
         dis0_br_offs_o <= ib0_br_offs_i;
+        dis0_src0_use_r <= ib0_use_src0_i;
+        dis0_src1_use_r <= ib0_use_src1_i;
+        dis0_src0_addr_r <= ib0_src0_addr_i;
+        dis0_src1_addr_r <= ib0_src1_addr_i;
 
         dis1_valid_o <= ib1_valid_i && !ib1_is_nop_i && dual_issue_ok;
         dis1_robid_o <= robid1;
@@ -444,7 +492,50 @@ always @(posedge clk) begin
         dis1_imm_o <= ib1_imm_i;
         dis1_use_imm_o <= ib1_use_imm_i;
         dis1_br_offs_o <= ib1_br_offs_i;
+        dis1_src0_use_r <= ib1_use_src0_i;
+        dis1_src1_use_r <= ib1_use_src1_i;
+        dis1_src0_addr_r <= ib1_src0_addr_i;
+        dis1_src1_addr_r <= ib1_src1_addr_i;
     end else begin
+        // 分发队列驻留：首次就绪时锁存操作数，避免 ROB 项复用后读到 ABA 错误值
+        // （典型：mod.w 后 bne 等在 dispatch，下一条 mod.w 复用 robid 时误取新余数）
+        if (dis0_valid_o && dis0_src0_use_r && !dis0_src0_ready_o) begin
+            if (rob_rrdy0_i) begin
+                dis0_src0_ready_o <= 1'b1;
+                dis0_src0_val_o   <= rob_rdata0_i;
+            end else if (!dis_rat_rbusy0_i) begin
+                dis0_src0_ready_o <= 1'b1;
+                dis0_src0_val_o   <= dis_arf_rdata0_i;
+            end
+        end
+        if (dis0_valid_o && dis0_src1_use_r && !dis0_src1_ready_o) begin
+            if (rob_rrdy1_i) begin
+                dis0_src1_ready_o <= 1'b1;
+                dis0_src1_val_o   <= rob_rdata1_i;
+            end else if (!dis_rat_rbusy1_i) begin
+                dis0_src1_ready_o <= 1'b1;
+                dis0_src1_val_o   <= dis_arf_rdata1_i;
+            end
+        end
+        if (dis1_valid_o && dis1_src0_use_r && !dis1_src0_ready_o) begin
+            if (rob_rrdy2_i) begin
+                dis1_src0_ready_o <= 1'b1;
+                dis1_src0_val_o   <= rob_rdata2_i;
+            end else if (!dis_rat_rbusy2_i) begin
+                dis1_src0_ready_o <= 1'b1;
+                dis1_src0_val_o   <= dis_arf_rdata2_i;
+            end
+        end
+        if (dis1_valid_o && dis1_src1_use_r && !dis1_src1_ready_o) begin
+            if (rob_rrdy3_i) begin
+                dis1_src1_ready_o <= 1'b1;
+                dis1_src1_val_o   <= rob_rdata3_i;
+            end else if (!dis_rat_rbusy3_i) begin
+                dis1_src1_ready_o <= 1'b1;
+                dis1_src1_val_o   <= dis_arf_rdata3_i;
+            end
+        end
+
         if (dis0_fire_i)
             dis0_valid_o <= 1'b0;
         if (dis1_fire_i)

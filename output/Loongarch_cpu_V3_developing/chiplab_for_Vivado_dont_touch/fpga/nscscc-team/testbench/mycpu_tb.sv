@@ -139,6 +139,44 @@ assign debug_wb_rf_wen   = u_soc_top.debug_wb_rf_wen;
 assign debug_wb_rf_wnum  = u_soc_top.debug_wb_rf_wnum;
 assign debug_wb_rf_wdata = u_soc_top.debug_wb_rf_wdata;
 
+// [PROBE] trace every flush/redirect in the n41 window (38.940-38.980ms)
+// flush_type: 1=MISPRED 2=EXCP 3=ERTN 4=REFETCH
+always @(posedge cpu_clk) begin
+    if (resetn && ($time > 64'd38940000) && ($time < 64'd38980000)) begin
+        if (u_soc_top.u_cpu.flush)
+            $display("[FLUSH %t] flush_pc=0x%08h type=%0d cmt_flush_pc=0x%08h cmt_req=%b",
+                     $time, u_soc_top.u_cpu.flush_pc, u_soc_top.u_cpu.cmt_flush_type,
+                     u_soc_top.u_cpu.cmt_flush_pc, u_soc_top.u_cpu.cmt_flush_req);
+        if (u_soc_top.u_cpu.u_commit.selected_excp_take)
+            $display("[EXCP %t] excp_vec=0x%04h sel_pc=0x%08h vaddr=0x%08h int_take=%b",
+                     $time, u_soc_top.u_cpu.u_commit.sel_excp, u_soc_top.u_cpu.u_commit.sel_pc,
+                     u_soc_top.u_cpu.u_commit.sel_vaddr, u_soc_top.u_cpu.u_commit.int_take);
+        if (u_soc_top.u_cpu.ex_redirect_req)
+            $display("[EXRED %t] ex_redirect_pc=0x%08h a0v=%b a1v=%b", $time,
+                     u_soc_top.u_cpu.ex_redirect_pc, u_soc_top.u_cpu.alu0_exred_valid,
+                     u_soc_top.u_cpu.alu1_exred_valid);
+        // AGU-stage load: base operand + computed vaddr (address-corruption check)
+        if (u_soc_top.u_cpu.u_lsu.a_valid && u_soc_top.u_cpu.u_lsu.a_is_load_op)
+            $display("[AGU  %t] robid=%0d base=0x%08h imm=0x%08h vaddr=0x%08h ale=%b",
+                     $time, u_soc_top.u_cpu.u_lsu.a_robid, u_soc_top.u_cpu.u_lsu.a_base,
+                     u_soc_top.u_cpu.u_lsu.a_imm, u_soc_top.u_cpu.u_lsu.a_vaddr,
+                     u_soc_top.u_cpu.u_lsu.a_ale);
+        // WB-stage load: returned data + path (data-corruption check)
+        if (u_soc_top.u_cpu.u_lsu.wb_valid_o && u_soc_top.u_cpu.u_lsu.d_is_load
+            && !u_soc_top.u_cpu.u_lsu.wb_mshr_case && !u_soc_top.u_cpu.u_lsu.wb_hold_case)
+            $display("[LDWB %t] robid=%0d vaddr=0x%08h data=0x%08h sbhit=%b sbdata=0x%08h dcret=%b dcdata=0x%08h",
+                     $time, u_soc_top.u_cpu.u_lsu.wb_robid_o, u_soc_top.u_cpu.u_lsu.wb_vaddr_o,
+                     u_soc_top.u_cpu.u_lsu.wb_data_o, u_soc_top.u_cpu.u_lsu.d_sb_hit,
+                     u_soc_top.u_cpu.u_lsu.sb_query_data_i, u_soc_top.u_cpu.u_lsu.dc_return,
+                     u_soc_top.u_cpu.u_lsu.dc_rdata_i);
+    end
+    // per-test s0 tracker (cheap)
+    if (resetn && (u_soc_top.debug_wb_rf_wen != 4'b0) && (u_soc_top.debug_wb_rf_wnum == 5'd23))
+        $display("[PROBE %t] S0TRK slot0 s0<= 0x%08h pc=0x%08h", $time, u_soc_top.debug_wb_rf_wdata, u_soc_top.debug_wb_pc);
+    if (resetn && (u_soc_top.debug1_wb_rf_wen != 4'b0) && (u_soc_top.debug1_wb_rf_wnum == 5'd23))
+        $display("[PROBE %t] S0TRK slot1 s0<= 0x%08h pc=0x%08h", $time, u_soc_top.debug1_wb_rf_wdata, u_soc_top.debug1_wb_pc);
+end
+
 //monitor numeric display
 reg [7:0] err_count;
 wire [31:0] confreg_num_reg = `CONFREG_NUM_REG;

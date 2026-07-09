@@ -34,9 +34,11 @@ module rs_alu(
     input  wire [`ALU_OP_NUM-1:0]     push_alu_op_i,
     input  wire [`BR_OP_NUM-1:0]      push_br_op_i,
     input  wire                       push_src0_ready_i,
+    input  wire                       push_src0_arf_i,
     input  wire [31:0]                push_src0_val_i,
     input  wire [`ROB_W-1:0]          push_src0_robid_i,
     input  wire                       push_src1_ready_i,
+    input  wire                       push_src1_arf_i,
     input  wire [31:0]                push_src1_val_i,
     input  wire [`ROB_W-1:0]          push_src1_robid_i,
     input  wire [31:0]                push_imm_i,
@@ -140,6 +142,8 @@ reg [`ROB_W-1:0]        s1_robid [0:`RS_ALU_SIZE-1];
 reg [31:0]              imm [0:`RS_ALU_SIZE-1];
 reg                     use_imm [0:`RS_ALU_SIZE-1];
 reg [31:0]              br_offs [0:`RS_ALU_SIZE-1];
+reg                     s0_arf_rdy [0:`RS_ALU_SIZE-1];
+reg                     s1_arf_rdy [0:`RS_ALU_SIZE-1];
 reg [1:0]               prior [0:`RS_ALU_SIZE-1];
 
 integer i;
@@ -147,36 +151,57 @@ reg [1:0] free_idx;
 reg [1:0] issue_idx;
 reg       issue_sel_valid;
 
-function wb_hit;
-    input [`ROB_W-1:0] rid;
-    begin
-        wb_hit = (wb0_valid_i && (wb0_robid_i == rid)) ||
-                 (wb1_valid_i && (wb1_robid_i == rid)) ||
-                 (wb2_valid_i && (wb2_robid_i == rid)) ||
-                 (wb3_valid_i && (wb3_robid_i == rid));
-    end
-endfunction
+// 每项唤醒命中/旁路数据用【generate 预计算 wire 数组】而非 function 调用：
+// xsim 在 continuous assign 里对"带可变下标的 function"存在求值缺陷（见 rob.v），
+// 会返回上一次求值下标的旧值。改为纯数组变址读（s0_wbhit[idx] 等）即可规避。
+wire            s0_wbhit [0:`RS_ALU_SIZE-1];
+wire            s1_wbhit [0:`RS_ALU_SIZE-1];
+wire [31:0]     s0_wbdat [0:`RS_ALU_SIZE-1];
+wire [31:0]     s1_wbdat [0:`RS_ALU_SIZE-1];
+genvar gw;
+generate
+for (gw = 0; gw < `RS_ALU_SIZE; gw = gw + 1) begin : g_wake
+    assign s0_wbhit[gw] = (wb0_valid_i && (wb0_robid_i == s0_robid[gw])) ||
+                          (wb1_valid_i && (wb1_robid_i == s0_robid[gw])) ||
+                          (wb2_valid_i && (wb2_robid_i == s0_robid[gw])) ||
+                          (wb3_valid_i && (wb3_robid_i == s0_robid[gw]));
+    assign s1_wbhit[gw] = (wb0_valid_i && (wb0_robid_i == s1_robid[gw])) ||
+                          (wb1_valid_i && (wb1_robid_i == s1_robid[gw])) ||
+                          (wb2_valid_i && (wb2_robid_i == s1_robid[gw])) ||
+                          (wb3_valid_i && (wb3_robid_i == s1_robid[gw]));
+    assign s0_wbdat[gw] = (wb0_valid_i && (wb0_robid_i == s0_robid[gw])) ? wb0_data_i :
+                          (wb1_valid_i && (wb1_robid_i == s0_robid[gw])) ? wb1_data_i :
+                          (wb2_valid_i && (wb2_robid_i == s0_robid[gw])) ? wb2_data_i :
+                          (wb3_valid_i && (wb3_robid_i == s0_robid[gw])) ? wb3_data_i : 32'b0;
+    assign s1_wbdat[gw] = (wb0_valid_i && (wb0_robid_i == s1_robid[gw])) ? wb0_data_i :
+                          (wb1_valid_i && (wb1_robid_i == s1_robid[gw])) ? wb1_data_i :
+                          (wb2_valid_i && (wb2_robid_i == s1_robid[gw])) ? wb2_data_i :
+                          (wb3_valid_i && (wb3_robid_i == s1_robid[gw])) ? wb3_data_i : 32'b0;
+end
+endgenerate
 
-function [31:0] wb_data;
-    input [`ROB_W-1:0] rid;
-    begin
-        if (wb0_valid_i && (wb0_robid_i == rid)) begin
-            wb_data = wb0_data_i;
-        end else if (wb1_valid_i && (wb1_robid_i == rid)) begin
-            wb_data = wb1_data_i;
-        end else if (wb2_valid_i && (wb2_robid_i == rid)) begin
-            wb_data = wb2_data_i;
-        end else if (wb3_valid_i && (wb3_robid_i == rid)) begin
-            wb_data = wb3_data_i;
-        end else begin
-            wb_data = 32'b0;
-        end
-    end
-endfunction
+// push 口的唤醒命中/旁路（参数是端口信号，非数组变址；同样内联以彻底去除 function）
+wire        push_s0_wbhit = (wb0_valid_i && (wb0_robid_i == push_src0_robid_i)) ||
+                            (wb1_valid_i && (wb1_robid_i == push_src0_robid_i)) ||
+                            (wb2_valid_i && (wb2_robid_i == push_src0_robid_i)) ||
+                            (wb3_valid_i && (wb3_robid_i == push_src0_robid_i));
+wire        push_s1_wbhit = (wb0_valid_i && (wb0_robid_i == push_src1_robid_i)) ||
+                            (wb1_valid_i && (wb1_robid_i == push_src1_robid_i)) ||
+                            (wb2_valid_i && (wb2_robid_i == push_src1_robid_i)) ||
+                            (wb3_valid_i && (wb3_robid_i == push_src1_robid_i));
+wire [31:0] push_s0_wbdat = (wb0_valid_i && (wb0_robid_i == push_src0_robid_i)) ? wb0_data_i :
+                            (wb1_valid_i && (wb1_robid_i == push_src0_robid_i)) ? wb1_data_i :
+                            (wb2_valid_i && (wb2_robid_i == push_src0_robid_i)) ? wb2_data_i :
+                            (wb3_valid_i && (wb3_robid_i == push_src0_robid_i)) ? wb3_data_i : 32'b0;
+wire [31:0] push_s1_wbdat = (wb0_valid_i && (wb0_robid_i == push_src1_robid_i)) ? wb0_data_i :
+                            (wb1_valid_i && (wb1_robid_i == push_src1_robid_i)) ? wb1_data_i :
+                            (wb2_valid_i && (wb2_robid_i == push_src1_robid_i)) ? wb2_data_i :
+                            (wb3_valid_i && (wb3_robid_i == push_src1_robid_i)) ? wb3_data_i : 32'b0;
 
 assign occupancy_o = {2'b0, valid[0]} + {2'b0, valid[1]} +
                      {2'b0, valid[2]} + {2'b0, valid[3]};
 assign can_accept_o = (occupancy_o != `RS_ALU_SIZE);
+wire [2:0] push_prior_next = occupancy_o - {2'b0, issue_sel_valid};
 
 always @(*) begin
     free_idx = 2'd0;
@@ -210,8 +235,11 @@ assign issue_robid_o = robid[issue_idx];
 assign issue_pc_o = pc[issue_idx];
 assign issue_alu_op_o = alu_op[issue_idx];
 assign issue_br_op_o = br_op[issue_idx];
-assign issue_src0_o = s0_ready[issue_idx] ? s0_val[issue_idx] : wb_data(s0_robid[issue_idx]);
-assign issue_src1_o = s1_ready[issue_idx] ? s1_val[issue_idx] : wb_data(s1_robid[issue_idx]);
+// ARF-ready 操作数不再走 wb 旁路（robid 可能为无效陈旧 tag，误匹配会把 val 覆盖成 0）
+wire s0_issue_wb = wb_hit(s0_robid[issue_idx]) && !s0_arf_rdy[issue_idx];
+wire s1_issue_wb = wb_hit(s1_robid[issue_idx]) && !s1_arf_rdy[issue_idx];
+assign issue_src0_o = s0_issue_wb ? wb_data(s0_robid[issue_idx]) : s0_val[issue_idx];
+assign issue_src1_o = s1_issue_wb ? wb_data(s1_robid[issue_idx]) : s1_val[issue_idx];
 assign issue_imm_o = imm[issue_idx];
 assign issue_use_imm_o = use_imm[issue_idx];
 assign issue_br_offs_o = br_offs[issue_idx];
@@ -234,11 +262,11 @@ always @(posedge clk) begin
 
         for (i = 0; i < `RS_ALU_SIZE; i = i + 1) begin
             if (valid[i] && !(issue_sel_valid && (i[1:0] == issue_idx))) begin
-                if (!s0_ready[i] && wb_hit(s0_robid[i])) begin
+                if (wb_hit(s0_robid[i])) begin
                     s0_ready[i] <= 1'b1;
                     s0_val[i] <= wb_data(s0_robid[i]);
                 end
-                if (!s1_ready[i] && wb_hit(s1_robid[i])) begin
+                if (wb_hit(s1_robid[i])) begin
                     s1_ready[i] <= 1'b1;
                     s1_val[i] <= wb_data(s1_robid[i]);
                 end
@@ -252,15 +280,20 @@ always @(posedge clk) begin
             alu_op[free_idx] <= push_alu_op_i;
             br_op[free_idx] <= push_br_op_i;
             s0_ready[free_idx] <= push_src0_ready_i || wb_hit(push_src0_robid_i);
-            s0_val[free_idx] <= push_src0_ready_i ? push_src0_val_i : wb_data(push_src0_robid_i);
+            s0_arf_rdy[free_idx] <= push_src0_arf_i;
+            s0_val[free_idx] <= push_src0_ready_i ? push_src0_val_i :
+                                wb_hit(push_src0_robid_i) ? wb_data(push_src0_robid_i) : 32'b0;
             s0_robid[free_idx] <= push_src0_robid_i;
             s1_ready[free_idx] <= push_src1_ready_i || wb_hit(push_src1_robid_i);
-            s1_val[free_idx] <= push_src1_ready_i ? push_src1_val_i : wb_data(push_src1_robid_i);
+            s1_arf_rdy[free_idx] <= push_src1_arf_i;
+            s1_val[free_idx] <= push_src1_ready_i ? push_src1_val_i :
+                                wb_hit(push_src1_robid_i) ? wb_data(push_src1_robid_i) : 32'b0;
             s1_robid[free_idx] <= push_src1_robid_i;
             imm[free_idx] <= push_imm_i;
             use_imm[free_idx] <= push_use_imm_i;
             br_offs[free_idx] <= push_br_offs_i;
-            prior[free_idx] <= 2'd3;
+            // prior[free_idx] <= 2'd3;
+            prior[free_idx] <= push_prior_next[1:0];
         end
     end
 end

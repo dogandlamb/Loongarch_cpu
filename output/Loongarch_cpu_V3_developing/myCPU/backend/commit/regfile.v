@@ -30,6 +30,14 @@ module regfile(
     output wire [31:0] rdata2,
     input  wire [ 4:0] raddr3,
     output wire [31:0] rdata3,
+    input  wire [ 4:0] raddr4,
+    output wire [31:0] rdata4,
+    input  wire [ 4:0] raddr5,
+    output wire [31:0] rdata5,
+    input  wire [ 4:0] raddr6,
+    output wire [31:0] rdata6,
+    input  wire [ 4:0] raddr7,
+    output wire [31:0] rdata7,
 
     // ---------------- commit 写口 ×2 ----------------
     input  wire        we0,              // 槽 0 写使能
@@ -128,6 +136,26 @@ assign rdata3 = (raddr3 === 5'b0) ? 32'b0 :
                 (((we1 === 1'b1) && (waddr1 === raddr3) && (waddr1 !== 5'b0)) ? wdata1 :
                  ((we0 === 1'b1) && (waddr0 === raddr3) && (waddr0 !== 5'b0)) ? wdata0 :
                  rf[raddr3]);
+
+assign rdata4 = (raddr4 === 5'b0) ? 32'b0 :
+                (((we1 === 1'b1) && (waddr1 === raddr4) && (waddr1 !== 5'b0)) ? wdata1 :
+                 ((we0 === 1'b1) && (waddr0 === raddr4) && (waddr0 !== 5'b0)) ? wdata0 :
+                 rf[raddr4]);
+
+assign rdata5 = (raddr5 === 5'b0) ? 32'b0 :
+                (((we1 === 1'b1) && (waddr1 === raddr5) && (waddr1 !== 5'b0)) ? wdata1 :
+                 ((we0 === 1'b1) && (waddr0 === raddr5) && (waddr0 !== 5'b0)) ? wdata0 :
+                 rf[raddr5]);
+
+assign rdata6 = (raddr6 === 5'b0) ? 32'b0 :
+                (((we1 === 1'b1) && (waddr1 === raddr6) && (waddr1 !== 5'b0)) ? wdata1 :
+                 ((we0 === 1'b1) && (waddr0 === raddr6) && (waddr0 !== 5'b0)) ? wdata0 :
+                 rf[raddr6]);
+
+assign rdata7 = (raddr7 === 5'b0) ? 32'b0 :
+                (((we1 === 1'b1) && (waddr1 === raddr7) && (waddr1 !== 5'b0)) ? wdata1 :
+                 ((we0 === 1'b1) && (waddr0 === raddr7) && (waddr0 !== 5'b0)) ? wdata0 :
+                 rf[raddr7]);
 
 // 调试端口：直接读寄存器内容（不含写穿透），r0 恒 0
 assign dbg_rdata = (dbg_raddr === 5'b0) ? 32'b0 : rf[dbg_raddr];

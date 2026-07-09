@@ -41,6 +41,16 @@ module rat(
     output wire                rbusy3_o,
     output wire [`ROB_W-1:0]   rnum3_o,
 
+    // 分发队列驻留期间的操作数旁路读口 ×4
+    input  wire [4:0]          raddr4_i,
+    output wire                rbusy4_o,
+    input  wire [4:0]          raddr5_i,
+    output wire                rbusy5_o,
+    input  wire [4:0]          raddr6_i,
+    output wire                rbusy6_o,
+    input  wire [4:0]          raddr7_i,
+    output wire                rbusy7_o,
+
     // ---------------- 重命名占用写口 ×2 ----------------
     input  wire                wen0_i,          // 槽 0 写占用（该指令写寄存器且非 r0）
     input  wire [4:0]          waddr0_i,
@@ -97,6 +107,11 @@ assign rbusy0_o = (raddr0_i == 5'b0) ? 1'b0 : busy[raddr0_i];
 assign rbusy1_o = (raddr1_i == 5'b0) ? 1'b0 : busy[raddr1_i];
 assign rbusy2_o = (raddr2_i == 5'b0) ? 1'b0 : busy[raddr2_i];
 assign rbusy3_o = (raddr3_i == 5'b0) ? 1'b0 : busy[raddr3_i];
+
+assign rbusy4_o = (raddr4_i == 5'b0) ? 1'b0 : busy[raddr4_i];
+assign rbusy5_o = (raddr5_i == 5'b0) ? 1'b0 : busy[raddr5_i];
+assign rbusy6_o = (raddr6_i == 5'b0) ? 1'b0 : busy[raddr6_i];
+assign rbusy7_o = (raddr7_i == 5'b0) ? 1'b0 : busy[raddr7_i];
 
 assign rnum0_o = num[raddr0_i];
 assign rnum1_o = num[raddr1_i];
