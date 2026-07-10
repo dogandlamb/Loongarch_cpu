@@ -61,6 +61,7 @@ localparam S_WB   = 2'd2;
 reg [1:0]              state;
 reg [`ROB_W-1:0]       r_robid;
 reg [`ALU_OP_NUM-1:0]  r_alu_op;
+reg                    r_result_is_quotient;
 reg [13:0]             r_csr_num;
 reg [31:0]             r_data;
 reg [31:0]             r_data2;
@@ -164,6 +165,7 @@ always @(posedge clk) begin
         state <= S_IDLE;
         mul_flush_wait <= 2'b0;
         r_is_mul <= 1'b0;
+        r_result_is_quotient <= 1'b0;
     end else if (flush_i) begin
         state <= S_IDLE;
         r_is_mul <= 1'b0;
@@ -182,6 +184,8 @@ always @(posedge clk) begin
                     r_alu_op  <= issue_alu_op_i;
                     r_csr_num <= issue_csr_num_i;
                     r_is_mul  <= issue_is_mul;
+                    r_result_is_quotient <= issue_alu_op_i[`ALU_OP_DIV_W]
+                                          | issue_alu_op_i[`ALU_OP_DIV_WU];
                     if (issue_is_mul || issue_is_div) begin
                         state <= S_BUSY;
                     end else begin
@@ -197,8 +201,7 @@ always @(posedge clk) begin
                     r_data2 <= 32'b0;
                     state   <= S_WB;
                 end else if (div_done && !r_is_mul) begin
-                    r_data  <= (r_alu_op[`ALU_OP_DIV_W] | r_alu_op[`ALU_OP_DIV_WU])
-                             ? div_quotient : div_remainder;
+                    r_data  <= r_result_is_quotient ? div_quotient : div_remainder;
                     r_data2 <= 32'b0;
                     state   <= S_WB;
                 end

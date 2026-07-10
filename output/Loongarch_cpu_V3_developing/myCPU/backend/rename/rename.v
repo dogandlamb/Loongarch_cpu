@@ -176,7 +176,28 @@ module rename(
     output wire                       rob_a1_is_nop_o,
 
     // =============== 到分发级的流水寄存器输出（执行所需信息） ===============
-    input  wire                       dispatch_ready_i,      // 分发级本拍可接收新的一对
+    input  wire                       dispatch_ready_i,      // 分发级两槽均已空
+    input  wire                       dis0_fire_i,           // 本拍槽 0 已入 RS
+    input  wire                       dis1_fire_i,           // 本拍槽 1 已入 RS
+
+    // 分发队列驻留期间的操作数唤醒（ROB 读口与 dispatch 共用 raddr）
+    input  wire                       rob_rrdy0_i,
+    input  wire [31:0]                rob_rdata0_i,
+    input  wire                       rob_rrdy1_i,
+    input  wire [31:0]                rob_rdata1_i,
+    input  wire                       rob_rrdy2_i,
+    input  wire [31:0]                rob_rdata2_i,
+    input  wire                       rob_rrdy3_i,
+    input  wire [31:0]                rob_rdata3_i,
+    // 已提交值旁路（RAT 不 busy 时 ARF 为权威）
+    input  wire                       dis_rat_rbusy0_i,
+    input  wire                       dis_rat_rbusy1_i,
+    input  wire                       dis_rat_rbusy2_i,
+    input  wire                       dis_rat_rbusy3_i,
+    input  wire [31:0]                dis_arf_rdata0_i,
+    input  wire [31:0]                dis_arf_rdata1_i,
+    input  wire [31:0]                dis_arf_rdata2_i,
+    input  wire [31:0]                dis_arf_rdata3_i,
 
     output reg                        dis0_valid_o,
     output reg  [`ROB_W-1:0]          dis0_robid_o,
@@ -220,7 +241,12 @@ module rename(
     output reg  [`ROB_W-1:0]          dis1_src1_robid_o,
     output reg  [31:0]                dis1_imm_o,
     output reg                        dis1_use_imm_o,
-    output reg  [31:0]                dis1_br_offs_o
+    output reg  [31:0]                dis1_br_offs_o,
+
+    output wire [4:0]                 dis0_src0_addr_o,
+    output wire [4:0]                 dis0_src1_addr_o,
+    output wire [4:0]                 dis1_src0_addr_o,
+    output wire [4:0]                 dis1_src1_addr_o
 );
 
 //TODO: 实现重命名级（参考：mariver rename.v 145~254 行，结构几乎一一对应）
@@ -246,16 +272,37 @@ wire [`ROB_W-1:0] src0_1_robid;
 wire [`ROB_W-1:0] src1_0_robid;
 wire [`ROB_W-1:0] src1_1_robid;
 
+reg        dis0_src0_use_r;
+reg        dis0_src1_use_r;
+reg        dis1_src0_use_r;
+reg        dis1_src1_use_r;
+reg [4:0]  dis0_src0_addr_r;
+reg [4:0]  dis0_src1_addr_r;
+reg [4:0]  dis1_src0_addr_r;
+reg [4:0]  dis1_src1_addr_r;
+
+assign dis0_src0_addr_o = dis0_src0_addr_r;
+assign dis0_src1_addr_o = dis0_src1_addr_r;
+assign dis1_src0_addr_o = dis1_src0_addr_r;
+assign dis1_src1_addr_o = dis1_src1_addr_r;
 
 //TODO: 第一步——本级放行条件（组合）：
 //      can_go = (ib0_valid_i | ib1_valid_i) && !rob_full_i && dispatch_ready_i && !flush_i;
 //      ib0_ready_o = can_go && ib0_valid_i;  ib1_ready_o = can_go && ib1_valid_i;
 //      rob_alloc_en_o = can_go;   // 恒成对分配（哪怕只有槽 0 有效，也占一对槽位）
 //      注：dispatch_ready_i 为 0 时整级停（IB 不弹出、ROB 不分配、流水寄存器保持）。
+//      分发级每拍最多 1 条 MEM/MDU，双发两条同类会永久挡住 dispatch_ready。
 //
+wire ib0_eff_v = ib0_valid_i && !ib0_is_nop_i;
+wire ib1_eff_v = ib1_valid_i && !ib1_is_nop_i;
+wire dual_issue_ok = !((ib0_eff_v && ib1_eff_v && ib0_futype_i[`FU_MEM] && ib1_futype_i[`FU_MEM]) ||
+                       (ib0_eff_v && ib1_eff_v && ib0_futype_i[`FU_MDU] && ib1_futype_i[`FU_MDU]));
+
 assign can_go = (ib0_valid_i | ib1_valid_i) && !rob_full_i && dispatch_ready_i && !flush_i;
 assign ib0_ready_o = can_go && ib0_valid_i;
-assign ib1_ready_o = can_go && ib1_valid_i;
+// 同拍 RAW（ib1 源 == ib0 目的）不再阻塞 ib1：
+// 强制走 ROB 唤醒路径（src ready=0，tag=robid0，见下方第三步旁路），不信 ARF ready
+assign ib1_ready_o = can_go && ib1_valid_i && dual_issue_ok;
 assign rob_alloc_en_o = can_go;
 
 wire ib0_null_bubble = ib0_valid_i && (ib0_inst_i == 32'b0) && !(|ib0_excp_i);
@@ -293,6 +340,7 @@ assign ib1_src0_raw_from_ib0 = ib1_use_src0_i && ib0_writes_rf &&
                                (ib1_src0_addr_i == ib0_rd_addr_i);
 assign ib1_src1_raw_from_ib0 = ib1_use_src1_i && ib0_writes_rf &&
                                (ib1_src1_addr_i == ib0_rd_addr_i);
+wire ib1_raw_from_ib0 = ib1_src0_raw_from_ib0 || ib1_src1_raw_from_ib0;
 
 assign src0_0_ready = !ib0_use_src0_i || !rat_rbusy0_i;
 assign src0_0_val = ib0_use_src0_i ? arf_rdata0_i : 32'b0;
@@ -322,7 +370,8 @@ assign src1_1_robid = ib1_src1_raw_from_ib0 ? robid0 : rat_rnum3_i;
 assign rat_wen0_o = can_go && ib0_writes_rf;
 assign rat_waddr0_o = ib0_rd_addr_i;
 assign rat_wnum0_o = robid0;
-assign rat_wen1_o = can_go && ib1_writes_rf;
+// WAW 同拍（两槽同 rd）：rat 内部槽 1 优先（更年轻），RAW 不再阻塞占用写
+assign rat_wen1_o = can_go && ib1_writes_rf && dual_issue_ok;
 assign rat_waddr1_o = ib1_rd_addr_i;
 assign rat_wnum1_o = robid1;
 
@@ -351,7 +400,7 @@ assign rob_a0_cacop_code_o = ib0_cacop_code_i;
 assign rob_a0_excp_o = ib0_null_bubble ? {`EXCP_NUM{1'b0}} : ib0_excp_i;
 assign rob_a0_is_nop_o = ib0_is_nop_i | ib0_null_bubble;
 
-assign rob_a1_valid_o = can_go && ib1_valid_i;
+assign rob_a1_valid_o = can_go && ib1_valid_i && dual_issue_ok;
 assign rob_a1_pc_o = ib1_pc_i;
 assign rob_a1_inst_o = ib1_inst_i;
 assign rob_a1_rf_we_o = ib1_rf_we_i;
@@ -410,8 +459,12 @@ always @(posedge clk) begin
         dis0_imm_o <= ib0_imm_i;
         dis0_use_imm_o <= ib0_use_imm_i;
         dis0_br_offs_o <= ib0_br_offs_i;
+        dis0_src0_use_r <= ib0_use_src0_i;
+        dis0_src1_use_r <= ib0_use_src1_i;
+        dis0_src0_addr_r <= ib0_src0_addr_i;
+        dis0_src1_addr_r <= ib0_src1_addr_i;
 
-        dis1_valid_o <= ib1_valid_i && !ib1_is_nop_i;
+        dis1_valid_o <= ib1_valid_i && !ib1_is_nop_i && dual_issue_ok;
         dis1_robid_o <= robid1;
         dis1_pc_o <= ib1_pc_i;
         dis1_futype_o <= ib1_futype_i;
@@ -432,6 +485,54 @@ always @(posedge clk) begin
         dis1_imm_o <= ib1_imm_i;
         dis1_use_imm_o <= ib1_use_imm_i;
         dis1_br_offs_o <= ib1_br_offs_i;
+        dis1_src0_use_r <= ib1_use_src0_i;
+        dis1_src1_use_r <= ib1_use_src1_i;
+        dis1_src0_addr_r <= ib1_src0_addr_i;
+        dis1_src1_addr_r <= ib1_src1_addr_i;
+    end else begin
+        // 分发队列驻留：首次就绪时锁存操作数，避免 ROB 项复用后读到 ABA 错误值
+        // （典型：mod.w 后 bne 等在 dispatch，下一条 mod.w 复用 robid 时误取新余数）
+        if (dis0_valid_o && dis0_src0_use_r && !dis0_src0_ready_o) begin
+            if (rob_rrdy0_i) begin
+                dis0_src0_ready_o <= 1'b1;
+                dis0_src0_val_o   <= rob_rdata0_i;
+            end else if (!dis_rat_rbusy0_i) begin
+                dis0_src0_ready_o <= 1'b1;
+                dis0_src0_val_o   <= dis_arf_rdata0_i;
+            end
+        end
+        if (dis0_valid_o && dis0_src1_use_r && !dis0_src1_ready_o) begin
+            if (rob_rrdy1_i) begin
+                dis0_src1_ready_o <= 1'b1;
+                dis0_src1_val_o   <= rob_rdata1_i;
+            end else if (!dis_rat_rbusy1_i) begin
+                dis0_src1_ready_o <= 1'b1;
+                dis0_src1_val_o   <= dis_arf_rdata1_i;
+            end
+        end
+        if (dis1_valid_o && dis1_src0_use_r && !dis1_src0_ready_o) begin
+            if (rob_rrdy2_i) begin
+                dis1_src0_ready_o <= 1'b1;
+                dis1_src0_val_o   <= rob_rdata2_i;
+            end else if (!dis_rat_rbusy2_i) begin
+                dis1_src0_ready_o <= 1'b1;
+                dis1_src0_val_o   <= dis_arf_rdata2_i;
+            end
+        end
+        if (dis1_valid_o && dis1_src1_use_r && !dis1_src1_ready_o) begin
+            if (rob_rrdy3_i) begin
+                dis1_src1_ready_o <= 1'b1;
+                dis1_src1_val_o   <= rob_rdata3_i;
+            end else if (!dis_rat_rbusy3_i) begin
+                dis1_src1_ready_o <= 1'b1;
+                dis1_src1_val_o   <= dis_arf_rdata3_i;
+            end
+        end
+
+        if (dis0_fire_i)
+            dis0_valid_o <= 1'b0;
+        if (dis1_fire_i)
+            dis1_valid_o <= 1'b0;
     end
 end
 

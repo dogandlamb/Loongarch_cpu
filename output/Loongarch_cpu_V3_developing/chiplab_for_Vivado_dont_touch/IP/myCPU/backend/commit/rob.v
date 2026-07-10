@@ -277,34 +277,6 @@ wire [4:0] alloc1_idx = {1'b1, tail};
 wire [4:0] head0_idx  = {1'b0, head};
 wire [4:0] head1_idx  = {1'b1, head};
 
-function wb_hit;
-    input [`ROB_W-1:0] rid;
-    begin
-        wb_hit = valid[rid] && (
-                 (alu0_wb_valid_i && (alu0_wb_robid_i == rid)) ||
-                 (alu1_wb_valid_i && (alu1_wb_robid_i == rid)) ||
-                 (mem_wb_valid_i  && (mem_wb_robid_i  == rid)) ||
-                 (mdu_wb_valid_i  && (mdu_wb_robid_i  == rid)));
-    end
-endfunction
-
-function [31:0] wb_data;
-    input [`ROB_W-1:0] rid;
-    begin
-        if (alu0_wb_valid_i && (alu0_wb_robid_i == rid)) begin
-            wb_data = alu0_wb_data_i;
-        end else if (alu1_wb_valid_i && (alu1_wb_robid_i == rid)) begin
-            wb_data = alu1_wb_data_i;
-        end else if (mem_wb_valid_i && (mem_wb_robid_i == rid)) begin
-            wb_data = mem_wb_data_i;
-        end else if (mdu_wb_valid_i && (mdu_wb_robid_i == rid)) begin
-            wb_data = mdu_wb_data_i;
-        end else begin
-            wb_data = 32'b0;
-        end
-    end
-endfunction
-
 assign rob_tail_o = tail;
 assign rob_full_o = (head == (tail + `ROB_GUARD));
 assign rob_empty_o = (head == tail);
@@ -316,14 +288,25 @@ assign head_robid0_o = head0_idx;
 // 若此处再检查 valid，该操作数永远等不到唤醒，直到 robid 被新指令复用后
 // 捕获错误数据（ABA）。complete/result 在 pop 后保留、重新分配时清除，
 // 故 pop 后一拍窗口内仍可安全读出正确值。
-assign rrdy0_o = complete[raddr0_i] | wb_hit(raddr0_i);
-assign rrdy1_o = complete[raddr1_i] | wb_hit(raddr1_i);
-assign rrdy2_o = complete[raddr2_i] | wb_hit(raddr2_i);
-assign rrdy3_o = complete[raddr3_i] | wb_hit(raddr3_i);
-assign rdata0_o = wb_hit(raddr0_i) ? wb_data(raddr0_i) : result[raddr0_i];
-assign rdata1_o = wb_hit(raddr1_i) ? wb_data(raddr1_i) : result[raddr1_i];
-assign rdata2_o = wb_hit(raddr2_i) ? wb_data(raddr2_i) : result[raddr2_i];
-assign rdata3_o = wb_hit(raddr3_i) ? wb_data(raddr3_i) : result[raddr3_i];
+// 注意：读口用【每口内联组合】而非 function 调用——xsim 在 continuous assign
+// 里对"带可变下标的 function"存在求值/敏感表缺陷，会返回上一次求值下标的旧值
+// （表现为 raddr=13 却读出 result[9]）。内联后按 raddr 直接索引，杜绝此问题。
+`define ROB_RDPORT(P) \
+    wire wbhit``P = (alu0_wb_valid_i && (alu0_wb_robid_i == raddr``P``_i)) || \
+                    (alu1_wb_valid_i && (alu1_wb_robid_i == raddr``P``_i)) || \
+                    (mem_wb_valid_i  && (mem_wb_robid_i  == raddr``P``_i)) || \
+                    (mdu_wb_valid_i  && (mdu_wb_robid_i  == raddr``P``_i)); \
+    wire [31:0] wbdat``P = (alu0_wb_valid_i && (alu0_wb_robid_i == raddr``P``_i)) ? alu0_wb_data_i : \
+                           (alu1_wb_valid_i && (alu1_wb_robid_i == raddr``P``_i)) ? alu1_wb_data_i : \
+                           (mem_wb_valid_i  && (mem_wb_robid_i  == raddr``P``_i)) ? mem_wb_data_i  : \
+                           (mdu_wb_valid_i  && (mdu_wb_robid_i  == raddr``P``_i)) ? mdu_wb_data_i  : 32'b0; \
+    assign rrdy``P``_o  = complete[raddr``P``_i] | wbhit``P; \
+    assign rdata``P``_o = wbhit``P ? wbdat``P : result[raddr``P``_i];
+`ROB_RDPORT(0)
+`ROB_RDPORT(1)
+`ROB_RDPORT(2)
+`ROB_RDPORT(3)
+`undef ROB_RDPORT
 
 assign cmt0_valid_o = valid[head0_idx];
 assign cmt0_complete_o = complete[head0_idx];
@@ -470,19 +453,19 @@ always @(posedge clk) begin
             tail <= tail + 1'b1;
         end
 
-        if (alu0_wb_valid_i && valid[alu0_wb_robid_i]) begin
+        if (alu0_wb_valid_i) begin
             result[alu0_wb_robid_i] <= alu0_wb_data_i;
             br_taken[alu0_wb_robid_i] <= alu0_wb_br_taken_i;
             br_target[alu0_wb_robid_i] <= alu0_wb_br_target_i;
             complete[alu0_wb_robid_i] <= 1'b1;
         end
-        if (alu1_wb_valid_i && valid[alu1_wb_robid_i]) begin
+        if (alu1_wb_valid_i) begin
             result[alu1_wb_robid_i] <= alu1_wb_data_i;
             br_taken[alu1_wb_robid_i] <= alu1_wb_br_taken_i;
             br_target[alu1_wb_robid_i] <= alu1_wb_br_target_i;
             complete[alu1_wb_robid_i] <= 1'b1;
         end
-        if (mem_wb_valid_i && valid[mem_wb_robid_i]) begin
+        if (mem_wb_valid_i) begin
             result[mem_wb_robid_i] <= mem_wb_data_i;
             paddr[mem_wb_robid_i] <= mem_wb_paddr_i;
             vaddr[mem_wb_robid_i] <= mem_wb_vaddr_i;
@@ -492,7 +475,7 @@ always @(posedge clk) begin
             excp_dynamic[mem_wb_robid_i] <= mem_wb_excp_i;
             complete[mem_wb_robid_i] <= 1'b1;
         end
-        if (mdu_wb_valid_i && valid[mdu_wb_robid_i]) begin
+        if (mdu_wb_valid_i) begin
             result[mdu_wb_robid_i] <= mdu_wb_data_i;
             result2[mdu_wb_robid_i] <= mdu_wb_data2_i;
             complete[mdu_wb_robid_i] <= 1'b1;

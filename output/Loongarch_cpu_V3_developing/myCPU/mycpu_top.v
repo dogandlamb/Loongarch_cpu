@@ -85,6 +85,15 @@ module core_top #(
     output wire [ 4:0] debug0_wb_rf_wnum,
     output wire [31:0] debug0_wb_rf_wdata,
     output wire [31:0] debug0_wb_inst
+
+    `ifdef CPU_2CMT
+    ,
+    output wire [31:0] debug1_wb_pc,
+    output wire [ 3:0] debug1_wb_rf_wen,
+    output wire [ 4:0] debug1_wb_rf_wnum,
+    output wire [31:0] debug1_wb_rf_wdata,
+    output wire [31:0] debug1_wb_inst
+    `endif
 );
 
     // 把 aclk、aresetn 改为 clk、reset（同步高有效）
@@ -171,6 +180,8 @@ module core_top #(
     wire [`BPU_META_W-1:0]    ftq_train_meta;
     // IFU 预译码自重定向（-> BPU + FTQ）
     wire                      predec_redirect;
+    wire                      predec_fixup_only;
+    wire                      predec_update_pc;
     wire [31:0]               predec_redirect_pc;
     wire [`FTQ_W-1:0]         predec_redirect_id;
     wire [`BLK_LEN_W-1:0]     predec_length;
@@ -215,6 +226,7 @@ module core_top #(
     wire                      cmt_ftq_valid;
     wire [`FTQ_W-1:0]         cmt_ftq_id;
     wire                      cmt_ftq_is_last;
+    wire [1:0]                cmt_ftq_release;
     wire                      cmt_ftq_is_branch;
     wire                      cmt_ftq_taken;
     wire                      cmt_ftq_mispred;
@@ -236,6 +248,7 @@ module core_top #(
         .flush_i              (flush),
         .flush_pc_i           (flush_pc),
         .predec_redirect_i    (predec_redirect),
+        .predec_update_pc_i   (predec_update_pc),
         .predec_redirect_pc_i (predec_redirect_pc),
         // FTQ 满或 idle 睡眠都要冻结取指 PC
         .ftq_full_i           (ftq_full | fetch_stall),
@@ -295,6 +308,7 @@ module core_top #(
         .ifu_ftq_id_o         (ftq_ifu_id),
         .ifu_accept_i         (ifu_ftq_accept),
         .predec_redirect_i    (predec_redirect),
+        .predec_fixup_only_i  (predec_fixup_only),
         .predec_redirect_id_i (predec_redirect_id),
         .predec_length_i      (predec_length),
         .predec_taken_i       (predec_taken),
@@ -303,6 +317,7 @@ module core_top #(
         .cmt_valid_i          (cmt_ftq_valid),
         .cmt_ftq_id_i         (cmt_ftq_id),
         .cmt_is_last_i        (cmt_ftq_is_last),
+        .cmt_release_i        (cmt_ftq_release),
         .cmt_is_branch_i      (cmt_ftq_is_branch),
         .cmt_taken_i          (cmt_ftq_taken),
         .cmt_mispred_i        (cmt_ftq_mispred),
@@ -351,6 +366,8 @@ module core_top #(
         .ic_rline_i           (ic_ifu_rline),
         .ic_cancel_o          (ifu_ic_cancel),
         .predec_redirect_o    (predec_redirect),
+        .predec_fixup_only_o  (predec_fixup_only),
+        .predec_update_pc_o   (predec_update_pc),
         .predec_redirect_pc_o (predec_redirect_pc),
         .predec_redirect_id_o (predec_redirect_id),
         .predec_length_o      (predec_length),
@@ -689,7 +706,12 @@ module core_top #(
     wire [31:0]               dis0_imm, dis1_imm;
     wire                      dis0_use_imm, dis1_use_imm;
     wire [31:0]               dis0_br_offs, dis1_br_offs;
+    wire [4:0]                dis0_src0_addr, dis0_src1_addr, dis1_src0_addr, dis1_src1_addr;
+    wire                      dis_rat_rbusy0, dis_rat_rbusy1, dis_rat_rbusy2, dis_rat_rbusy3;
+    wire [31:0]               dis_arf_rdata0, dis_arf_rdata1, dis_arf_rdata2, dis_arf_rdata3;
     wire                      dispatch_ready;
+    wire                      dis0_fire;
+    wire                      dis1_fire;
     // dispatch <-> ROB 操作数读口
     wire [`ROB_W-1:0]         dsp_rob_raddr0, dsp_rob_raddr1, dsp_rob_raddr2, dsp_rob_raddr3;
     wire                      rob_rrdy0, rob_rrdy1, rob_rrdy2, rob_rrdy3;
@@ -840,6 +862,24 @@ module core_top #(
         .rob_a1_is_nop_o   (rn_a1_is_nop),
         // 分发级
         .dispatch_ready_i  (dispatch_ready),
+        .dis0_fire_i       (dis0_fire),
+        .dis1_fire_i       (dis1_fire),
+        .rob_rrdy0_i       (rob_rrdy0),
+        .rob_rdata0_i      (rob_rdata0),
+        .rob_rrdy1_i       (rob_rrdy1),
+        .rob_rdata1_i      (rob_rdata1),
+        .rob_rrdy2_i       (rob_rrdy2),
+        .rob_rdata2_i      (rob_rdata2),
+        .rob_rrdy3_i       (rob_rrdy3),
+        .rob_rdata3_i      (rob_rdata3),
+        .dis_rat_rbusy0_i  (dis_rat_rbusy0),
+        .dis_rat_rbusy1_i  (dis_rat_rbusy1),
+        .dis_rat_rbusy2_i  (dis_rat_rbusy2),
+        .dis_rat_rbusy3_i  (dis_rat_rbusy3),
+        .dis_arf_rdata0_i  (dis_arf_rdata0),
+        .dis_arf_rdata1_i  (dis_arf_rdata1),
+        .dis_arf_rdata2_i  (dis_arf_rdata2),
+        .dis_arf_rdata3_i  (dis_arf_rdata3),
         .dis0_valid_o      (dis0_valid),
         .dis0_robid_o      (dis0_robid),
         .dis0_pc_o         (dis0_pc),
@@ -881,7 +921,11 @@ module core_top #(
         .dis1_src1_robid_o (dis1_src1_robid),
         .dis1_imm_o        (dis1_imm),
         .dis1_use_imm_o    (dis1_use_imm),
-        .dis1_br_offs_o    (dis1_br_offs)
+        .dis1_br_offs_o    (dis1_br_offs),
+        .dis0_src0_addr_o  (dis0_src0_addr),
+        .dis0_src1_addr_o  (dis0_src1_addr),
+        .dis1_src0_addr_o  (dis1_src0_addr),
+        .dis1_src1_addr_o  (dis1_src1_addr)
     );
 
 //--------------------------------------------------
@@ -903,6 +947,14 @@ module core_top #(
         .raddr3_i    (rn_rat_raddr3),
         .rbusy3_o    (rat_rbusy3),
         .rnum3_o     (rat_rnum3),
+        .raddr4_i    (dis0_src0_addr),
+        .rbusy4_o    (dis_rat_rbusy0),
+        .raddr5_i    (dis0_src1_addr),
+        .rbusy5_o    (dis_rat_rbusy1),
+        .raddr6_i    (dis1_src0_addr),
+        .rbusy6_o    (dis_rat_rbusy2),
+        .raddr7_i    (dis1_src1_addr),
+        .rbusy7_o    (dis_rat_rbusy3),
         .wen0_i      (rn_rat_wen0),
         .waddr0_i    (rn_rat_waddr0),
         .wnum0_i     (rn_rat_wnum0),
@@ -941,6 +993,14 @@ module core_top #(
         .rdata2    (arf_rdata2),
         .raddr3    (rn_arf_raddr3),
         .rdata3    (arf_rdata3),
+        .raddr4    (dis0_src0_addr),
+        .rdata4    (dis_arf_rdata0),
+        .raddr5    (dis0_src1_addr),
+        .rdata5    (dis_arf_rdata1),
+        .raddr6    (dis1_src0_addr),
+        .rdata6    (dis_arf_rdata2),
+        .raddr7    (dis1_src1_addr),
+        .rdata7    (dis_arf_rdata3),
         .we0       (cmt_arf_we0),
         .waddr0    (cmt_arf_waddr0),
         .wdata0    (cmt_arf_wdata0),
@@ -1126,6 +1186,8 @@ module core_top #(
         .dis1_use_imm_i      (dis1_use_imm),
         .dis1_br_offs_i      (dis1_br_offs),
         .dispatch_ready_o    (dispatch_ready),
+        .dis0_fire_o         (dis0_fire),
+        .dis1_fire_o         (dis1_fire),
         .rob_raddr0_o        (dsp_rob_raddr0),
         .rob_rrdy0_i         (rob_rrdy0),
         .rob_rdata0_i        (rob_rdata0),
@@ -1138,6 +1200,14 @@ module core_top #(
         .rob_raddr3_o        (dsp_rob_raddr3),
         .rob_rrdy3_i         (rob_rrdy3),
         .rob_rdata3_i        (rob_rdata3),
+        .dis_rat_rbusy0_i    (dis_rat_rbusy0),
+        .dis_rat_rbusy1_i    (dis_rat_rbusy1),
+        .dis_rat_rbusy2_i    (dis_rat_rbusy2),
+        .dis_rat_rbusy3_i    (dis_rat_rbusy3),
+        .dis_arf_rdata0_i    (dis_arf_rdata0),
+        .dis_arf_rdata1_i    (dis_arf_rdata1),
+        .dis_arf_rdata2_i    (dis_arf_rdata2),
+        .dis_arf_rdata3_i    (dis_arf_rdata3),
         .rs_alu0_can_accept_i(rsa0_can_accept),
         .rs_alu0_occupancy_i (rsa0_occupancy),
         .rs_alu0_push_valid_o(rsa0_push_valid),
@@ -1953,6 +2023,7 @@ module core_top #(
         .ftq_cmt_valid_o   (cmt_ftq_valid),
         .ftq_cmt_id_o      (cmt_ftq_id),
         .ftq_cmt_is_last_o (cmt_ftq_is_last),
+        .ftq_cmt_release_o (cmt_ftq_release),
         .ftq_cmt_is_branch_o(cmt_ftq_is_branch),
         .ftq_cmt_taken_o   (cmt_ftq_taken),
         .ftq_cmt_mispred_o (cmt_ftq_mispred),
@@ -2466,6 +2537,13 @@ module core_top #(
     assign debug0_wb_rf_wnum  = cmt_dbg0_wnum;
     assign debug0_wb_rf_wdata = cmt_dbg0_wdata;
     assign debug0_wb_inst     = cmt_dbg0_inst;
+    `ifdef CPU_2CMT
+    assign debug1_wb_pc       = cmt_dbg1_pc;
+    assign debug1_wb_rf_wen   = cmt_dbg1_wen;
+    assign debug1_wb_rf_wnum  = cmt_dbg1_wnum;
+    assign debug1_wb_rf_wdata = cmt_dbg1_wdata;
+    assign debug1_wb_inst     = cmt_dbg1_inst;
+    `endif
 
     // INE 定位探针（log_vcd u_cpu/* 可见）
     wire        dbg_rob_cmt0_valid    = rob_cmt0_valid;
@@ -2487,7 +2565,9 @@ module core_top #(
                            | csr_flush_pipeline_unused
                            | (|csr_crmd_live_unused) | (|csr_lladdr_unused)
                            | (|rsm_occupancy) | (|rsd_occupancy)
+`ifndef CPU_2CMT
                            | cmt_dbg1_valid
+`endif
                            | dbg_rob_cmt0_valid | dbg_rob_cmt0_complete
                            | (|dbg_rob_cmt0_excp) | (|dbg_ib_pop0_excp)
                            | (|dbg_dec0_excp) | (|dbg_rn_ib0_excp)

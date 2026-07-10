@@ -277,46 +277,36 @@ wire [4:0] alloc1_idx = {1'b1, tail};
 wire [4:0] head0_idx  = {1'b0, head};
 wire [4:0] head1_idx  = {1'b1, head};
 
-function wb_hit;
-    input [`ROB_W-1:0] rid;
-    begin
-        wb_hit = (alu0_wb_valid_i && (alu0_wb_robid_i == rid)) ||
-                 (alu1_wb_valid_i && (alu1_wb_robid_i == rid)) ||
-                 (mem_wb_valid_i  && (mem_wb_robid_i  == rid)) ||
-                 (mdu_wb_valid_i  && (mdu_wb_robid_i  == rid));
-    end
-endfunction
-
-function [31:0] wb_data;
-    input [`ROB_W-1:0] rid;
-    begin
-        if (alu0_wb_valid_i && (alu0_wb_robid_i == rid)) begin
-            wb_data = alu0_wb_data_i;
-        end else if (alu1_wb_valid_i && (alu1_wb_robid_i == rid)) begin
-            wb_data = alu1_wb_data_i;
-        end else if (mem_wb_valid_i && (mem_wb_robid_i == rid)) begin
-            wb_data = mem_wb_data_i;
-        end else if (mdu_wb_valid_i && (mdu_wb_robid_i == rid)) begin
-            wb_data = mdu_wb_data_i;
-        end else begin
-            wb_data = 32'b0;
-        end
-    end
-endfunction
-
 assign rob_tail_o = tail;
 assign rob_full_o = (head == (tail + `ROB_GUARD));
 assign rob_empty_o = (head == tail);
 assign head_robid0_o = head0_idx;
 
-assign rrdy0_o = complete[raddr0_i] | wb_hit(raddr0_i);
-assign rrdy1_o = complete[raddr1_i] | wb_hit(raddr1_i);
-assign rrdy2_o = complete[raddr2_i] | wb_hit(raddr2_i);
-assign rrdy3_o = complete[raddr3_i] | wb_hit(raddr3_i);
-assign rdata0_o = wb_hit(raddr0_i) ? wb_data(raddr0_i) : result[raddr0_i];
-assign rdata1_o = wb_hit(raddr1_i) ? wb_data(raddr1_i) : result[raddr1_i];
-assign rdata2_o = wb_hit(raddr2_i) ? wb_data(raddr2_i) : result[raddr2_i];
-assign rdata3_o = wb_hit(raddr3_i) ? wb_data(raddr3_i) : result[raddr3_i];
+// 读口 ready/data【不得】用 valid 门控（mariver robtag_ready 同款语义）：
+// RAT 的 busy/tag 相对提交晚一拍——生产者提交当拍，消费者 rename 仍拿到
+// "busy=1, tag=生产者" 的旧视图，下一拍 dispatch 读 ROB 时表项已 pop。
+// 若此处再检查 valid，该操作数永远等不到唤醒，直到 robid 被新指令复用后
+// 捕获错误数据（ABA）。complete/result 在 pop 后保留、重新分配时清除，
+// 故 pop 后一拍窗口内仍可安全读出正确值。
+// 注意：读口用【每口内联组合】而非 function 调用——xsim 在 continuous assign
+// 里对"带可变下标的 function"存在求值/敏感表缺陷，会返回上一次求值下标的旧值
+// （表现为 raddr=13 却读出 result[9]）。内联后按 raddr 直接索引，杜绝此问题。
+`define ROB_RDPORT(P) \
+    wire wbhit``P = (alu0_wb_valid_i && (alu0_wb_robid_i == raddr``P``_i)) || \
+                    (alu1_wb_valid_i && (alu1_wb_robid_i == raddr``P``_i)) || \
+                    (mem_wb_valid_i  && (mem_wb_robid_i  == raddr``P``_i)) || \
+                    (mdu_wb_valid_i  && (mdu_wb_robid_i  == raddr``P``_i)); \
+    wire [31:0] wbdat``P = (alu0_wb_valid_i && (alu0_wb_robid_i == raddr``P``_i)) ? alu0_wb_data_i : \
+                           (alu1_wb_valid_i && (alu1_wb_robid_i == raddr``P``_i)) ? alu1_wb_data_i : \
+                           (mem_wb_valid_i  && (mem_wb_robid_i  == raddr``P``_i)) ? mem_wb_data_i  : \
+                           (mdu_wb_valid_i  && (mdu_wb_robid_i  == raddr``P``_i)) ? mdu_wb_data_i  : 32'b0; \
+    assign rrdy``P``_o  = complete[raddr``P``_i] | wbhit``P; \
+    assign rdata``P``_o = wbhit``P ? wbdat``P : result[raddr``P``_i];
+`ROB_RDPORT(0)
+`ROB_RDPORT(1)
+`ROB_RDPORT(2)
+`ROB_RDPORT(3)
+`undef ROB_RDPORT
 
 assign cmt0_valid_o = valid[head0_idx];
 assign cmt0_complete_o = complete[head0_idx];
@@ -384,11 +374,16 @@ always @(posedge clk) begin
             excp_dynamic[i] <= {`EXCP_NUM{1'b0}};
         end
     end else begin
+        // pop 只清 valid，complete/result 保留至该项被重新分配（alloc 时覆写）。
+        // 原因：RAT 的 busy 视图比提交晚一拍——生产者提交当拍 rename 仍拿到
+        // 旧标签，下一拍 dispatch 读该 robid 时若 complete 已被清，操作数将
+        // 永远等不到唤醒，直至 robid 被复用后捕获错误数据（曾致 idle_1s 的
+        // ld.w 拿到 0x03000000 类计时器值作基址 -> 假 ALE -> 跳 EENTRY=0）
         if (cmt_clear0_i) begin
-            valid[head0_idx] <= 1'b0;
+            valid[head0_idx]   <= 1'b0;
         end
         if (cmt_clear1_i) begin
-            valid[head1_idx] <= 1'b0;
+            valid[head1_idx]   <= 1'b0;
         end
         if (cmt_pop_i) begin
             head <= head + 1'b1;

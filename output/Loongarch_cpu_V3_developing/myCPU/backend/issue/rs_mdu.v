@@ -28,9 +28,11 @@ module rs_mdu(
     input  wire [`TLB_OP_NUM-1:0]     push_tlb_op_i,
     input  wire [`WB_SRC_NUM-1:0]     push_wb_src_op_i,    // rdcnt 类选择
     input  wire                       push_src0_ready_i,   // src0 = rj（csrxchg 的 mask / invtlb 的 asid / 乘除源1）
+    input  wire                       push_src0_arf_i,
     input  wire [31:0]                push_src0_val_i,
     input  wire [`ROB_W-1:0]          push_src0_robid_i,
     input  wire                       push_src1_ready_i,   // src1 = rk/rd（csr 写值 / invtlb 的 va / 乘除源2）
+    input  wire                       push_src1_arf_i,
     input  wire [31:0]                push_src1_val_i,
     input  wire [`ROB_W-1:0]          push_src1_robid_i,
 
@@ -95,6 +97,8 @@ reg [`ROB_W-1:0]        s0_robid [0:`RS_MDU_SIZE-1];
 reg                     s1_ready [0:`RS_MDU_SIZE-1];
 reg [31:0]              s1_val [0:`RS_MDU_SIZE-1];
 reg [`ROB_W-1:0]        s1_robid [0:`RS_MDU_SIZE-1];
+reg                     s0_arf_rdy [0:`RS_MDU_SIZE-1];
+reg                     s1_arf_rdy [0:`RS_MDU_SIZE-1];
 reg                     head;
 reg                     tail;
 reg [1:0]               count;
@@ -144,8 +148,10 @@ assign issue_csr_op_o = csr_op[head];
 assign issue_csr_num_o = csr_num[head];
 assign issue_tlb_op_o = tlb_op[head];
 assign issue_wb_src_op_o = wb_src_op[head];
-assign issue_src0_o = s0_ready[head] ? s0_val[head] : wb_data(s0_robid[head]);
-assign issue_src1_o = s1_ready[head] ? s1_val[head] : wb_data(s1_robid[head]);
+wire s0_issue_wb = wb_hit(s0_robid[head]) && !s0_arf_rdy[head];
+wire s1_issue_wb = wb_hit(s1_robid[head]) && !s1_arf_rdy[head];
+assign issue_src0_o = s0_issue_wb ? wb_data(s0_robid[head]) : s0_val[head];
+assign issue_src1_o = s1_issue_wb ? wb_data(s1_robid[head]) : s1_val[head];
 
 always @(posedge clk) begin
     if (reset || flush_i) begin
@@ -158,11 +164,11 @@ always @(posedge clk) begin
     end else begin
         for (i = 0; i < `RS_MDU_SIZE; i = i + 1) begin
             if (valid[i] && !(issue_fire && (i[0] == head))) begin
-                if (!s0_ready[i] && wb_hit(s0_robid[i])) begin
+                if (wb_hit(s0_robid[i])) begin
                     s0_ready[i] <= 1'b1;
                     s0_val[i] <= wb_data(s0_robid[i]);
                 end
-                if (!s1_ready[i] && wb_hit(s1_robid[i])) begin
+                if (wb_hit(s1_robid[i])) begin
                     s1_ready[i] <= 1'b1;
                     s1_val[i] <= wb_data(s1_robid[i]);
                 end
@@ -183,10 +189,14 @@ always @(posedge clk) begin
             tlb_op[tail] <= push_tlb_op_i;
             wb_src_op[tail] <= push_wb_src_op_i;
             s0_ready[tail] <= push_src0_ready_i || wb_hit(push_src0_robid_i);
-            s0_val[tail] <= push_src0_ready_i ? push_src0_val_i : wb_data(push_src0_robid_i);
+            s0_arf_rdy[tail] <= push_src0_arf_i;
+            s0_val[tail] <= push_src0_ready_i ? push_src0_val_i :
+                            wb_hit(push_src0_robid_i) ? wb_data(push_src0_robid_i) : 32'b0;
             s0_robid[tail] <= push_src0_robid_i;
             s1_ready[tail] <= push_src1_ready_i || wb_hit(push_src1_robid_i);
-            s1_val[tail] <= push_src1_ready_i ? push_src1_val_i : wb_data(push_src1_robid_i);
+            s1_arf_rdy[tail] <= push_src1_arf_i;
+            s1_val[tail] <= push_src1_ready_i ? push_src1_val_i :
+                            wb_hit(push_src1_robid_i) ? wb_data(push_src1_robid_i) : 32'b0;
             s1_robid[tail] <= push_src1_robid_i;
             tail <= tail + 1'b1;
         end

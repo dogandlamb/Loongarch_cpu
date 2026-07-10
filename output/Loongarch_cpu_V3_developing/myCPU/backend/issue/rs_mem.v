@@ -27,9 +27,11 @@ module rs_mem(
     input  wire [`MEM_OP_NUM-1:0]     push_mem_op_i,
     input  wire                       push_is_cacop_i,
     input  wire                       push_src0_ready_i,   // src0 = 基址 rj
+    input  wire                       push_src0_arf_i,
     input  wire [31:0]                push_src0_val_i,
     input  wire [`ROB_W-1:0]          push_src0_robid_i,
     input  wire                       push_src1_ready_i,   // src1 = store 数据 rd
+    input  wire                       push_src1_arf_i,
     input  wire [31:0]                push_src1_val_i,
     input  wire [`ROB_W-1:0]          push_src1_robid_i,
     input  wire [31:0]                push_imm_i,          // si12/si14 偏移
@@ -109,6 +111,8 @@ reg [`ROB_W-1:0]        s0_robid [0:`RS_MEM_SIZE-1];
 reg                     s1_ready [0:`RS_MEM_SIZE-1];
 reg [31:0]              s1_val [0:`RS_MEM_SIZE-1];
 reg [`ROB_W-1:0]        s1_robid [0:`RS_MEM_SIZE-1];
+reg                     s0_arf_rdy [0:`RS_MEM_SIZE-1];
+reg                     s1_arf_rdy [0:`RS_MEM_SIZE-1];
 reg [31:0]              imm [0:`RS_MEM_SIZE-1];
 reg [1:0]               head;
 reg [1:0]               tail;
@@ -157,8 +161,10 @@ assign issue_robid_o = robid[head];
 assign issue_pc_o = pc[head];
 assign issue_mem_op_o = mem_op[head];
 assign issue_is_cacop_o = is_cacop[head];
-assign issue_base_o = s0_ready[head] ? s0_val[head] : wb_data(s0_robid[head]);
-assign issue_wdata_o = s1_ready[head] ? s1_val[head] : wb_data(s1_robid[head]);
+wire s0_issue_wb = wb_hit(s0_robid[head]) && !s0_arf_rdy[head];
+wire s1_issue_wb = wb_hit(s1_robid[head]) && !s1_arf_rdy[head];
+assign issue_base_o = s0_issue_wb ? wb_data(s0_robid[head]) : s0_val[head];
+assign issue_wdata_o = s1_issue_wb ? wb_data(s1_robid[head]) : s1_val[head];
 assign issue_imm_o = imm[head];
 
 always @(posedge clk) begin
@@ -172,11 +178,11 @@ always @(posedge clk) begin
     end else begin
         for (i = 0; i < `RS_MEM_SIZE; i = i + 1) begin
             if (valid[i] && !(issue_fire && (i[1:0] == head))) begin
-                if (!s0_ready[i] && wb_hit(s0_robid[i])) begin
+                if (wb_hit(s0_robid[i])) begin
                     s0_ready[i] <= 1'b1;
                     s0_val[i] <= wb_data(s0_robid[i]);
                 end
-                if (!s1_ready[i] && wb_hit(s1_robid[i])) begin
+                if (wb_hit(s1_robid[i])) begin
                     s1_ready[i] <= 1'b1;
                     s1_val[i] <= wb_data(s1_robid[i]);
                 end
@@ -195,10 +201,14 @@ always @(posedge clk) begin
             mem_op[tail] <= push_mem_op_i;
             is_cacop[tail] <= push_is_cacop_i;
             s0_ready[tail] <= push_src0_ready_i || wb_hit(push_src0_robid_i);
-            s0_val[tail] <= push_src0_ready_i ? push_src0_val_i : wb_data(push_src0_robid_i);
+            s0_arf_rdy[tail] <= push_src0_arf_i;
+            s0_val[tail] <= push_src0_ready_i ? push_src0_val_i :
+                            wb_hit(push_src0_robid_i) ? wb_data(push_src0_robid_i) : 32'b0;
             s0_robid[tail] <= push_src0_robid_i;
             s1_ready[tail] <= push_src1_ready_i || wb_hit(push_src1_robid_i);
-            s1_val[tail] <= push_src1_ready_i ? push_src1_val_i : wb_data(push_src1_robid_i);
+            s1_arf_rdy[tail] <= push_src1_arf_i;
+            s1_val[tail] <= push_src1_ready_i ? push_src1_val_i :
+                            wb_hit(push_src1_robid_i) ? wb_data(push_src1_robid_i) : 32'b0;
             s1_robid[tail] <= push_src1_robid_i;
             imm[tail] <= push_imm_i;
             tail <= tail + 2'b01;

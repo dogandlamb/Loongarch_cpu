@@ -87,6 +87,19 @@ module dispatch(
     input  wire                       rob_rrdy3_i,
     input  wire [31:0]                rob_rdata3_i,
 
+    // =============== 分发驻留旁路 ===============
+    // 指令在本级等待时，用锁存源地址实时查 RAT/ARF（口 4~7）。
+    // RAT busy 清 0 说明前序写它的指令已提交，此时 ARF 即权威值，可直接唤醒；
+    // 好处：驻留期间前序 ROB 项可能被更年轻指令复用（ABA），改读 ARF 可绕开旧 tag。
+    input  wire                       dis_rat_rbusy0_i,      // dis0 src0 当前 RAT busy
+    input  wire                       dis_rat_rbusy1_i,      // dis0 src1
+    input  wire                       dis_rat_rbusy2_i,      // dis1 src0
+    input  wire                       dis_rat_rbusy3_i,      // dis1 src1
+    input  wire [31:0]                dis_arf_rdata0_i,      // dis0 src0 ARF 权威值
+    input  wire [31:0]                dis_arf_rdata1_i,      // dis0 src1
+    input  wire [31:0]                dis_arf_rdata2_i,      // dis1 src0
+    input  wire [31:0]                dis_arf_rdata3_i,      // dis1 src1
+
     // =============== rs_alu0 入站口 ===============
     input  wire                       rs_alu0_can_accept_i,
     input  wire [2:0]                 rs_alu0_occupancy_i,   // 占用项数（负载均衡用）
@@ -235,15 +248,26 @@ assign rob_raddr1_o = dis0_src1_robid_i;
 assign rob_raddr2_o = dis1_src0_robid_i;
 assign rob_raddr3_o = dis1_src1_robid_i;
 
-assign dis0_src0_ready = dis0_src0_ready_i | rob_rrdy0_i;
-assign dis0_src1_ready = dis0_src1_ready_i | rob_rrdy1_i;
-assign dis1_src0_ready = dis1_src0_ready_i | rob_rrdy2_i;
-assign dis1_src1_ready = dis1_src1_ready_i | rob_rrdy3_i;
+// 已锁存 ready/val 优先；否则 RAT 不 busy 读 ARF；再否则读 ROB（防 robid 复用 ABA）
+assign dis0_src0_ready = dis0_src0_ready_i | !dis_rat_rbusy0_i | rob_rrdy0_i;
+assign dis0_src1_ready = dis0_src1_ready_i | !dis_rat_rbusy1_i | rob_rrdy1_i;
+assign dis1_src0_ready = dis1_src0_ready_i | !dis_rat_rbusy2_i | rob_rrdy2_i;
+assign dis1_src1_ready = dis1_src1_ready_i | !dis_rat_rbusy3_i | rob_rrdy3_i;
 
-assign dis0_src0_val = dis0_src0_ready_i ? dis0_src0_val_i : rob_rdata0_i;
-assign dis0_src1_val = dis0_src1_ready_i ? dis0_src1_val_i : rob_rdata1_i;
-assign dis1_src0_val = dis1_src0_ready_i ? dis1_src0_val_i : rob_rdata2_i;
-assign dis1_src1_val = dis1_src1_ready_i ? dis1_src1_val_i : rob_rdata3_i;
+// 已锁存 ready/val 优先（rename 驻留 wakeup 可能新于 ARF 提交）；未锁存且 !busy 读 ARF；
+// busy 时 rob_rrdy 优先于旧锁存（防 robid ABA）；!busy 必须优先于 rob_rrdy（防 RAT 释放后误读旧 ROB）
+assign dis0_src0_val = dis0_src0_ready_i ? dis0_src0_val_i :
+                       !dis_rat_rbusy0_i ? dis_arf_rdata0_i :
+                       rob_rrdy0_i ? rob_rdata0_i : 32'b0;
+assign dis0_src1_val = dis0_src1_ready_i ? dis0_src1_val_i :
+                       !dis_rat_rbusy1_i ? dis_arf_rdata1_i :
+                       rob_rrdy1_i ? rob_rdata1_i : 32'b0;
+assign dis1_src0_val = dis1_src0_ready_i ? dis1_src0_val_i :
+                       !dis_rat_rbusy2_i ? dis_arf_rdata2_i :
+                       rob_rrdy2_i ? rob_rdata2_i : 32'b0;
+assign dis1_src1_val = dis1_src1_ready_i ? dis1_src1_val_i :
+                       !dis_rat_rbusy3_i ? dis_arf_rdata3_i :
+                       rob_rrdy3_i ? rob_rdata3_i : 32'b0;
 
 assign dis0_ops_ready = dis0_src0_ready && dis0_src1_ready;
 assign dis1_ops_ready = dis1_src0_ready && dis1_src1_ready;

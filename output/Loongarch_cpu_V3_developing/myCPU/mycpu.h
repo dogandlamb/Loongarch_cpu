@@ -30,8 +30,7 @@
 `define ROB_SIZE        32  // ROB 总项数（奇偶双体 = 16 对 x 2 路）
 `define ROB_W           5   // $clog2(ROB_SIZE)，ROB 编号位宽 = {奇偶位, 对指针}
 `define ROB_PAIR_W      4   // ROB_W-1，ROB 对指针(head/tail)位宽
-`define ROB_GUARD       5   // head/tail 安全间距（mariver：保证 dispatch 读 ROB
-                            // 结果时，已提交但未被覆盖的数据仍可读，必须保留！）
+`define ROB_GUARD       14  // head/tail 安全间距（加大以防 dispatch 驻留时 robid 被复用致 ABA）
 
 `define RS_ALU_SIZE     4   // 每个 ALU 保留站项数（乱序发射）
 `define RS_MEM_SIZE     4   // 访存保留站项数（FIFO 顺序发射）
@@ -40,8 +39,8 @@
 `define SB_SIZE         8   // store buffer 项数（提交后写缓冲）
 `define SB_W            3   // $clog2(SB_SIZE)
 
-`define FTQ_SIZE        8   // 取指目标队列项数（8 块 x 4 条 = 32 条，与 ROB_SIZE 对齐）
-`define FTQ_W           3   // $clog2(FTQ_SIZE)
+`define FTQ_SIZE        16  // 取指目标队列项数（需 > BPU 推测深度，避免 I$ 慢时 ftq_full 死锁）
+`define FTQ_W           4   // $clog2(FTQ_SIZE)
 
 `define IB_SIZE         16  // 指令缓冲项数（入口<=4条/拍，出口 2条/拍）
 `define IB_W            4   // $clog2(IB_SIZE)
@@ -173,9 +172,9 @@
 
 /* =====================================================
  * ALU 操作码 (alu_op)
- * 21 位独热；MUL/DIV/MOD 类由 decoder 标记 futype=FU_MDU
+ * 22 位独热；MUL/DIV/MOD 类由 decoder 标记 futype=FU_MDU
  * ===================================================== */
-`define ALU_OP_NUM      21
+`define ALU_OP_NUM      22
 `define ALU_OP_ADD      0
 `define ALU_OP_SUB      1
 `define ALU_OP_SLT      2
@@ -197,6 +196,7 @@
 `define ALU_OP_MOD_WU   18
 `define ALU_OP_ANDN     19
 `define ALU_OP_ORN      20
+`define ALU_OP_PCADD    21
 
 /* =====================================================
  * 访存操作码 (mem_op)

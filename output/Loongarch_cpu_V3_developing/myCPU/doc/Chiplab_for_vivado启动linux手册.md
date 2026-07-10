@@ -1,6 +1,7 @@
 # Chiplab_for_vivado启动linux手册
 
 > V1.0 2026.6.8 by dogandlamb
+
 > V2.0 2026.7.8 by whale//sssafridi
 
 前置条件：

@@ -5,14 +5,16 @@
 // ------------------------------------------------------------
 // 功能（新架构角色变化）：
 // - 队列式重命名下，本寄存器堆只保存"已提交"的权威值（ARF）：
-//   * 读口 ×4：rename 级读源操作数（2 条指令 × 2 源；RAT 不 busy 时用此值）
+//   * 读口 ×8：rename 级 4 口（0~3，当前两条指令源操作数，RAT 不 busy 时用）
+//              + 分发驻留 4 口（4~7，指令在 dispatch 队列等待时读 ARF 唤醒）
 //   * 写口 ×2：commit 级双提交写回（槽 0 / 槽 1）
 // - 未提交的推测值一律存在 ROB 中，与本堆无关；冲刷时本堆即为恢复基准，
 //   不需要任何恢复动作 —— 这是队列式重命名"恢复简单"的根源。
 // - 调试读口（chiplab rf_rdata）与 DIFFTEST 全寄存器快照口保留。
 //
 // 端口：
-// - raddr0~3/rdata0~3 ：rename 4 读口（组合，r0 恒 0）
+// - raddr0~3/rdata0~3 ：rename 级 4 读口（组合，r0 恒 0）
+// - raddr4~7/rdata4~7 ：分发驻留 4 读口（组合，r0 恒 0；RAT busy 清后读权威值）
 // - we0/waddr0/wdata0 ：commit 槽 0 写口
 // - we1/waddr1/wdata1 ：commit 槽 1 写口（同地址时槽 1 更年轻，优先生效）
 // - dbg_*             ：chiplab 调试读
@@ -21,15 +23,26 @@
 module regfile(
     input  wire        clk,
 
-    // ---------------- rename 读口 ×4（组合）----------------
-    input  wire [ 4:0] raddr0,
+    // ---------------- rename 级读口 ×4（组合，0~3）----------------
+    input  wire [ 4:0] raddr0,           // 槽 0 src0
     output wire [31:0] rdata0,
-    input  wire [ 4:0] raddr1,
+    input  wire [ 4:0] raddr1,           // 槽 0 src1
     output wire [31:0] rdata1,
-    input  wire [ 4:0] raddr2,
+    input  wire [ 4:0] raddr2,           // 槽 1 src0
     output wire [31:0] rdata2,
-    input  wire [ 4:0] raddr3,
+    input  wire [ 4:0] raddr3,           // 槽 1 src1
     output wire [31:0] rdata3,
+
+    // ---------------- 分发驻留读口 ×4（组合，4~7）----------------
+    // 指令在 dispatch 队列驻留、前序写它的指令提交后，用锁存源地址读 ARF 唤醒
+    input  wire [ 4:0] raddr4,           // dis0 src0
+    output wire [31:0] rdata4,
+    input  wire [ 4:0] raddr5,           // dis0 src1
+    output wire [31:0] rdata5,
+    input  wire [ 4:0] raddr6,           // dis1 src0
+    output wire [31:0] rdata6,
+    input  wire [ 4:0] raddr7,           // dis1 src1
+    output wire [31:0] rdata7,
 
     // ---------------- commit 写口 ×2 ----------------
     input  wire        we0,              // 槽 0 写使能
@@ -128,6 +141,26 @@ assign rdata3 = (raddr3 === 5'b0) ? 32'b0 :
                 (((we1 === 1'b1) && (waddr1 === raddr3) && (waddr1 !== 5'b0)) ? wdata1 :
                  ((we0 === 1'b1) && (waddr0 === raddr3) && (waddr0 !== 5'b0)) ? wdata0 :
                  rf[raddr3]);
+
+assign rdata4 = (raddr4 === 5'b0) ? 32'b0 :
+                (((we1 === 1'b1) && (waddr1 === raddr4) && (waddr1 !== 5'b0)) ? wdata1 :
+                 ((we0 === 1'b1) && (waddr0 === raddr4) && (waddr0 !== 5'b0)) ? wdata0 :
+                 rf[raddr4]);
+
+assign rdata5 = (raddr5 === 5'b0) ? 32'b0 :
+                (((we1 === 1'b1) && (waddr1 === raddr5) && (waddr1 !== 5'b0)) ? wdata1 :
+                 ((we0 === 1'b1) && (waddr0 === raddr5) && (waddr0 !== 5'b0)) ? wdata0 :
+                 rf[raddr5]);
+
+assign rdata6 = (raddr6 === 5'b0) ? 32'b0 :
+                (((we1 === 1'b1) && (waddr1 === raddr6) && (waddr1 !== 5'b0)) ? wdata1 :
+                 ((we0 === 1'b1) && (waddr0 === raddr6) && (waddr0 !== 5'b0)) ? wdata0 :
+                 rf[raddr6]);
+
+assign rdata7 = (raddr7 === 5'b0) ? 32'b0 :
+                (((we1 === 1'b1) && (waddr1 === raddr7) && (waddr1 !== 5'b0)) ? wdata1 :
+                 ((we0 === 1'b1) && (waddr0 === raddr7) && (waddr0 !== 5'b0)) ? wdata0 :
+                 rf[raddr7]);
 
 // 调试端口：直接读寄存器内容（不含写穿透），r0 恒 0
 assign dbg_rdata = (dbg_raddr === 5'b0) ? 32'b0 : rf[dbg_raddr];
