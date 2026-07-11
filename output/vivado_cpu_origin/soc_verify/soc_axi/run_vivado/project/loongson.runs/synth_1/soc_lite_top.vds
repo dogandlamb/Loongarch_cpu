@@ -1,0 +1,974 @@
+#-----------------------------------------------------------
+# Vivado v2023.2 (64-bit)
+# SW Build 4029153 on Fri Oct 13 20:14:34 MDT 2023
+# IP Build 4028589 on Sat Oct 14 00:45:43 MDT 2023
+# SharedData Build 4025554 on Tue Oct 10 17:18:54 MDT 2023
+# Start of session at: Wed May  6 20:07:03 2026
+# Process ID: 13516
+# Current directory: C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1
+# Command line: vivado.exe -log soc_lite_top.vds -product Vivado -mode batch -messageDb vivado.pb -notrace -source soc_lite_top.tcl
+# Log file: C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/soc_lite_top.vds
+# Journal file: C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1\vivado.jou
+# Running On: 612-11, OS: Windows, CPU Frequency: 3192 MHz, CPU Physical cores: 6, Host memory: 17056 MB
+#-----------------------------------------------------------
+source soc_lite_top.tcl -notrace
+create_project: Time (s): cpu = 00:00:05 ; elapsed = 00:00:06 . Memory (MB): peak = 465.145 ; gain = 182.047
+Command: read_checkpoint -auto_incremental -incremental C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.srcs/utils_1/imports/synth_1/soc_lite_top.dcp
+INFO: [Vivado 12-5825] Read reference checkpoint from C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.srcs/utils_1/imports/synth_1/soc_lite_top.dcp for incremental synthesis
+INFO: [Vivado 12-7989] Please ensure there are no constraint changes
+Command: synth_design -top soc_lite_top -part xc7a200tfbg676-1
+Starting synth_design
+WARNING: [Vivado_Tcl 4-393] The 'Synthesis' target of the following IPs are stale, please generate the output products using the generate_target or synth_ip command before running synth_design.
+C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/ip_core/dcache_way0_Bank2_ram/dcache_way0_Bank2_ram.xci
+C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/ip_core/dcache_way1_Bank2_ram/dcache_way1_Bank2_ram.xci
+C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/ip_core/icache_way1_Bank1_ram/icache_way1_Bank1_ram.xci
+C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/ip_core/icache_way0_Bank3_ram/icache_way0_Bank3_ram.xci
+C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/ip_core/icache_way0_Bank1_ram/icache_way0_Bank1_ram.xci
+C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/ip_core/icache_way0_Bank2_ram/icache_way0_Bank2_ram.xci
+C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/ip_core/dcache_way0_Bank3_ram/dcache_way0_Bank3_ram.xci
+C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/ip_core/icache_way1_Bank0_ram/icache_way1_Bank0_ram.xci
+C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/ip_core/dcache_way1_Bank0_ram/dcache_way1_Bank0_ram.xci
+C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/ip_core/dcache_way0_Bank1_ram/dcache_way0_Bank1_ram.xci
+C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/ip_core/icache_way1_Bank2_ram/icache_way1_Bank2_ram.xci
+C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/ip_core/dcache_way0_Bank0_ram/dcache_way0_Bank0_ram.xci
+C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/ip_core/dcache_way1_Bank1_ram/dcache_way1_Bank1_ram.xci
+C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/ip_core/icache_way1_Bank3_ram/icache_way1_Bank3_ram.xci
+C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/ip_core/icache_way1_TAGV_ram/icache_way1_TAGV_ram.xci
+C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/ip_core/icache_way0_TAGV_ram/icache_way0_TAGV_ram.xci
+C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/ip_core/icache_way0_Bank0_ram/icache_way0_Bank0_ram.xci
+C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/ip_core/dcache_way1_Bank3_ram/dcache_way1_Bank3_ram.xci
+C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/ip_core/dcache_way1_TAGV_ram/dcache_way1_TAGV_ram.xci
+C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/ip_core/dcache_way0_TAGV_ram/dcache_way0_TAGV_ram.xci
+
+INFO: [IP_Flow 19-2162] IP 'dcache_way0_Bank2_ram' is locked:
+* IP file 'c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way0_Bank2_ram_1/dcache_way0_Bank2_ram.xml' for IP 'dcache_way0_Bank2_ram' contains stale content.
+INFO: [IP_Flow 19-2162] IP 'dcache_way1_Bank2_ram' is locked:
+* IP file 'c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way1_Bank2_ram_1/dcache_way1_Bank2_ram.xml' for IP 'dcache_way1_Bank2_ram' contains stale content.
+INFO: [IP_Flow 19-2162] IP 'icache_way1_Bank1_ram' is locked:
+* IP file 'c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way1_Bank1_ram_1/icache_way1_Bank1_ram.xml' for IP 'icache_way1_Bank1_ram' contains stale content.
+INFO: [IP_Flow 19-2162] IP 'icache_way0_Bank3_ram' is locked:
+* IP file 'c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way0_Bank3_ram_1/icache_way0_Bank3_ram.xml' for IP 'icache_way0_Bank3_ram' contains stale content.
+INFO: [IP_Flow 19-2162] IP 'icache_way0_Bank1_ram' is locked:
+* IP file 'c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way0_Bank1_ram_1/icache_way0_Bank1_ram.xml' for IP 'icache_way0_Bank1_ram' contains stale content.
+INFO: [IP_Flow 19-2162] IP 'icache_way0_Bank2_ram' is locked:
+* IP file 'c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way0_Bank2_ram_1/icache_way0_Bank2_ram.xml' for IP 'icache_way0_Bank2_ram' contains stale content.
+INFO: [IP_Flow 19-2162] IP 'dcache_way0_Bank3_ram' is locked:
+* IP file 'c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way0_Bank3_ram_1/dcache_way0_Bank3_ram.xml' for IP 'dcache_way0_Bank3_ram' contains stale content.
+INFO: [IP_Flow 19-2162] IP 'icache_way1_Bank0_ram' is locked:
+* IP file 'c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way1_Bank0_ram_1/icache_way1_Bank0_ram.xml' for IP 'icache_way1_Bank0_ram' contains stale content.
+INFO: [IP_Flow 19-2162] IP 'dcache_way1_Bank0_ram' is locked:
+* IP file 'c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way1_Bank0_ram_1/dcache_way1_Bank0_ram.xml' for IP 'dcache_way1_Bank0_ram' contains stale content.
+INFO: [IP_Flow 19-2162] IP 'dcache_way0_Bank1_ram' is locked:
+* IP file 'c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way0_Bank1_ram_1/dcache_way0_Bank1_ram.xml' for IP 'dcache_way0_Bank1_ram' contains stale content.
+INFO: [IP_Flow 19-2162] IP 'icache_way1_Bank2_ram' is locked:
+* IP file 'c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way1_Bank2_ram_1/icache_way1_Bank2_ram.xml' for IP 'icache_way1_Bank2_ram' contains stale content.
+INFO: [IP_Flow 19-2162] IP 'dcache_way0_Bank0_ram' is locked:
+* IP file 'c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way0_Bank0_ram_1/dcache_way0_Bank0_ram.xml' for IP 'dcache_way0_Bank0_ram' contains stale content.
+INFO: [IP_Flow 19-2162] IP 'dcache_way1_Bank1_ram' is locked:
+* IP file 'c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way1_Bank1_ram_1/dcache_way1_Bank1_ram.xml' for IP 'dcache_way1_Bank1_ram' contains stale content.
+INFO: [IP_Flow 19-2162] IP 'icache_way1_Bank3_ram' is locked:
+* IP file 'c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way1_Bank3_ram_1/icache_way1_Bank3_ram.xml' for IP 'icache_way1_Bank3_ram' contains stale content.
+INFO: [IP_Flow 19-2162] IP 'icache_way1_TAGV_ram' is locked:
+* IP file 'c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way1_TAGV_ram_1/icache_way1_TAGV_ram.xml' for IP 'icache_way1_TAGV_ram' contains stale content.
+INFO: [IP_Flow 19-2162] IP 'icache_way0_TAGV_ram' is locked:
+* IP file 'c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way0_TAGV_ram_1/icache_way0_TAGV_ram.xml' for IP 'icache_way0_TAGV_ram' contains stale content.
+INFO: [IP_Flow 19-2162] IP 'icache_way0_Bank0_ram' is locked:
+* IP file 'c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way0_Bank0_ram_1/icache_way0_Bank0_ram.xml' for IP 'icache_way0_Bank0_ram' contains stale content.
+INFO: [IP_Flow 19-2162] IP 'dcache_way1_Bank3_ram' is locked:
+* IP file 'c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way1_Bank3_ram_1/dcache_way1_Bank3_ram.xml' for IP 'dcache_way1_Bank3_ram' contains stale content.
+INFO: [IP_Flow 19-2162] IP 'dcache_way1_TAGV_ram' is locked:
+* IP file 'c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way1_TAGV_ram_1/dcache_way1_TAGV_ram.xml' for IP 'dcache_way1_TAGV_ram' contains stale content.
+INFO: [IP_Flow 19-2162] IP 'dcache_way0_TAGV_ram' is locked:
+* IP file 'c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way0_TAGV_ram_1/dcache_way0_TAGV_ram.xml' for IP 'dcache_way0_TAGV_ram' contains stale content.
+Attempting to get a license for feature 'Synthesis' and/or device 'xc7a200t'
+INFO: [Common 17-349] Got license for feature 'Synthesis' and/or device 'xc7a200t'
+INFO: [Device 21-403] Loading part xc7a200tfbg676-1
+INFO: [Designutils 20-5440] No compile time benefit to using incremental synthesis; A full resynthesis will be run
+INFO: [Designutils 20-4379] Flow is switching to default flow due to incremental criteria not met. If you would like to alter this behaviour and have the flow terminate instead, please set the following parameter config_implementation {autoIncr.Synth.RejectBehavior Terminate}
+INFO: [Synth 8-7079] Multithreading enabled for synth_design using a maximum of 2 processes.
+INFO: [Synth 8-7078] Launching helper process for spawning children vivado processes
+INFO: [Synth 8-7075] Helper process launched with PID 14216
+---------------------------------------------------------------------------------
+Starting RTL Elaboration : Time (s): cpu = 00:00:05 ; elapsed = 00:00:05 . Memory (MB): peak = 1383.402 ; gain = 440.723
+---------------------------------------------------------------------------------
+WARNING: [Synth 8-6901] identifier 'init_inval_we' is used before its declaration [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/icache.v:136]
+WARNING: [Synth 8-6901] identifier 'init_inval_we' is used before its declaration [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/icache.v:137]
+INFO: [Synth 8-11241] undeclared symbol 'mem_refetch_tag', assumed default net type 'wire' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:1156]
+INFO: [Synth 8-6157] synthesizing module 'soc_lite_top' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/rtl/soc_lite_top.v:67]
+INFO: [Synth 8-6157] synthesizing module 'clk_pll' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/clk_pll_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'clk_pll' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/clk_pll_stub.v:6]
+INFO: [Synth 8-6157] synthesizing module 'mycpu_top' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:17]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:211]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:211]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:211]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:476]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:559]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:560]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:1254]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:1254]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:1254]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:1255]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:1255]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:1255]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:1256]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:1256]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:1256]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:1257]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:1257]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:1258]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:1258]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:1361]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:1362]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:1561]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:1561]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:1563]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:1563]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:1910]
+INFO: [Synth 8-6157] synthesizing module 'npc' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/fetch/npc.v:12]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/fetch/npc.v:35]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/fetch/npc.v:36]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/fetch/npc.v:46]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/fetch/npc.v:47]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/fetch/npc.v:48]
+INFO: [Synth 8-6155] done synthesizing module 'npc' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/fetch/npc.v:12]
+INFO: [Synth 8-6157] synthesizing module 'pc' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/fetch/pc.v:17]
+INFO: [Synth 8-6155] done synthesizing module 'pc' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/fetch/pc.v:17]
+INFO: [Synth 8-6157] synthesizing module 'IFport' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:9]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:108]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:109]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:110]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:111]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:111]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:105]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:114]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:115]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator !== with logical equality operator != [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:117]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator !== with logical equality operator != [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:118]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:122]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:123]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator !== with logical equality operator != [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:124]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator !== with logical equality operator != [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:125]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator !== with logical equality operator != [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:126]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:127]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:127]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator !== with logical equality operator != [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:128]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator !== with logical equality operator != [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:128]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator !== with logical equality operator != [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:129]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:132]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:133]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:134]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:134]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator !== with logical equality operator != [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:135]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator !== with logical equality operator != [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:136]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:140]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:140]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:185]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:190]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:191]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:191]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:191]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:194]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:197]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:197]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator !== with logical equality operator != [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:197]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:202]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:203]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:205]
+INFO: [Synth 8-6155] done synthesizing module 'IFport' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IFport.v:9]
+INFO: [Synth 8-6157] synthesizing module 'IF_ID_reg' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IF_ID_reg.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'IF_ID_reg' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IF_ID_reg.v:6]
+INFO: [Synth 8-6157] synthesizing module 'IDport' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IDport.v:12]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IDport.v:148]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IDport.v:149]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IDport.v:150]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IDport.v:151]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IDport.v:141]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator !== with logical equality operator != [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IDport.v:141]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IDport.v:147]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator !== with logical equality operator != [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IDport.v:152]
+INFO: [Synth 8-6157] synthesizing module 'inst_dec' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/inst_dec.v:6]
+INFO: [Synth 8-6157] synthesizing module 'decoder_6_64' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/decode_tools.v:34]
+INFO: [Synth 8-6155] done synthesizing module 'decoder_6_64' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/decode_tools.v:34]
+INFO: [Synth 8-6157] synthesizing module 'decoder_4_16' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/decode_tools.v:14]
+INFO: [Synth 8-6155] done synthesizing module 'decoder_4_16' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/decode_tools.v:14]
+INFO: [Synth 8-6157] synthesizing module 'decoder_2_4' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/decode_tools.v:4]
+INFO: [Synth 8-6155] done synthesizing module 'decoder_2_4' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/decode_tools.v:4]
+INFO: [Synth 8-6157] synthesizing module 'decoder_5_32' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/decode_tools.v:24]
+INFO: [Synth 8-6155] done synthesizing module 'decoder_5_32' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/decode_tools.v:24]
+INFO: [Synth 8-6155] done synthesizing module 'inst_dec' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/inst_dec.v:6]
+INFO: [Synth 8-6157] synthesizing module 'op_dec' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/op_dec.v:6]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/op_dec.v:178]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/op_dec.v:179]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/op_dec.v:180]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/op_dec.v:181]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/op_dec.v:182]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/op_dec.v:183]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/op_dec.v:186]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/op_dec.v:186]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/op_dec.v:186]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/op_dec.v:187]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/op_dec.v:187]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/op_dec.v:187]
+INFO: [Synth 8-6155] done synthesizing module 'op_dec' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/op_dec.v:6]
+INFO: [Synth 8-6157] synthesizing module 'imm_generator' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/imm_generator.v:5]
+INFO: [Synth 8-6155] done synthesizing module 'imm_generator' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/imm_generator.v:5]
+INFO: [Synth 8-6157] synthesizing module 'ALU_srcGenerator' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/ALU_srcGenerator.v:5]
+INFO: [Synth 8-6155] done synthesizing module 'ALU_srcGenerator' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/ALU_srcGenerator.v:5]
+INFO: [Synth 8-6157] synthesizing module 'get_reg_read_addr' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/get_reg_read_addr.v:8]
+INFO: [Synth 8-6155] done synthesizing module 'get_reg_read_addr' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/decode/get_reg_read_addr.v:8]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator !== with logical equality operator != [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IDport.v:524]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IDport.v:524]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator !== with logical equality operator != [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IDport.v:524]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator !== with logical equality operator != [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IDport.v:525]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator !== with logical equality operator != [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IDport.v:525]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator !== with logical equality operator != [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IDport.v:525]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator !== with logical equality operator != [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IDport.v:526]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator !== with logical equality operator != [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IDport.v:526]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator !== with logical equality operator != [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IDport.v:526]
+INFO: [Common 17-14] Message 'Synth 8-589' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+INFO: [Synth 8-6155] done synthesizing module 'IDport' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/IDport.v:12]
+INFO: [Synth 8-6157] synthesizing module 'ID_EXE_reg' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/ID_EXE_reg.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'ID_EXE_reg' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/frontend/ID_EXE_reg.v:6]
+INFO: [Synth 8-6157] synthesizing module 'EXEport' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/backend/EXEport.v:8]
+INFO: [Synth 8-6157] synthesizing module 'clk_count64bit' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/backend/execute/clk_count64bit.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'clk_count64bit' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/backend/execute/clk_count64bit.v:6]
+INFO: [Synth 8-6157] synthesizing module 'alu' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/backend/execute/alu.v:6]
+INFO: [Synth 8-6157] synthesizing module 'mult_gen_0' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/mult_gen_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'mult_gen_0' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/mult_gen_0_stub.v:6]
+INFO: [Synth 8-6157] synthesizing module 'div_gen_0' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/div_gen_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'div_gen_0' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/div_gen_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'alu' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/backend/execute/alu.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'EXEport' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/backend/EXEport.v:8]
+WARNING: [Synth 8-7071] port 'cache_op_valid_in' of module 'EXEport' is unconnected for instance 'u_EXEport' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:800]
+WARNING: [Synth 8-7071] port 'cache_cacop_op_in' of module 'EXEport' is unconnected for instance 'u_EXEport' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:800]
+WARNING: [Synth 8-7071] port 'cache_cacop_addr_in' of module 'EXEport' is unconnected for instance 'u_EXEport' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:800]
+WARNING: [Synth 8-7071] port 'cache_cacop_mat_in' of module 'EXEport' is unconnected for instance 'u_EXEport' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:800]
+WARNING: [Synth 8-7071] port 'cache_cacop_cd_in' of module 'EXEport' is unconnected for instance 'u_EXEport' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:800]
+WARNING: [Synth 8-7071] port 'tlb_ex_valid_in' of module 'EXEport' is unconnected for instance 'u_EXEport' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:800]
+WARNING: [Synth 8-7071] port 'tlb_vaddr_in' of module 'EXEport' is unconnected for instance 'u_EXEport' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:800]
+WARNING: [Synth 8-7071] port 'tlb_ex_valid_out' of module 'EXEport' is unconnected for instance 'u_EXEport' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:800]
+WARNING: [Synth 8-7071] port 'tlb_vaddr_out' of module 'EXEport' is unconnected for instance 'u_EXEport' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:800]
+WARNING: [Synth 8-7071] port 'cache_op_valid_out' of module 'EXEport' is unconnected for instance 'u_EXEport' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:800]
+WARNING: [Synth 8-7071] port 'cache_cacop_op_out' of module 'EXEport' is unconnected for instance 'u_EXEport' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:800]
+WARNING: [Synth 8-7071] port 'cache_cacop_addr_out' of module 'EXEport' is unconnected for instance 'u_EXEport' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:800]
+WARNING: [Synth 8-7071] port 'cache_cacop_mat_out' of module 'EXEport' is unconnected for instance 'u_EXEport' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:800]
+WARNING: [Synth 8-7071] port 'cache_cacop_cd_out' of module 'EXEport' is unconnected for instance 'u_EXEport' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:800]
+WARNING: [Synth 8-7023] instance 'u_EXEport' of module 'EXEport' has 81 connections declared, but only 67 given [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:800]
+INFO: [Synth 8-6157] synthesizing module 'EXE_MEM_reg' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/backend/EXE_MEM_reg.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'EXE_MEM_reg' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/backend/EXE_MEM_reg.v:6]
+INFO: [Synth 8-6157] synthesizing module 'mem_req_tracker' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/mem_req_tracker.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'mem_req_tracker' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/mem_req_tracker.v:6]
+INFO: [Synth 8-6157] synthesizing module 'MEMport' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/backend/MEMport.v:10]
+INFO: [Synth 8-6155] done synthesizing module 'MEMport' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/backend/MEMport.v:10]
+INFO: [Synth 8-6157] synthesizing module 'MEM_WB_reg' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/backend/MEM_WB_reg.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'MEM_WB_reg' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/backend/MEM_WB_reg.v:6]
+INFO: [Synth 8-6157] synthesizing module 'WBport' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/backend/WBport.v:9]
+INFO: [Synth 8-6155] done synthesizing module 'WBport' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/backend/WBport.v:9]
+INFO: [Synth 8-6157] synthesizing module 'regfile' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/regfile.v:5]
+INFO: [Synth 8-6155] done synthesizing module 'regfile' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/regfile.v:5]
+INFO: [Synth 8-6157] synthesizing module 'conflict_detector' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/hazard/conflict_detector.v:7]
+INFO: [Synth 8-6155] done synthesizing module 'conflict_detector' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/hazard/conflict_detector.v:7]
+INFO: [Synth 8-6157] synthesizing module 'conflict_handle' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/hazard/conflict_handle.v:4]
+INFO: [Synth 8-6155] done synthesizing module 'conflict_handle' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/hazard/conflict_handle.v:4]
+INFO: [Synth 8-6157] synthesizing module 'forward_deliver' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/control/forward_deliver.v:5]
+INFO: [Synth 8-6155] done synthesizing module 'forward_deliver' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/control/forward_deliver.v:5]
+INFO: [Synth 8-6157] synthesizing module 'pipeline_controller' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/control/pipeline_controller.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'pipeline_controller' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/control/pipeline_controller.v:6]
+INFO: [Synth 8-6157] synthesizing module 'tlb_manager' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/tlb_manager.v:8]
+	Parameter TLBNUM bound to: 32 - type: integer 
+INFO: [Synth 8-6157] synthesizing module 'tlb' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/tlb.v:1]
+	Parameter TLBNUM bound to: 32 - type: integer 
+INFO: [Synth 8-6155] done synthesizing module 'tlb' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/tlb.v:1]
+INFO: [Synth 8-6155] done synthesizing module 'tlb_manager' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/tlb_manager.v:8]
+INFO: [Synth 8-6157] synthesizing module 'mmu' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/mmu.v:1]
+INFO: [Synth 8-6155] done synthesizing module 'mmu' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/mmu.v:1]
+INFO: [Synth 8-6157] synthesizing module 'icache' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/icache.v:3]
+INFO: [Synth 8-6157] synthesizing module 'icache_way0_TAGV_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/icache_way0_TAGV_ram_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'icache_way0_TAGV_ram' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/icache_way0_TAGV_ram_stub.v:6]
+WARNING: [Synth 8-689] width (18) of port connection 'addra' does not match port width (8) of module 'icache_way0_TAGV_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/icache.v:167]
+INFO: [Synth 8-6157] synthesizing module 'icache_way1_TAGV_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/icache_way1_TAGV_ram_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'icache_way1_TAGV_ram' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/icache_way1_TAGV_ram_stub.v:6]
+WARNING: [Synth 8-689] width (18) of port connection 'addra' does not match port width (8) of module 'icache_way1_TAGV_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/icache.v:176]
+INFO: [Synth 8-6157] synthesizing module 'icache_way0_Bank0_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/icache_way0_Bank0_ram_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'icache_way0_Bank0_ram' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/icache_way0_Bank0_ram_stub.v:6]
+WARNING: [Synth 8-689] width (18) of port connection 'addra' does not match port width (8) of module 'icache_way0_Bank0_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/icache.v:184]
+INFO: [Synth 8-6157] synthesizing module 'icache_way0_Bank1_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/icache_way0_Bank1_ram_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'icache_way0_Bank1_ram' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/icache_way0_Bank1_ram_stub.v:6]
+WARNING: [Synth 8-689] width (18) of port connection 'addra' does not match port width (8) of module 'icache_way0_Bank1_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/icache.v:185]
+INFO: [Synth 8-6157] synthesizing module 'icache_way0_Bank2_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/icache_way0_Bank2_ram_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'icache_way0_Bank2_ram' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/icache_way0_Bank2_ram_stub.v:6]
+WARNING: [Synth 8-689] width (18) of port connection 'addra' does not match port width (8) of module 'icache_way0_Bank2_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/icache.v:186]
+INFO: [Synth 8-6157] synthesizing module 'icache_way0_Bank3_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/icache_way0_Bank3_ram_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'icache_way0_Bank3_ram' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/icache_way0_Bank3_ram_stub.v:6]
+WARNING: [Synth 8-689] width (18) of port connection 'addra' does not match port width (8) of module 'icache_way0_Bank3_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/icache.v:187]
+INFO: [Synth 8-6157] synthesizing module 'icache_way1_Bank0_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/icache_way1_Bank0_ram_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'icache_way1_Bank0_ram' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/icache_way1_Bank0_ram_stub.v:6]
+WARNING: [Synth 8-689] width (18) of port connection 'addra' does not match port width (8) of module 'icache_way1_Bank0_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/icache.v:188]
+INFO: [Synth 8-6157] synthesizing module 'icache_way1_Bank1_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/icache_way1_Bank1_ram_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'icache_way1_Bank1_ram' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/icache_way1_Bank1_ram_stub.v:6]
+WARNING: [Synth 8-689] width (18) of port connection 'addra' does not match port width (8) of module 'icache_way1_Bank1_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/icache.v:189]
+INFO: [Synth 8-6157] synthesizing module 'icache_way1_Bank2_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/icache_way1_Bank2_ram_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'icache_way1_Bank2_ram' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/icache_way1_Bank2_ram_stub.v:6]
+WARNING: [Synth 8-689] width (18) of port connection 'addra' does not match port width (8) of module 'icache_way1_Bank2_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/icache.v:190]
+INFO: [Synth 8-6157] synthesizing module 'icache_way1_Bank3_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/icache_way1_Bank3_ram_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'icache_way1_Bank3_ram' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/icache_way1_Bank3_ram_stub.v:6]
+WARNING: [Synth 8-689] width (18) of port connection 'addra' does not match port width (8) of module 'icache_way1_Bank3_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/icache.v:191]
+INFO: [Synth 8-6155] done synthesizing module 'icache' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/icache.v:3]
+INFO: [Synth 8-6157] synthesizing module 'dcache' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/dcache.v:3]
+INFO: [Synth 8-6157] synthesizing module 'dcache_way0_TAGV_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/dcache_way0_TAGV_ram_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'dcache_way0_TAGV_ram' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/dcache_way0_TAGV_ram_stub.v:6]
+WARNING: [Synth 8-689] width (18) of port connection 'addra' does not match port width (8) of module 'dcache_way0_TAGV_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/dcache.v:263]
+INFO: [Synth 8-6157] synthesizing module 'dcache_way1_TAGV_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/dcache_way1_TAGV_ram_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'dcache_way1_TAGV_ram' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/dcache_way1_TAGV_ram_stub.v:6]
+WARNING: [Synth 8-689] width (18) of port connection 'addra' does not match port width (8) of module 'dcache_way1_TAGV_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/dcache.v:272]
+INFO: [Synth 8-6157] synthesizing module 'dcache_way0_Bank0_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/dcache_way0_Bank0_ram_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'dcache_way0_Bank0_ram' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/dcache_way0_Bank0_ram_stub.v:6]
+WARNING: [Synth 8-689] width (18) of port connection 'addra' does not match port width (8) of module 'dcache_way0_Bank0_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/dcache.v:280]
+INFO: [Synth 8-6157] synthesizing module 'dcache_way0_Bank1_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/dcache_way0_Bank1_ram_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'dcache_way0_Bank1_ram' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/dcache_way0_Bank1_ram_stub.v:6]
+WARNING: [Synth 8-689] width (18) of port connection 'addra' does not match port width (8) of module 'dcache_way0_Bank1_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/dcache.v:281]
+INFO: [Synth 8-6157] synthesizing module 'dcache_way0_Bank2_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/dcache_way0_Bank2_ram_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'dcache_way0_Bank2_ram' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/dcache_way0_Bank2_ram_stub.v:6]
+WARNING: [Synth 8-689] width (18) of port connection 'addra' does not match port width (8) of module 'dcache_way0_Bank2_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/dcache.v:282]
+INFO: [Synth 8-6157] synthesizing module 'dcache_way0_Bank3_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/dcache_way0_Bank3_ram_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'dcache_way0_Bank3_ram' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/dcache_way0_Bank3_ram_stub.v:6]
+WARNING: [Synth 8-689] width (18) of port connection 'addra' does not match port width (8) of module 'dcache_way0_Bank3_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/dcache.v:283]
+INFO: [Synth 8-6157] synthesizing module 'dcache_way1_Bank0_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/dcache_way1_Bank0_ram_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'dcache_way1_Bank0_ram' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/dcache_way1_Bank0_ram_stub.v:6]
+WARNING: [Synth 8-689] width (18) of port connection 'addra' does not match port width (8) of module 'dcache_way1_Bank0_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/dcache.v:284]
+INFO: [Synth 8-6157] synthesizing module 'dcache_way1_Bank1_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/dcache_way1_Bank1_ram_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'dcache_way1_Bank1_ram' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/dcache_way1_Bank1_ram_stub.v:6]
+WARNING: [Synth 8-689] width (18) of port connection 'addra' does not match port width (8) of module 'dcache_way1_Bank1_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/dcache.v:285]
+INFO: [Synth 8-6157] synthesizing module 'dcache_way1_Bank2_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/dcache_way1_Bank2_ram_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'dcache_way1_Bank2_ram' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/dcache_way1_Bank2_ram_stub.v:6]
+WARNING: [Synth 8-689] width (18) of port connection 'addra' does not match port width (8) of module 'dcache_way1_Bank2_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/dcache.v:286]
+INFO: [Synth 8-6157] synthesizing module 'dcache_way1_Bank3_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/dcache_way1_Bank3_ram_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'dcache_way1_Bank3_ram' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/dcache_way1_Bank3_ram_stub.v:6]
+WARNING: [Synth 8-689] width (18) of port connection 'addra' does not match port width (8) of module 'dcache_way1_Bank3_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/dcache.v:287]
+INFO: [Synth 8-226] default block is never used [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/dcache.v:334]
+INFO: [Synth 8-6155] done synthesizing module 'dcache' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/dcache.v:3]
+INFO: [Synth 8-6157] synthesizing module 'axi_line_bridge' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/axi_line_bridge.v:6]
+INFO: [Synth 8-226] default block is never used [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/axi_line_bridge.v:228]
+INFO: [Synth 8-6155] done synthesizing module 'axi_line_bridge' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/axi_line_bridge.v:6]
+INFO: [Synth 8-6157] synthesizing module 'csr_exception_commit_handler' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/exception/csr_exception_commit_handler.v:11]
+INFO: [Synth 8-6157] synthesizing module 'exception_Decoder' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/exception/exception_Decoder.v:9]
+INFO: [Synth 8-6155] done synthesizing module 'exception_Decoder' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/exception/exception_Decoder.v:9]
+INFO: [Synth 8-6155] done synthesizing module 'csr_exception_commit_handler' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/exception/csr_exception_commit_handler.v:11]
+INFO: [Synth 8-6157] synthesizing module 'cache_control_unit' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/cache_control_unit.v:10]
+INFO: [Synth 8-6155] done synthesizing module 'cache_control_unit' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/cache_control_unit.v:10]
+INFO: [Synth 8-6155] done synthesizing module 'mycpu_top' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:17]
+INFO: [Synth 8-6157] synthesizing module 'axi_wrap' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/rtl/axi_wrap/axi_wrap.v:34]
+INFO: [Synth 8-6155] done synthesizing module 'axi_wrap' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/rtl/axi_wrap/axi_wrap.v:34]
+INFO: [Synth 8-6157] synthesizing module 'axi_crossbar_1x2' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/axi_crossbar_1x2_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'axi_crossbar_1x2' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/axi_crossbar_1x2_stub.v:6]
+INFO: [Synth 8-6157] synthesizing module 'axi_wrap_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/rtl/ram_wrap/axi_wrap_ram.v:36]
+INFO: [Synth 8-6157] synthesizing module 'axi_ram' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/axi_ram_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'axi_ram' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/.Xil/Vivado-13516-612-11/realtime/axi_ram_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'axi_wrap_ram' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/rtl/ram_wrap/axi_wrap_ram.v:36]
+INFO: [Synth 8-6157] synthesizing module 'confreg' [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/rtl/CONFREG/confreg.v:74]
+	Parameter SIMULATION bound to: 1'b0 
+INFO: [Synth 8-6155] done synthesizing module 'confreg' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/rtl/CONFREG/confreg.v:74]
+INFO: [Synth 8-6155] done synthesizing module 'soc_lite_top' (0#1) [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/rtl/soc_lite_top.v:67]
+WARNING: [Synth 8-6014] Unused sequential element req_is_cacop_r_reg was removed.  [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/dcache.v:308]
+WARNING: [Synth 8-6014] Unused sequential element rd_ret_last_r_reg was removed.  [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/common/mmu/axi_line_bridge.v:169]
+WARNING: [Synth 8-6014] Unused sequential element valid_reg was removed.  [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:84]
+WARNING: [Synth 8-3848] Net adef_valid_2IF in module/entity mycpu_top does not have driver. [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/myCPU/top/mycpu_top.v:106]
+WARNING: [Synth 8-6014] Unused sequential element pf_r2r_reg was removed.  [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/rtl/ram_wrap/axi_wrap_ram.v:106]
+WARNING: [Synth 8-6014] Unused sequential element pf_b2b_reg was removed.  [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/rtl/ram_wrap/axi_wrap_ram.v:107]
+WARNING: [Synth 8-6014] Unused sequential element buf_len_reg was removed.  [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/rtl/CONFREG/confreg.v:193]
+WARNING: [Synth 8-6014] Unused sequential element buf_size_reg was removed.  [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/rtl/CONFREG/confreg.v:194]
+WARNING: [Synth 8-7129] Port arlen[7] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arlen[6] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arlen[5] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arlen[4] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arlen[3] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arlen[2] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arlen[1] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arlen[0] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arsize[2] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arsize[1] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arsize[0] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arburst[1] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arburst[0] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arlock[1] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arlock[0] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arcache[3] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arcache[2] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arcache[1] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arcache[0] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arprot[2] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arprot[1] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arprot[0] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port awlen[7] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port awlen[6] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port awlen[5] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port awlen[4] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port awlen[3] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port awlen[2] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port awlen[1] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port awlen[0] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port awsize[2] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port awsize[1] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port awsize[0] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port awburst[1] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port awburst[0] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port awlock[1] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port awlock[0] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port awcache[3] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port awcache[2] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port awcache[1] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port awcache[0] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port awprot[2] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port awprot[1] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port awprot[0] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port wid[3] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port wid[2] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port wid[1] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port wid[0] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port wstrb[3] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port wstrb[2] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port wstrb[1] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port wstrb[0] in module confreg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port axi_arlock[1] in module axi_wrap_ram is either unconnected or has no load
+WARNING: [Synth 8-7129] Port axi_arlock[0] in module axi_wrap_ram is either unconnected or has no load
+WARNING: [Synth 8-7129] Port axi_arcache[3] in module axi_wrap_ram is either unconnected or has no load
+WARNING: [Synth 8-7129] Port axi_arcache[2] in module axi_wrap_ram is either unconnected or has no load
+WARNING: [Synth 8-7129] Port axi_arcache[1] in module axi_wrap_ram is either unconnected or has no load
+WARNING: [Synth 8-7129] Port axi_arcache[0] in module axi_wrap_ram is either unconnected or has no load
+WARNING: [Synth 8-7129] Port axi_arprot[2] in module axi_wrap_ram is either unconnected or has no load
+WARNING: [Synth 8-7129] Port axi_arprot[1] in module axi_wrap_ram is either unconnected or has no load
+WARNING: [Synth 8-7129] Port axi_arprot[0] in module axi_wrap_ram is either unconnected or has no load
+WARNING: [Synth 8-7129] Port axi_awlock[1] in module axi_wrap_ram is either unconnected or has no load
+WARNING: [Synth 8-7129] Port axi_awlock[0] in module axi_wrap_ram is either unconnected or has no load
+WARNING: [Synth 8-7129] Port axi_awcache[3] in module axi_wrap_ram is either unconnected or has no load
+WARNING: [Synth 8-7129] Port axi_awcache[2] in module axi_wrap_ram is either unconnected or has no load
+WARNING: [Synth 8-7129] Port axi_awcache[1] in module axi_wrap_ram is either unconnected or has no load
+WARNING: [Synth 8-7129] Port axi_awcache[0] in module axi_wrap_ram is either unconnected or has no load
+WARNING: [Synth 8-7129] Port axi_awprot[2] in module axi_wrap_ram is either unconnected or has no load
+WARNING: [Synth 8-7129] Port axi_awprot[1] in module axi_wrap_ram is either unconnected or has no load
+WARNING: [Synth 8-7129] Port axi_awprot[0] in module axi_wrap_ram is either unconnected or has no load
+WARNING: [Synth 8-7129] Port axi_wid[3] in module axi_wrap_ram is either unconnected or has no load
+WARNING: [Synth 8-7129] Port axi_wid[2] in module axi_wrap_ram is either unconnected or has no load
+WARNING: [Synth 8-7129] Port axi_wid[1] in module axi_wrap_ram is either unconnected or has no load
+WARNING: [Synth 8-7129] Port axi_wid[0] in module axi_wrap_ram is either unconnected or has no load
+WARNING: [Synth 8-7129] Port clk in module cache_control_unit is either unconnected or has no load
+WARNING: [Synth 8-7129] Port resetn in module cache_control_unit is either unconnected or has no load
+WARNING: [Synth 8-7129] Port wb_inst_ibar in module cache_control_unit is either unconnected or has no load
+WARNING: [Synth 8-7129] Port wb_cacop_cd[4] in module cache_control_unit is either unconnected or has no load
+WARNING: [Synth 8-7129] Port wb_cacop_cd[3] in module cache_control_unit is either unconnected or has no load
+WARNING: [Synth 8-7129] Port tlbrd_tlbidx[30] in module csr_exception_commit_handler is either unconnected or has no load
+WARNING: [Synth 8-7129] Port tlbrd_tlbidx[23] in module csr_exception_commit_handler is either unconnected or has no load
+WARNING: [Synth 8-7129] Port tlbrd_tlbidx[22] in module csr_exception_commit_handler is either unconnected or has no load
+WARNING: [Synth 8-7129] Port tlbrd_tlbidx[21] in module csr_exception_commit_handler is either unconnected or has no load
+WARNING: [Synth 8-7129] Port tlbrd_tlbidx[20] in module csr_exception_commit_handler is either unconnected or has no load
+WARNING: [Synth 8-7129] Port tlbrd_tlbidx[19] in module csr_exception_commit_handler is either unconnected or has no load
+WARNING: [Synth 8-7129] Port tlbrd_tlbidx[18] in module csr_exception_commit_handler is either unconnected or has no load
+WARNING: [Synth 8-7129] Port tlbrd_tlbidx[17] in module csr_exception_commit_handler is either unconnected or has no load
+WARNING: [Synth 8-7129] Port tlbrd_tlbidx[16] in module csr_exception_commit_handler is either unconnected or has no load
+WARNING: [Synth 8-7129] Port tlbrd_tlbidx[15] in module csr_exception_commit_handler is either unconnected or has no load
+WARNING: [Synth 8-7129] Port tlbrd_tlbidx[14] in module csr_exception_commit_handler is either unconnected or has no load
+WARNING: [Synth 8-7129] Port tlbrd_tlbidx[13] in module csr_exception_commit_handler is either unconnected or has no load
+WARNING: [Synth 8-7129] Port tlbrd_tlbidx[12] in module csr_exception_commit_handler is either unconnected or has no load
+WARNING: [Synth 8-7129] Port tlbrd_tlbidx[11] in module csr_exception_commit_handler is either unconnected or has no load
+WARNING: [Synth 8-7129] Port tlbrd_tlbidx[10] in module csr_exception_commit_handler is either unconnected or has no load
+WARNING: [Synth 8-7129] Port tlbrd_tlbidx[9] in module csr_exception_commit_handler is either unconnected or has no load
+WARNING: [Synth 8-7129] Port tlbrd_tlbidx[8] in module csr_exception_commit_handler is either unconnected or has no load
+WARNING: [Synth 8-7129] Port tlbrd_tlbidx[7] in module csr_exception_commit_handler is either unconnected or has no load
+WARNING: [Synth 8-7129] Port tlbrd_tlbidx[6] in module csr_exception_commit_handler is either unconnected or has no load
+WARNING: [Synth 8-7129] Port tlbrd_tlbidx[5] in module csr_exception_commit_handler is either unconnected or has no load
+WARNING: [Synth 8-7129] Port tlbrd_tlbidx[4] in module csr_exception_commit_handler is either unconnected or has no load
+INFO: [Common 17-14] Message 'Synth 8-7129' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+---------------------------------------------------------------------------------
+Finished RTL Elaboration : Time (s): cpu = 00:00:16 ; elapsed = 00:00:17 . Memory (MB): peak = 1832.727 ; gain = 890.047
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Handling Custom Attributes
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Handling Custom Attributes : Time (s): cpu = 00:00:18 ; elapsed = 00:00:18 . Memory (MB): peak = 1832.727 ; gain = 890.047
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 1 : Time (s): cpu = 00:00:18 ; elapsed = 00:00:18 . Memory (MB): peak = 1832.727 ; gain = 890.047
+---------------------------------------------------------------------------------
+Netlist sorting complete. Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.374 . Memory (MB): peak = 1832.727 ; gain = 0.000
+INFO: [Project 1-570] Preparing netlist for logic optimization
+
+Processing XDC Constraints
+Initializing timing engine
+Parsing XDC File [c:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/rtl/xilinx_ip/clk_pll/clk_pll/clk_pll_in_context.xdc] for cell 'pll.clk_pll'
+Finished Parsing XDC File [c:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/rtl/xilinx_ip/clk_pll/clk_pll/clk_pll_in_context.xdc] for cell 'pll.clk_pll'
+Parsing XDC File [c:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/rtl/xilinx_ip/axi_ram/axi_ram/axi_ram_in_context.xdc] for cell 'u_axi_ram/ram'
+Finished Parsing XDC File [c:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/rtl/xilinx_ip/axi_ram/axi_ram/axi_ram_in_context.xdc] for cell 'u_axi_ram/ram'
+Parsing XDC File [c:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/rtl/xilinx_ip/axi_crossbar_1x2/axi_crossbar_1x2/axi_crossbar_1x2_in_context.xdc] for cell 'u_axi_crossbar_1x2'
+Finished Parsing XDC File [c:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/rtl/xilinx_ip/axi_crossbar_1x2/axi_crossbar_1x2/axi_crossbar_1x2_in_context.xdc] for cell 'u_axi_crossbar_1x2'
+Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way0_Bank2_ram_1/dcache_way0_Bank2_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_dcache/u_dcache_way0_Bank2_ram'
+Finished Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way0_Bank2_ram_1/dcache_way0_Bank2_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_dcache/u_dcache_way0_Bank2_ram'
+Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way1_Bank2_ram_1/dcache_way1_Bank2_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_dcache/u_dcache_way1_Bank2_ram'
+Finished Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way1_Bank2_ram_1/dcache_way1_Bank2_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_dcache/u_dcache_way1_Bank2_ram'
+Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/div_gen_0_1/div_gen_0/div_gen_0_in_context.xdc] for cell 'u_cpu/u_EXEport/u_alu/u_div_gen_0'
+Finished Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/div_gen_0_1/div_gen_0/div_gen_0_in_context.xdc] for cell 'u_cpu/u_EXEport/u_alu/u_div_gen_0'
+Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/mult_gen_0_1/mult_gen_0/mult_gen_0_in_context.xdc] for cell 'u_cpu/u_EXEport/u_alu/u_mult_gen_0'
+Finished Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/mult_gen_0_1/mult_gen_0/mult_gen_0_in_context.xdc] for cell 'u_cpu/u_EXEport/u_alu/u_mult_gen_0'
+Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way1_Bank1_ram_1/icache_way1_Bank1_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_icache/u_icache_way1_Bank1_ram'
+Finished Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way1_Bank1_ram_1/icache_way1_Bank1_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_icache/u_icache_way1_Bank1_ram'
+Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way0_Bank3_ram_1/icache_way0_Bank3_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_icache/u_icache_way0_Bank3_ram'
+Finished Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way0_Bank3_ram_1/icache_way0_Bank3_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_icache/u_icache_way0_Bank3_ram'
+Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way0_Bank1_ram_1/icache_way0_Bank1_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_icache/u_icache_way0_Bank1_ram'
+Finished Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way0_Bank1_ram_1/icache_way0_Bank1_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_icache/u_icache_way0_Bank1_ram'
+Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way0_Bank2_ram_1/icache_way0_Bank2_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_icache/u_icache_way0_Bank2_ram'
+Finished Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way0_Bank2_ram_1/icache_way0_Bank2_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_icache/u_icache_way0_Bank2_ram'
+Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way0_Bank3_ram_1/dcache_way0_Bank3_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_dcache/u_dcache_way0_Bank3_ram'
+Finished Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way0_Bank3_ram_1/dcache_way0_Bank3_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_dcache/u_dcache_way0_Bank3_ram'
+Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way1_Bank0_ram_1/icache_way1_Bank0_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_icache/u_icache_way1_Bank0_ram'
+Finished Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way1_Bank0_ram_1/icache_way1_Bank0_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_icache/u_icache_way1_Bank0_ram'
+Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way1_Bank0_ram_1/dcache_way1_Bank0_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_dcache/u_dcache_way1_Bank0_ram'
+Finished Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way1_Bank0_ram_1/dcache_way1_Bank0_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_dcache/u_dcache_way1_Bank0_ram'
+Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way0_Bank1_ram_1/dcache_way0_Bank1_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_dcache/u_dcache_way0_Bank1_ram'
+Finished Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way0_Bank1_ram_1/dcache_way0_Bank1_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_dcache/u_dcache_way0_Bank1_ram'
+Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way1_Bank2_ram_1/icache_way1_Bank2_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_icache/u_icache_way1_Bank2_ram'
+Finished Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way1_Bank2_ram_1/icache_way1_Bank2_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_icache/u_icache_way1_Bank2_ram'
+Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way0_Bank0_ram_1/dcache_way0_Bank0_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_dcache/u_dcache_way0_Bank0_ram'
+Finished Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way0_Bank0_ram_1/dcache_way0_Bank0_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_dcache/u_dcache_way0_Bank0_ram'
+Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way1_Bank1_ram_1/dcache_way1_Bank1_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_dcache/u_dcache_way1_Bank1_ram'
+Finished Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way1_Bank1_ram_1/dcache_way1_Bank1_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_dcache/u_dcache_way1_Bank1_ram'
+Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way1_Bank3_ram_1/icache_way1_Bank3_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_icache/u_icache_way1_Bank3_ram'
+Finished Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way1_Bank3_ram_1/icache_way1_Bank3_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_icache/u_icache_way1_Bank3_ram'
+Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way1_TAGV_ram_1/icache_way1_TAGV_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_icache/u_icache_way1_TAGV_ram'
+Finished Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way1_TAGV_ram_1/icache_way1_TAGV_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_icache/u_icache_way1_TAGV_ram'
+Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way0_TAGV_ram_1/icache_way0_TAGV_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_icache/u_icache_way0_TAGV_ram'
+Finished Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way0_TAGV_ram_1/icache_way0_TAGV_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_icache/u_icache_way0_TAGV_ram'
+Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way0_Bank0_ram_1/icache_way0_Bank0_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_icache/u_icache_way0_Bank0_ram'
+Finished Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/icache_way0_Bank0_ram_1/icache_way0_Bank0_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_icache/u_icache_way0_Bank0_ram'
+Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way1_Bank3_ram_1/dcache_way1_Bank3_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_dcache/u_dcache_way1_Bank3_ram'
+Finished Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way1_Bank3_ram_1/dcache_way1_Bank3_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_dcache/u_dcache_way1_Bank3_ram'
+Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way1_TAGV_ram_1/dcache_way1_TAGV_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_dcache/u_dcache_way1_TAGV_ram'
+Finished Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way1_TAGV_ram_1/dcache_way1_TAGV_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_dcache/u_dcache_way1_TAGV_ram'
+Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way0_TAGV_ram_1/dcache_way0_TAGV_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_dcache/u_dcache_way0_TAGV_ram'
+Finished Parsing XDC File [c:/Users/Administrator/Desktop/output/loongson.gen/sources_1/ip/dcache_way0_TAGV_ram_1/dcache_way0_TAGV_ram/dcache_way0_Bank2_ram_in_context.xdc] for cell 'u_cpu/u_dcache/u_dcache_way0_TAGV_ram'
+Parsing XDC File [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/constraints/soc_lite_top.xdc]
+WARNING: [Constraints 18-619] A clock with name 'clk' already exists, overwriting the previous clock with the same name. [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/constraints/soc_lite_top.xdc:5]
+WARNING: [Vivado 12-508] No pins matched 'pll.clk_pll/inst/plle2_adv_inst/CLKOUT1'. [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/constraints/soc_lite_top.xdc:126]
+WARNING: [Vivado 12-508] No pins matched 'pll.clk_pll/inst/plle2_adv_inst/CLKOUT0'. [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/constraints/soc_lite_top.xdc:127]
+Finished Parsing XDC File [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/constraints/soc_lite_top.xdc]
+WARNING: [Project 1-498] One or more constraints failed evaluation while reading constraint file [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/constraints/soc_lite_top.xdc] and the design contains unresolved black boxes. These constraints will be read post-synthesis (as long as their source constraint file is marked as used_in_implementation) and should be applied correctly then. You should review the constraints listed in the file [.Xil/soc_lite_top_propImpl.xdc] and check the run log file to verify that these constraints were correctly applied.
+INFO: [Project 1-236] Implementation specific constraints were found while reading constraint file [C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/constraints/soc_lite_top.xdc]. These constraints will be ignored for synthesis but will be used in implementation. Impacted constraints are listed in the file [.Xil/soc_lite_top_propImpl.xdc].
+Resolution: To avoid this warning, move constraints listed in [.Xil/soc_lite_top_propImpl.xdc] to another XDC file and exclude this new file from synthesis with the used_in_synthesis property (File Properties dialog in GUI) and re-run elaboration/synthesis.
+Completed Processing XDC Constraints
+
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.005 . Memory (MB): peak = 1940.023 ; gain = 0.000
+INFO: [Project 1-111] Unisim Transformation Summary:
+No Unisim elements were transformed.
+
+Constraint Validation Runtime : Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.111 . Memory (MB): peak = 1940.023 ; gain = 0.000
+WARNING: [Timing 38-316] Clock period '100.000' specified during out-of-context synthesis of instance 'u_axi_crossbar_1x2' at clock pin 'aclk' is different from the actual clock period '33.333', this can lead to different synthesis results.
+WARNING: [Timing 38-316] Clock period '1000.000' specified during out-of-context synthesis of instance 'u_cpu/u_EXEport/u_alu/u_div_gen_0' at clock pin 'aclk' is different from the actual clock period '33.333', this can lead to different synthesis results.
+WARNING: [Timing 38-316] Clock period '100.000' specified during out-of-context synthesis of instance 'u_cpu/u_EXEport/u_alu/u_mult_gen_0' at clock pin 'CLK' is different from the actual clock period '33.333', this can lead to different synthesis results.
+INFO: [Designutils 20-5440] No compile time benefit to using incremental synthesis; A full resynthesis will be run
+INFO: [Designutils 20-4379] Flow is switching to default flow due to incremental criteria not met. If you would like to alter this behaviour and have the flow terminate instead, please set the following parameter config_implementation {autoIncr.Synth.RejectBehavior Terminate}
+---------------------------------------------------------------------------------
+Finished Constraint Validation : Time (s): cpu = 00:00:31 ; elapsed = 00:00:32 . Memory (MB): peak = 1942.680 ; gain = 1000.000
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Loading Part and Timing Information
+---------------------------------------------------------------------------------
+Loading part: xc7a200tfbg676-1
+---------------------------------------------------------------------------------
+Finished Loading Part and Timing Information : Time (s): cpu = 00:00:31 ; elapsed = 00:00:32 . Memory (MB): peak = 1942.680 ; gain = 1000.000
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Applying 'set_property' XDC Constraints
+---------------------------------------------------------------------------------
+Applied set_property IO_BUFFER_TYPE = NONE for clk. (constraint file  c:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/rtl/xilinx_ip/clk_pll/clk_pll/clk_pll_in_context.xdc, line 4).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for clk. (constraint file  c:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/rtl/xilinx_ip/clk_pll/clk_pll/clk_pll_in_context.xdc, line 5).
+Applied set_property KEEP_HIERARCHY = SOFT for \pll.clk_pll . (constraint file  auto generated constraint).
+Applied set_property KEEP_HIERARCHY = SOFT for u_axi_ram/ram. (constraint file  auto generated constraint).
+Applied set_property KEEP_HIERARCHY = SOFT for u_axi_crossbar_1x2. (constraint file  auto generated constraint).
+Applied set_property KEEP_HIERARCHY = SOFT for u_cpu/u_dcache/u_dcache_way0_Bank2_ram. (constraint file  auto generated constraint).
+Applied set_property KEEP_HIERARCHY = SOFT for u_cpu/u_dcache/u_dcache_way1_Bank2_ram. (constraint file  auto generated constraint).
+Applied set_property KEEP_HIERARCHY = SOFT for u_cpu/u_EXEport/u_alu/u_div_gen_0. (constraint file  auto generated constraint).
+Applied set_property KEEP_HIERARCHY = SOFT for u_cpu/u_EXEport/u_alu/u_mult_gen_0. (constraint file  auto generated constraint).
+Applied set_property KEEP_HIERARCHY = SOFT for u_cpu/u_icache/u_icache_way1_Bank1_ram. (constraint file  auto generated constraint).
+Applied set_property KEEP_HIERARCHY = SOFT for u_cpu/u_icache/u_icache_way0_Bank3_ram. (constraint file  auto generated constraint).
+Applied set_property KEEP_HIERARCHY = SOFT for u_cpu/u_icache/u_icache_way0_Bank1_ram. (constraint file  auto generated constraint).
+Applied set_property KEEP_HIERARCHY = SOFT for u_cpu/u_icache/u_icache_way0_Bank2_ram. (constraint file  auto generated constraint).
+Applied set_property KEEP_HIERARCHY = SOFT for u_cpu/u_dcache/u_dcache_way0_Bank3_ram. (constraint file  auto generated constraint).
+Applied set_property KEEP_HIERARCHY = SOFT for u_cpu/u_icache/u_icache_way1_Bank0_ram. (constraint file  auto generated constraint).
+Applied set_property KEEP_HIERARCHY = SOFT for u_cpu/u_dcache/u_dcache_way1_Bank0_ram. (constraint file  auto generated constraint).
+Applied set_property KEEP_HIERARCHY = SOFT for u_cpu/u_dcache/u_dcache_way0_Bank1_ram. (constraint file  auto generated constraint).
+Applied set_property KEEP_HIERARCHY = SOFT for u_cpu/u_icache/u_icache_way1_Bank2_ram. (constraint file  auto generated constraint).
+Applied set_property KEEP_HIERARCHY = SOFT for u_cpu/u_dcache/u_dcache_way0_Bank0_ram. (constraint file  auto generated constraint).
+Applied set_property KEEP_HIERARCHY = SOFT for u_cpu/u_dcache/u_dcache_way1_Bank1_ram. (constraint file  auto generated constraint).
+Applied set_property KEEP_HIERARCHY = SOFT for u_cpu/u_icache/u_icache_way1_Bank3_ram. (constraint file  auto generated constraint).
+Applied set_property KEEP_HIERARCHY = SOFT for u_cpu/u_icache/u_icache_way1_TAGV_ram. (constraint file  auto generated constraint).
+Applied set_property KEEP_HIERARCHY = SOFT for u_cpu/u_icache/u_icache_way0_TAGV_ram. (constraint file  auto generated constraint).
+Applied set_property KEEP_HIERARCHY = SOFT for u_cpu/u_icache/u_icache_way0_Bank0_ram. (constraint file  auto generated constraint).
+Applied set_property KEEP_HIERARCHY = SOFT for u_cpu/u_dcache/u_dcache_way1_Bank3_ram. (constraint file  auto generated constraint).
+Applied set_property KEEP_HIERARCHY = SOFT for u_cpu/u_dcache/u_dcache_way1_TAGV_ram. (constraint file  auto generated constraint).
+Applied set_property KEEP_HIERARCHY = SOFT for u_cpu/u_dcache/u_dcache_way0_TAGV_ram. (constraint file  auto generated constraint).
+---------------------------------------------------------------------------------
+Finished applying 'set_property' XDC Constraints : Time (s): cpu = 00:00:32 ; elapsed = 00:00:32 . Memory (MB): peak = 1942.680 ; gain = 1000.000
+---------------------------------------------------------------------------------
+INFO: [Synth 8-802] inferred FSM for state register 'state_reg' in module 'dcache'
+INFO: [Synth 8-802] inferred FSM for state register 'rd_state_reg' in module 'axi_line_bridge'
+INFO: [Synth 8-802] inferred FSM for state register 'wr_state_reg' in module 'axi_line_bridge'
+INFO: [Synth 8-802] inferred FSM for state register 'state_reg' in module 'confreg'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                  S_IDLE |                               01 |                               00
+                    S_WB |                               11 |                               01
+                  S_RREQ |                               10 |                               10
+                  S_FILL |                               00 |                               11
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'state_reg' using encoding 'sequential' in module 'dcache'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                 RD_IDLE |                              001 |                               00
+                   RD_AR |                              100 |                               01
+                RD_RDATA |                              010 |                               10
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'rd_state_reg' using encoding 'one-hot' in module 'axi_line_bridge'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                 WR_IDLE |                               01 |                               00
+                   WR_AW |                               11 |                               01
+                WR_WDATA |                               10 |                               10
+                 WR_RESP |                               00 |                               11
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'wr_state_reg' using encoding 'sequential' in module 'axi_line_bridge'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                 iSTATE4 |                           000001 |                              000
+                  iSTATE |                           100000 |                              001
+                 iSTATE0 |                           010000 |                              010
+                 iSTATE1 |                           001000 |                              011
+                 iSTATE2 |                           000100 |                              100
+                 iSTATE3 |                           000010 |                              111
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'state_reg' using encoding 'one-hot' in module 'confreg'
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 2 : Time (s): cpu = 00:00:54 ; elapsed = 00:00:56 . Memory (MB): peak = 1942.680 ; gain = 1000.000
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start RTL Component Statistics 
+---------------------------------------------------------------------------------
+Detailed RTL Component Info : 
++---Adders : 
+	   3 Input   33 Bit       Adders := 1     
+	   2 Input   32 Bit       Adders := 9     
+	   3 Input   32 Bit       Adders := 2     
+	   2 Input    8 Bit       Adders := 2     
+	   2 Input    4 Bit       Adders := 1     
+	   2 Input    2 Bit       Adders := 3     
++---XORs : 
+	   2 Input     32 Bit         XORs := 1     
+	   2 Input      1 Bit         XORs := 9     
++---Registers : 
+	              256 Bit    Registers := 2     
+	              128 Bit    Registers := 4     
+	               32 Bit    Registers := 85    
+	               30 Bit    Registers := 1     
+	               26 Bit    Registers := 1     
+	               23 Bit    Registers := 1     
+	               20 Bit    Registers := 67    
+	               19 Bit    Registers := 36    
+	               16 Bit    Registers := 2     
+	               13 Bit    Registers := 2     
+	               12 Bit    Registers := 3     
+	               11 Bit    Registers := 3     
+	               10 Bit    Registers := 35    
+	                9 Bit    Registers := 1     
+	                8 Bit    Registers := 8     
+	                7 Bit    Registers := 1     
+	                6 Bit    Registers := 40    
+	                5 Bit    Registers := 6     
+	                4 Bit    Registers := 5     
+	                3 Bit    Registers := 3     
+	                2 Bit    Registers := 402   
+	                1 Bit    Registers := 292   
++---RAMs : 
+	             1024 Bit	(32 X 32 bit)          RAMs := 1     
++---Muxes : 
+	   2 Input  256 Bit        Muxes := 27    
+	   4 Input  256 Bit        Muxes := 3     
+	   4 Input  128 Bit        Muxes := 3     
+	   3 Input  128 Bit        Muxes := 1     
+	   2 Input  128 Bit        Muxes := 10    
+	   2 Input   33 Bit        Muxes := 2     
+	   2 Input   32 Bit        Muxes := 231   
+	  23 Input   32 Bit        Muxes := 1     
+	   9 Input   32 Bit        Muxes := 1     
+	   3 Input   32 Bit        Muxes := 1     
+	   7 Input   32 Bit        Muxes := 1     
+	   4 Input   32 Bit        Muxes := 8     
+	   3 Input   23 Bit        Muxes := 1     
+	   2 Input   23 Bit        Muxes := 1     
+	   2 Input   20 Bit        Muxes := 12    
+	   2 Input   19 Bit        Muxes := 16    
+	   6 Input   19 Bit        Muxes := 1     
+	   3 Input   16 Bit        Muxes := 1     
+	   2 Input   16 Bit        Muxes := 15    
+	   5 Input   16 Bit        Muxes := 1     
+	  17 Input   16 Bit        Muxes := 1     
+	   2 Input   12 Bit        Muxes := 12    
+	   6 Input   11 Bit        Muxes := 1     
+	   2 Input   11 Bit        Muxes := 10    
+	   2 Input   10 Bit        Muxes := 16    
+	   6 Input   10 Bit        Muxes := 1     
+	   2 Input    9 Bit        Muxes := 5     
+	  13 Input    8 Bit        Muxes := 1     
+	   3 Input    8 Bit        Muxes := 1     
+	   2 Input    8 Bit        Muxes := 30    
+	   4 Input    8 Bit        Muxes := 1     
+	   8 Input    8 Bit        Muxes := 1     
+	   2 Input    7 Bit        Muxes := 1     
+	   2 Input    6 Bit        Muxes := 33    
+	   5 Input    6 Bit        Muxes := 1     
+	   6 Input    6 Bit        Muxes := 1     
+	  24 Input    5 Bit        Muxes := 1     
+	   2 Input    5 Bit        Muxes := 29    
+	   8 Input    5 Bit        Muxes := 2     
+	   4 Input    5 Bit        Muxes := 1     
+	   7 Input    5 Bit        Muxes := 1     
+	   2 Input    4 Bit        Muxes := 34    
+	   3 Input    4 Bit        Muxes := 1     
+	   4 Input    4 Bit        Muxes := 1     
+	   6 Input    4 Bit        Muxes := 1     
+	   8 Input    3 Bit        Muxes := 1     
+	   2 Input    3 Bit        Muxes := 24    
+	   3 Input    3 Bit        Muxes := 1     
+	   6 Input    3 Bit        Muxes := 2     
+	   3 Input    2 Bit        Muxes := 3     
+	   2 Input    2 Bit        Muxes := 3384  
+	   8 Input    2 Bit        Muxes := 1     
+	   7 Input    2 Bit        Muxes := 1     
+	   4 Input    2 Bit        Muxes := 770   
+	  13 Input    2 Bit        Muxes := 1     
+	   2 Input    1 Bit        Muxes := 1177  
+	   4 Input    1 Bit        Muxes := 13    
+	   3 Input    1 Bit        Muxes := 7     
+---------------------------------------------------------------------------------
+Finished RTL Component Statistics 
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Part Resource Summary
+---------------------------------------------------------------------------------
+Part Resources:
+DSPs: 740 (col length:100)
+BRAMs: 730 (col length: RAMB18 100 RAMB36 50)
+---------------------------------------------------------------------------------
+Finished Part Resource Summary
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Cross Boundary and Area Optimization
+---------------------------------------------------------------------------------
+WARNING: [Synth 8-7080] Parallel synthesis criteria is not met
+---------------------------------------------------------------------------------
+Finished Cross Boundary and Area Optimization : Time (s): cpu = 00:02:36 ; elapsed = 00:02:41 . Memory (MB): peak = 2003.602 ; gain = 1060.922
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+
+Distributed RAM: Preliminary Mapping Report (see note below)
++-------------------+------------+-----------+----------------------+--------------+
+|Module Name        | RTL Object | Inference | Size (Depth x Width) | Primitives   | 
++-------------------+------------+-----------+----------------------+--------------+
+|u_cpui_2/u_regfile | rf_reg     | Implied   | 32 x 32              | RAM32M x 12  | 
++-------------------+------------+-----------+----------------------+--------------+
+
+Note: The table above is a preliminary report that shows the Distributed RAMs at the current stage of the synthesis flow. Some Distributed RAMs may be reimplemented as non Distributed RAM primitives later in the synthesis flow. Multiple instantiated RAMs are reported only once.
+---------------------------------------------------------------------------------
+Finished ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Applying XDC Timing Constraints
+---------------------------------------------------------------------------------
+WARNING: [Synth 8-565] redefining clock 'clk'
+---------------------------------------------------------------------------------
+Finished Applying XDC Timing Constraints : Time (s): cpu = 00:02:42 ; elapsed = 00:02:47 . Memory (MB): peak = 2003.602 ; gain = 1060.922
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Timing Optimization
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Timing Optimization : Time (s): cpu = 00:02:47 ; elapsed = 00:02:53 . Memory (MB): peak = 2003.602 ; gain = 1060.922
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+
+Distributed RAM: Final Mapping Report
++-------------------+------------+-----------+----------------------+--------------+
+|Module Name        | RTL Object | Inference | Size (Depth x Width) | Primitives   | 
++-------------------+------------+-----------+----------------------+--------------+
+|u_cpui_2/u_regfile | rf_reg     | Implied   | 32 x 32              | RAM32M x 12  | 
++-------------------+------------+-----------+----------------------+--------------+
+
+---------------------------------------------------------------------------------
+Finished ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Technology Mapping
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Technology Mapping : Time (s): cpu = 00:02:56 ; elapsed = 00:03:01 . Memory (MB): peak = 2003.602 ; gain = 1060.922
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Final Netlist Cleanup
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Final Netlist Cleanup
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished IO Insertion : Time (s): cpu = 00:03:02 ; elapsed = 00:03:07 . Memory (MB): peak = 2003.602 ; gain = 1060.922
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Instances
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Instances : Time (s): cpu = 00:03:02 ; elapsed = 00:03:07 . Memory (MB): peak = 2003.602 ; gain = 1060.922
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Rebuilding User Hierarchy
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Rebuilding User Hierarchy : Time (s): cpu = 00:03:04 ; elapsed = 00:03:09 . Memory (MB): peak = 2003.602 ; gain = 1060.922
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Ports
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Ports : Time (s): cpu = 00:03:04 ; elapsed = 00:03:10 . Memory (MB): peak = 2003.602 ; gain = 1060.922
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Handling Custom Attributes
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Handling Custom Attributes : Time (s): cpu = 00:03:05 ; elapsed = 00:03:11 . Memory (MB): peak = 2003.602 ; gain = 1060.922
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Nets
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Nets : Time (s): cpu = 00:03:05 ; elapsed = 00:03:11 . Memory (MB): peak = 2003.602 ; gain = 1060.922
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Writing Synthesis Report
+---------------------------------------------------------------------------------
+
+Report BlackBoxes: 
++------+----------------------+----------+
+|      |BlackBox name         |Instances |
++------+----------------------+----------+
+|1     |clk_pll               |         1|
+|2     |axi_crossbar_1x2      |         1|
+|3     |axi_ram               |         1|
+|4     |mult_gen_0            |         1|
+|5     |div_gen_0             |         1|
+|6     |dcache_way0_TAGV_ram  |         1|
+|7     |dcache_way1_TAGV_ram  |         1|
+|8     |dcache_way0_Bank0_ram |         1|
+|9     |dcache_way0_Bank1_ram |         1|
+|10    |dcache_way0_Bank2_ram |         1|
+|11    |dcache_way0_Bank3_ram |         1|
+|12    |dcache_way1_Bank0_ram |         1|
+|13    |dcache_way1_Bank1_ram |         1|
+|14    |dcache_way1_Bank2_ram |         1|
+|15    |dcache_way1_Bank3_ram |         1|
+|16    |icache_way0_TAGV_ram  |         1|
+|17    |icache_way1_TAGV_ram  |         1|
+|18    |icache_way0_Bank0_ram |         1|
+|19    |icache_way0_Bank1_ram |         1|
+|20    |icache_way0_Bank2_ram |         1|
+|21    |icache_way0_Bank3_ram |         1|
+|22    |icache_way1_Bank0_ram |         1|
+|23    |icache_way1_Bank1_ram |         1|
+|24    |icache_way1_Bank2_ram |         1|
+|25    |icache_way1_Bank3_ram |         1|
++------+----------------------+----------+
+
+Report Cell Usage: 
++------+----------------------+------+
+|      |Cell                  |Count |
++------+----------------------+------+
+|1     |axi_crossbar_1x2      |     1|
+|2     |axi_ram               |     1|
+|3     |clk_pll               |     1|
+|4     |dcache_way0_Bank0_ram |     1|
+|5     |dcache_way0_Bank1_ram |     1|
+|6     |dcache_way0_Bank2_ram |     1|
+|7     |dcache_way0_Bank3_ram |     1|
+|8     |dcache_way0_TAGV_ram  |     1|
+|9     |dcache_way1_Bank0_ram |     1|
+|10    |dcache_way1_Bank1_ram |     1|
+|11    |dcache_way1_Bank2_ram |     1|
+|12    |dcache_way1_Bank3_ram |     1|
+|13    |dcache_way1_TAGV_ram  |     1|
+|14    |div_gen               |     1|
+|15    |icache_way0_Bank0_ram |     1|
+|16    |icache_way0_Bank1_ram |     1|
+|17    |icache_way0_Bank2_ram |     1|
+|18    |icache_way0_Bank3_ram |     1|
+|19    |icache_way0_TAGV_ram  |     1|
+|20    |icache_way1_Bank0_ram |     1|
+|21    |icache_way1_Bank1_ram |     1|
+|22    |icache_way1_Bank2_ram |     1|
+|23    |icache_way1_Bank3_ram |     1|
+|24    |icache_way1_TAGV_ram  |     1|
+|25    |mult_gen              |     1|
+|26    |CARRY4                |   583|
+|27    |LUT1                  |    78|
+|28    |LUT2                  |  1038|
+|29    |LUT3                  |  1536|
+|30    |LUT4                  |  1102|
+|31    |LUT5                  |  2933|
+|32    |LUT6                  |  8001|
+|33    |MUXF7                 |  1030|
+|34    |MUXF8                 |   215|
+|35    |RAM32M                |    10|
+|36    |RAM32X1D              |     4|
+|37    |FDRE                  |  7598|
+|38    |FDSE                  |   147|
+|39    |IBUF                  |    15|
+|40    |OBUF                  |    71|
++------+----------------------+------+
+---------------------------------------------------------------------------------
+Finished Writing Synthesis Report : Time (s): cpu = 00:03:05 ; elapsed = 00:03:11 . Memory (MB): peak = 2003.602 ; gain = 1060.922
+---------------------------------------------------------------------------------
+Synthesis finished with 0 errors, 0 critical warnings and 2 warnings.
+Synthesis Optimization Runtime : Time (s): cpu = 00:02:41 ; elapsed = 00:03:05 . Memory (MB): peak = 2003.602 ; gain = 950.969
+Synthesis Optimization Complete : Time (s): cpu = 00:03:05 ; elapsed = 00:03:11 . Memory (MB): peak = 2003.602 ; gain = 1060.922
+INFO: [Project 1-571] Translating synthesized netlist
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.263 . Memory (MB): peak = 2003.602 ; gain = 0.000
+INFO: [Netlist 29-17] Analyzing 1842 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-570] Preparing netlist for logic optimization
+INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.004 . Memory (MB): peak = 2003.602 ; gain = 0.000
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 14 instances were transformed.
+  RAM32M => RAM32M (RAMD32(x6), RAMS32(x2)): 10 instances
+  RAM32X1D => RAM32X1D (RAMD32(x2)): 4 instances
+
+Synth Design complete | Checksum: 93e433b7
+INFO: [Common 17-83] Releasing license: Synthesis
+188 Infos, 255 Warnings, 0 Critical Warnings and 0 Errors encountered.
+synth_design completed successfully
+synth_design: Time (s): cpu = 00:03:13 ; elapsed = 00:03:20 . Memory (MB): peak = 2003.602 ; gain = 1525.539
+Write ShapeDB Complete: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.029 . Memory (MB): peak = 2003.602 ; gain = 0.000
+INFO: [Common 17-1381] The checkpoint 'C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/synth_1/soc_lite_top.dcp' has been generated.
+INFO: [runtcl-4] Executing : report_utilization -file soc_lite_top_utilization_synth.rpt -pb soc_lite_top_utilization_synth.pb
+INFO: [Common 17-206] Exiting Vivado at Wed May  6 20:10:35 2026...

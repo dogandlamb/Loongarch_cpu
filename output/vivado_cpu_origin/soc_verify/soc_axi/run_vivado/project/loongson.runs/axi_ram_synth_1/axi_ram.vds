@@ -1,0 +1,24 @@
+#-----------------------------------------------------------
+# Vivado v2023.2 (64-bit)
+# SW Build 4029153 on Fri Oct 13 20:14:34 MDT 2023
+# IP Build 4028589 on Sat Oct 14 00:45:43 MDT 2023
+# SharedData Build 4025554 on Tue Oct 10 17:18:54 MDT 2023
+# Start of session at: Wed May  6 19:30:02 2026
+# Process ID: 3700
+# Current directory: C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/axi_ram_synth_1
+# Command line: vivado.exe -log axi_ram.vds -product Vivado -mode batch -messageDb vivado.pb -notrace -source axi_ram.tcl
+# Log file: C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/axi_ram_synth_1/axi_ram.vds
+# Journal file: C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/axi_ram_synth_1\vivado.jou
+# Running On: 612-11, OS: Windows, CPU Frequency: 3192 MHz, CPU Physical cores: 6, Host memory: 17056 MB
+#-----------------------------------------------------------
+source axi_ram.tcl -notrace
+create_project: Time (s): cpu = 00:00:06 ; elapsed = 00:00:06 . Memory (MB): peak = 464.457 ; gain = 182.398
+INFO: [IP_Flow 19-6924] IPCACHE: Running cache check for IP inst: axi_ram
+INFO: [IP_Flow 19-6922] IPCACHE: Exporting cached entry 44acee509726c00a to dir: C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/axi_ram_synth_1
+INFO: [IP_Flow 19-6928] IPCACHE: copied cached file c:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.cache/ip/2023.2/4/4/44acee509726c00a/axi_ram.dcp to C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/axi_ram_synth_1/axi_ram.dcp.
+INFO: [IP_Flow 19-6928] IPCACHE: copied cached file c:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.cache/ip/2023.2/4/4/44acee509726c00a/axi_ram_sim_netlist.v to C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/axi_ram_synth_1/axi_ram_sim_netlist.v.
+INFO: [IP_Flow 19-6928] IPCACHE: copied cached file c:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.cache/ip/2023.2/4/4/44acee509726c00a/axi_ram_sim_netlist.vhdl to C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/axi_ram_synth_1/axi_ram_sim_netlist.vhdl.
+INFO: [IP_Flow 19-6928] IPCACHE: copied cached file c:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.cache/ip/2023.2/4/4/44acee509726c00a/axi_ram_stub.v to C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/axi_ram_synth_1/axi_ram_stub.v.
+INFO: [IP_Flow 19-6928] IPCACHE: copied cached file c:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.cache/ip/2023.2/4/4/44acee509726c00a/axi_ram_stub.vhdl to C:/Users/Administrator/Desktop/output/vivado_cpu_origin/soc_verify/soc_axi/run_vivado/project/loongson.runs/axi_ram_synth_1/axi_ram_stub.vhdl.
+INFO: [IP_Flow 19-4838] Using cached IP synthesis design for IP axi_ram, cache-ID = 44acee509726c00a.
+INFO: [Common 17-206] Exiting Vivado at Wed May  6 19:30:14 2026...
