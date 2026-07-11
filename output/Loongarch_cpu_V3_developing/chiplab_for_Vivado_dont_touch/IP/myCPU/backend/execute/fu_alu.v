@@ -121,8 +121,10 @@ wire br_taken = (ex_br_op[`BR_OP_BEQ]  &  br_eq)
               |  ex_br_op[`BR_OP_BL]
               |  ex_br_op[`BR_OP_JIRL];
 
+// n52 ADEF(jirl 目标非对齐)取指侧修法:jirl 目标 = rj+offs 原值(不掩码),链接 rd=pc+4 照写,
+// 由目标取指(mmu i_vaddr[1:0]!=0)抬 ADEF、ERA=非对齐目标。前端需能承受非对齐 fetch PC(见探针)。
 wire [31:0] br_target = ex_br_op[`BR_OP_JIRL]
-                      ? ((ex_src0 + ex_br_offs) & 32'hffff_fffe)
+                      ? (ex_src0 + ex_br_offs)
                       :  (ex_pc   + ex_br_offs);
 
 assign wb_br_taken_o  = ex_valid & br_taken;

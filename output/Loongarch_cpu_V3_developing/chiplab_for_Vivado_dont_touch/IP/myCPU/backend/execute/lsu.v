@@ -215,22 +215,15 @@ reg [`ROB_W-1:0]     st_pend_robid;
 wire [`ROB_PAIR_W-1:0] head_pair   = rob_head_robid_i[`ROB_PAIR_W-1:0];
 wire                   head_s0_live= rob_head_robid_i[`ROB_W-1];
 
-// robid R 已提交判定（约定编码，见头注）
-function robid_committed;
-    input [`ROB_W-1:0] r;
-    reg [`ROB_PAIR_W-1:0] d;
-    begin
-        d = r[`ROB_PAIR_W-1:0] - head_pair;
-        if (d >= `ROB_PAIR_W'd12)
-            robid_committed = 1'b1;                      // head 已越过该对
-        else if ((d == {`ROB_PAIR_W{1'b0}}) && (r[`ROB_W-1] == 1'b0) && !head_s0_live)
-            robid_committed = 1'b1;                      // 槽 0 已提交
-        else
-            robid_committed = 1'b0;
-    end
-endfunction
-
-wire st_pend_clear = st_pend && (!rob_head_valid_i || robid_committed(st_pend_robid));
+// robid R 已提交判定（约定编码，见头注）——内联为纯组合 wire。
+// 【勿改回 function】：xsim 对"连续赋值里带可变下标/依赖模块变量的 function 调用"存在
+// 求值缺陷(见 rob.v ROB_RDPORT 同款坑)，会返回陈旧结果 → st_pend_clear 永为 0 →
+// store_order_block 恒 1 → uncached load 永不放行(n50 device 先写后读死锁)。
+wire [`ROB_PAIR_W-1:0] stpend_d = st_pend_robid[`ROB_PAIR_W-1:0] - head_pair;
+wire stpend_committed = (stpend_d >= `ROB_PAIR_W'd12)                          // head 已越过该对
+                      || ((stpend_d == {`ROB_PAIR_W{1'b0}})
+                          && (st_pend_robid[`ROB_W-1] == 1'b0) && !head_s0_live); // 槽0已提交
+wire st_pend_clear = st_pend && (!rob_head_valid_i || stpend_committed);
 wire store_order_block = st_pend && !st_pend_clear;     // 仍有未决 store
 
 // ---------------- DC 级行为 ----------------

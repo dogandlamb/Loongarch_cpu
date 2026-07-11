@@ -559,10 +559,12 @@ module core_top #(
     // 且优先级低于 ADEF，导致 commit 只看见 INE。此处抑制这类重复/气泡 INE。
     wire [`EXCP_NUM-1:0] ib0_fetch_excp = ib_pop0_excp & `FETCH_EXCP_MASK;
     wire [`EXCP_NUM-1:0] ib1_fetch_excp = ib_pop1_excp & `FETCH_EXCP_MASK;
-    wire                 ib0_null_bubble = (ib_pop0_inst == 32'b0) && !(|ib_pop0_excp);
-    wire                 ib1_null_bubble = (ib_pop1_inst == 32'b0) && !(|ib_pop1_excp);
-    wire                 dec0_suppress_ine = dec0_excp[`EXCP_INE] & ((|ib0_fetch_excp) | ib0_null_bubble);
-    wire                 dec1_suppress_ine = dec1_excp[`EXCP_INE] & ((|ib1_fetch_excp) | ib1_null_bubble);
+    // INE 抑制只在“已有取指类异常”时生效（取指异常优先级高于 INE，同拍不重复触发）。
+    // 【勿再用 inst==0 的 null_bubble 抑制】：n50 用一条真实的 0x00000000 非法指令测 INE；
+    // 把全零指令当气泡吞掉 INE 会导致它被当 nop 提交、INE 永不触发 → n50 失败。
+    // 真正的取指气泡由 ib_pop*_valid 门控(rename ib*_valid_i)冲掉，与 INE 无关，无需在此按位模式猜。
+    wire                 dec0_suppress_ine = dec0_excp[`EXCP_INE] & (|ib0_fetch_excp);
+    wire                 dec1_suppress_ine = dec1_excp[`EXCP_INE] & (|ib1_fetch_excp);
     wire [`EXCP_NUM-1:0] dec0_excp_ine_mask = {{(`EXCP_NUM-1){1'b0}}, dec0_suppress_ine} << `EXCP_INE;
     wire [`EXCP_NUM-1:0] dec1_excp_ine_mask = {{(`EXCP_NUM-1){1'b0}}, dec1_suppress_ine} << `EXCP_INE;
     wire [`EXCP_NUM-1:0] dec0_excp_eff = dec0_excp & ~dec0_excp_ine_mask;
@@ -2558,7 +2560,6 @@ module core_top #(
     wire [`EXCP_NUM-1:0] dbg_dec0_excp     = dec0_excp;
     wire [`EXCP_NUM-1:0] dbg_dec0_excp_eff = dec0_excp_eff;
     wire [`EXCP_NUM-1:0] dbg_rn_ib0_excp   = rn_ib0_excp;
-    wire        dbg_ib0_null_bubble   = ib0_null_bubble;
 
     // Spyglass/lint：吸收暂未使用的观测信号
     wire mycpu_lint_sink;
@@ -2571,8 +2572,7 @@ module core_top #(
 `endif
                            | dbg_rob_cmt0_valid | dbg_rob_cmt0_complete
                            | (|dbg_rob_cmt0_excp) | (|dbg_ib_pop0_excp)
-                           | (|dbg_dec0_excp) | (|dbg_rn_ib0_excp)
-                           | dbg_ib0_null_bubble;
+                           | (|dbg_dec0_excp) | (|dbg_rn_ib0_excp);
 
 
 

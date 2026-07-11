@@ -81,6 +81,11 @@ end
 
 assign flush_o = cmt_flush_req_i | ex_redirect_req_i;
 assign flush_pc_o = cmt_flush_req_i ? cmt_flush_pc_i : ex_redirect_pc_i;
-assign fetch_stall_o = idle_lock;
+// idle 提交当拍即冻结取指（组合叠加 idle_commit_i），否则 idle 的 FLUSH_REFETCH
+// 把 PC 打到 pc+4 后，idle_lock 要到下一拍才生效——中间这一拍 FTQ 两拍冻结尚未成立，
+// pc+4 会被取指并提交（n49：pc+4=csrwr TCFG=0 提前关掉定时器 → 中断永不触发 → 死锁）。
+// 组合提前一拍冻结，使两拍 ftq_freeze 覆盖 idle 提交拍，pc+4 停在 PC 寄存器但不取指；
+// 定时器到期 has_int 置起后放行，pc+4 再入流水时携带 has_int → 提交拍 int_take 进异常入口。
+assign fetch_stall_o = idle_lock | idle_commit_i;
 
 endmodule

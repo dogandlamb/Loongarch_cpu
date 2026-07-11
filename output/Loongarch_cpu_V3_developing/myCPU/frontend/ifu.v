@@ -322,10 +322,9 @@ always @(*) begin
     predec_idx   = 2'd0;
     for (pi = 0; pi < 4; pi = pi + 1) begin
         if (!predec_found && (pi < if_len_eff) && imm_br[pi]) begin
-            if ((pi < if_len_eff - 1) || !if_taken) begin
-                predec_found = 1'b1;
-                predec_idx   = pi[1:0];
-            end
+            // 无延迟槽：无条件 B/BL 必须在块内截断（n49 TEST_TI_EX 的 b 1b = 0x50000000）
+            predec_found = 1'b1;
+            predec_idx   = pi[1:0];
         end
     end
 end

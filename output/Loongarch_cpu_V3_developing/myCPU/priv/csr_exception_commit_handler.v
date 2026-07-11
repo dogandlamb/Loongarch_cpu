@@ -509,6 +509,10 @@ module csr_exception_commit_handler (
             csr_tcfg_en <= csr_wmask[`CSR_TCFG_EN] & csr_wvalue[`CSR_TCFG_EN] 
                             | ~csr_wmask[`CSR_TCFG_EN] & csr_tcfg_en;
         end
+        else if (csr_tcfg_en && (timer_cnt[31:0] == 32'b0) && !csr_tcfg_periodic) begin
+            // 非周期定时器到期后自动关 EN（与 open-la500/NEMU 一致）
+            csr_tcfg_en <= 1'b0;
+        end
 
         if (csr_we && csr_num == `CSR_TCFG) begin
             csr_tcfg_periodic <= csr_wmask[`CSR_TCFG_PERIODIC] & csr_wvalue[`CSR_TCFG_PERIODIC] 

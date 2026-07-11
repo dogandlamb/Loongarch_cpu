@@ -391,7 +391,10 @@ always @(posedge clk) begin
 
         if (alloc_en_i && !rob_full_o) begin
             valid[alloc0_idx] <= a0_valid_i;
-            complete[alloc0_idx] <= a0_valid_i && a0_is_nop_i;
+            // NOP 或带静态(取指/译码)异常的指令在分配时即置 complete：二者都不会发射到 FU 写回,
+            // 取指异常(如 jirl 目标非对齐 ADEF)的"指令"是 inst=0 气泡,若不置 complete 会永远卡在
+            // ROB 头(无 FU 写回)→ 死锁。它只需到头抬异常即可。
+            complete[alloc0_idx] <= a0_valid_i && (a0_is_nop_i || (|a0_excp_i));
             pc[alloc0_idx] <= a0_pc_i;
             inst[alloc0_idx] <= a0_inst_i;
             rf_we[alloc0_idx] <= a0_rf_we_i;
@@ -421,7 +424,7 @@ always @(posedge clk) begin
             excp_dynamic[alloc0_idx] <= {`EXCP_NUM{1'b0}};
 
             valid[alloc1_idx] <= a1_valid_i;
-            complete[alloc1_idx] <= a1_valid_i && a1_is_nop_i;
+            complete[alloc1_idx] <= a1_valid_i && (a1_is_nop_i || (|a1_excp_i));
             pc[alloc1_idx] <= a1_pc_i;
             inst[alloc1_idx] <= a1_inst_i;
             rf_we[alloc1_idx] <= a1_rf_we_i;

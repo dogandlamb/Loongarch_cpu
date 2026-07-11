@@ -1,0 +1,349 @@
+diff --git a/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/backend/commit/commit.v b/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/backend/commit/commit.v
+index eb88204..aca7730 100644
+--- a/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/backend/commit/commit.v
++++ b/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/backend/commit/commit.v
+@@ -142,6 +142,7 @@ module commit(
+     output wire                       sc_set_o,            // sc.w 提交清 LLBIT
+     output wire [27:0]                lladdr_o,            // LL 地址高位
+     input  wire                       has_int_i,           // CSR 有待处理中断
++    input  wire [1:0]                 csr_plv_i,           // CRMD.PLV（提交时重检 IPE）
+     input  wire [31:0]                csr_next_pc_i,       // 异常入口/ERA（handler 算好）
+     input  wire [1:0]                 csr_redirect_i,      // `CSR_REDIRECT_EX / _ERTN
+ 
+@@ -287,15 +288,29 @@ wire [`ROB_W-1:0] cmt1_robid = {1'b1, head_robid0_i[`ROB_PAIR_W-1:0]};
+ 
+ assign cmt0_ready = cmt0_valid_i && (cmt0_complete_i === 1'b1);
+ assign cmt1_ready = cmt1_valid_i && (cmt1_complete_i === 1'b1);
+-wire cmt0_has_excp = |cmt0_excp_i;
+-wire cmt1_has_excp = |cmt1_excp_i;
+-wire cmt0_has_priv = |cmt0_priv_vec_i;
+-wire cmt1_has_priv = |cmt1_priv_vec_i;
++
++// IPE 在译码时按当时 PLV 置位；双提交时 slot0 的 csrxchg 可与 slot1 csrwr 同拍提交，
++// 须在提交时按 slot0 写 CRMD 后的有效 PLV 重检，避免 n51 等误触发 IPE。
++wire cmt0_ipe_commit = cmt0_excp_i[`EXCP_IPE] && (csr_plv_i == 2'b11);
++wire [`EXCP_NUM-1:0] cmt0_excp_commit = {cmt0_excp_i[14:8], cmt0_ipe_commit, cmt0_excp_i[6:0]};
++wire cmt0_has_excp = |cmt0_excp_commit;
+ 
+ wire int_take = has_int_i && cmt0_valid_i && !uncached_ld_inflight_i;
+ wire cmt0_ibar_block = cmt0_ready && cmt0_priv_vec_i[`PRIV_IBAR] && !sb_empty_i;
+ wire cmt1_ibar_block = cmt1_ready && cmt1_priv_vec_i[`PRIV_IBAR] && !sb_empty_i;
+ wire cmt0_store_block = cmt0_ready && cmt0_is_store_i && sb_full_i && !cmt0_has_excp;
++
++wire cmt0_crmd_commit = cmt0_ready && !int_take && !cmt0_has_excp &&
++                        !cmt0_store_block && !cmt0_ibar_block &&
++                        cmt0_priv_vec_i[`PRIV_CSR_WR] && (cmt0_csr_num_i == `CSR_CRMD);
++wire [1:0] plv_for_cmt1 = cmt0_crmd_commit ? cmt0_result2_i[1:0] : csr_plv_i;
++wire cmt1_ipe_commit = cmt1_excp_i[`EXCP_IPE] && (plv_for_cmt1 == 2'b11);
++wire [`EXCP_NUM-1:0] cmt1_excp_commit = {cmt1_excp_i[14:8], cmt1_ipe_commit, cmt1_excp_i[6:0]};
++wire cmt1_has_excp = |cmt1_excp_commit;
++
++wire cmt0_has_priv = |cmt0_priv_vec_i;
++wire cmt1_has_priv = |cmt1_priv_vec_i;
++
+ wire cmt1_store_block = cmt1_ready && cmt1_is_store_i && sb_full_i && !cmt1_has_excp;
+ 
+ wire cmt0_mispred = cmt0_ready && !cmt0_has_excp && !cmt0_has_priv &&
+@@ -327,7 +342,8 @@ wire cmt1_head_flush = (!cmt0_valid_i) &&
+                         (cmt1_head_effect && cmt1_has_priv) ||
+                         cmt1_mispred_head);
+ 
+-wire cmt0_taken_br = cmt0_effect && cmt0_is_branch_i && cmt0_br_taken_i && !cmt0_is_last_i;
++// taken 分支提交时禁止 slot1 双提交（无延迟槽；块末 is_last=1 时旧式 !is_last 会漏掉 n49）
++wire cmt0_taken_br = cmt0_effect && cmt0_is_branch_i && cmt0_br_taken_i;
+ 
+ wire cmt1_single_limit = cmt1_has_excp || cmt1_has_priv || cmt1_is_branch_i ||
+                          (cmt0_is_store_i && cmt1_is_store_i) || cmt0_taken_br;
+@@ -347,7 +363,7 @@ wire [4:0]  sel_cacop_code = take_slot1_for_csr ? cmt1_cacop_code_i : cmt0_cacop
+ wire [13:0] sel_csr_num = take_slot1_for_csr ? cmt1_csr_num_i : cmt0_csr_num_i;
+ wire [`TLB_OP_NUM-1:0] sel_tlb_op = take_slot1_for_csr ? cmt1_tlb_op_i : cmt0_tlb_op_i;
+ wire [`PRIV_NUM-1:0] sel_priv = take_slot1_for_csr ? cmt1_priv_vec_i : cmt0_priv_vec_i;
+-wire [`EXCP_NUM-1:0] sel_excp = take_slot1_for_csr ? cmt1_excp_i : cmt0_excp_i;
++wire [`EXCP_NUM-1:0] sel_excp = take_slot1_for_csr ? cmt1_excp_commit : cmt0_excp_commit;
+ wire sel_is_branch = take_slot1_for_csr ? cmt1_is_branch_i : cmt0_is_branch_i;
+ wire sel_pred_taken = take_slot1_for_csr ? cmt1_pred_taken_i : cmt0_pred_taken_i;
+ wire sel_br_taken = take_slot1_for_csr ? cmt1_br_taken_i : cmt0_br_taken_i;
+@@ -361,6 +377,8 @@ wire selected_excp_take = int_take || (take_slot1_for_csr ? (cmt1_ready && cmt1_
+                                                           : (cmt0_ready && cmt0_has_excp));
+ wire selected_priv_flush = selected_effect && (|sel_priv);
+ wire selected_mispred = take_slot1_for_csr ? cmt1_mispred_head : cmt0_mispred;
++// taken 分支提交后冲刷 delay-slot（无延迟槽语义；覆盖 cond 误预测 fall-through 已进 ROB 的 insn）
++wire selected_taken_br_ds = selected_effect && sel_is_branch && sel_br_taken && !selected_mispred;
+ 
+ wire mem_excp = sel_excp[`EXCP_ADEM] | sel_excp[`EXCP_ALE] |
+                 sel_excp[`EXCP_TLBR_M] | sel_excp[`EXCP_PIL] |
+@@ -455,16 +473,18 @@ assign ras_cmt_call_o = selected_effect && sel_is_branch && (sel_br_type == `BR_
+ assign ras_cmt_ret_o = selected_effect && sel_is_branch && (sel_br_type == `BR_TYPE_RET);
+ assign ras_cmt_retaddr_o = sel_pc + 32'd4;
+ 
+-assign flush_req_o = selected_excp_take || selected_priv_flush || selected_mispred;
++assign flush_req_o = selected_excp_take || selected_priv_flush || selected_mispred ||
++                     selected_taken_br_ds;
+ assign flush_type_o = selected_excp_take ? `FLUSH_EXCP :
+                       (selected_effect && sel_priv[`PRIV_ERTN]) ? `FLUSH_ERTN :
+                       selected_priv_flush ? `FLUSH_REFETCH :
+-                      selected_mispred ? `FLUSH_MISPRED :
++                      (selected_mispred || selected_taken_br_ds) ? `FLUSH_MISPRED :
+                       `FLUSH_NONE;
+ assign flush_pc_o = selected_excp_take ? csr_next_pc_i :
+                     (selected_effect && sel_priv[`PRIV_ERTN]) ? csr_next_pc_i :
+                     selected_priv_flush ? (sel_pc + 32'd4) :
+-                    selected_mispred ? (sel_br_taken ? sel_br_target : (sel_pc + 32'd4)) :
++                    (selected_mispred || selected_taken_br_ds) ?
++                        (sel_br_taken ? sel_br_target : (sel_pc + 32'd4)) :
+                     32'b0;
+ assign idle_commit_o = selected_effect && sel_priv[`PRIV_IDLE];
+ 
+diff --git a/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/backend/decode/inst_dec.v b/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/backend/decode/inst_dec.v
+index ba201d3..4a2b4fc 100644
+--- a/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/backend/decode/inst_dec.v
++++ b/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/backend/decode/inst_dec.v
+@@ -226,9 +226,8 @@ assign inst_andn  = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op
+ 
+ // 同步类与等待类
+ assign inst_dbar  = op_31_26_d[6'h0e] & op_25_22_d[4'h1] & op_21_20_d[2'h3] & op_19_15_d[5'h04];
+-// chiplab func 测试套件 idle 0 宏展开为 0x50000000（自分支等待中断），与手册 idle 编码并存。
+-assign inst_idle  = (op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h11])
+-                  | (inst[31:0] === 32'h50000000);
++// idle：仅认手册编码；勿将 0x50000000（B 自环）并入 idle——n49 TEST_TI_EX 的 b 1b 即此编码。
++assign inst_idle  = (op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h11]);
+ 
+ // preld：op[31:26]=0x0a，op[25:22]=0xb
+ assign inst_preld = op_31_26_d[6'h0a] & op_25_22_d[4'hb];
+diff --git a/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/backend/issue/dispatch.v b/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/backend/issue/dispatch.v
+index f43012d..0f6a23f 100644
+--- a/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/backend/issue/dispatch.v
++++ b/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/backend/issue/dispatch.v
+@@ -254,19 +254,20 @@ assign dis0_src1_ready = dis0_src1_ready_i | !dis_rat_rbusy1_i | rob_rrdy1_i;
+ assign dis1_src0_ready = dis1_src0_ready_i | !dis_rat_rbusy2_i | rob_rrdy2_i;
+ assign dis1_src1_ready = dis1_src1_ready_i | !dis_rat_rbusy3_i | rob_rrdy3_i;
+ 
+-// 已锁存 ready/val 优先（rename 驻留 wakeup 可能新于 ARF 提交）；未锁存且 !busy 读 ARF；
+-// busy 时 rob_rrdy 优先于旧锁存（防 robid ABA）；!busy 必须优先于 rob_rrdy（防 RAT 释放后误读旧 ROB）
+-assign dis0_src0_val = dis0_src0_ready_i ? dis0_src0_val_i :
+-                       !dis_rat_rbusy0_i ? dis_arf_rdata0_i :
++// RAT 已释放时 ARF 为权威值，必须优先于 rename 锁存/ROB 旁路（防 robid ABA 或
++// 锁存 ready 后前序 li.w 才提交导致 csrxchg mask 读到 0）。
++// RAT 仍 busy 时再用 rename 锁存或 ROB 写回旁路。
++assign dis0_src0_val = !dis_rat_rbusy0_i ? dis_arf_rdata0_i :
++                       dis0_src0_ready_i ? dis0_src0_val_i :
+                        rob_rrdy0_i ? rob_rdata0_i : 32'b0;
+-assign dis0_src1_val = dis0_src1_ready_i ? dis0_src1_val_i :
+-                       !dis_rat_rbusy1_i ? dis_arf_rdata1_i :
++assign dis0_src1_val = !dis_rat_rbusy1_i ? dis_arf_rdata1_i :
++                       dis0_src1_ready_i ? dis0_src1_val_i :
+                        rob_rrdy1_i ? rob_rdata1_i : 32'b0;
+-assign dis1_src0_val = dis1_src0_ready_i ? dis1_src0_val_i :
+-                       !dis_rat_rbusy2_i ? dis_arf_rdata2_i :
++assign dis1_src0_val = !dis_rat_rbusy2_i ? dis_arf_rdata2_i :
++                       dis1_src0_ready_i ? dis1_src0_val_i :
+                        rob_rrdy2_i ? rob_rdata2_i : 32'b0;
+-assign dis1_src1_val = dis1_src1_ready_i ? dis1_src1_val_i :
+-                       !dis_rat_rbusy3_i ? dis_arf_rdata3_i :
++assign dis1_src1_val = !dis_rat_rbusy3_i ? dis_arf_rdata3_i :
++                       dis1_src1_ready_i ? dis1_src1_val_i :
+                        rob_rrdy3_i ? rob_rdata3_i : 32'b0;
+ 
+ assign dis0_ops_ready = dis0_src0_ready && dis0_src1_ready;
+diff --git a/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/backend/issue/rs_mdu.v b/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/backend/issue/rs_mdu.v
+index be93f7e..1a3c08c 100644
+--- a/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/backend/issue/rs_mdu.v
++++ b/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/backend/issue/rs_mdu.v
+@@ -102,6 +102,7 @@ reg [1:0]               count;
+ integer i;
+ wire head_ready;
+ wire issue_fire;
++wire [`ROB_W-1:0] ZERO_ROB = {`ROB_W{1'b0}};
+ 
+ // 每项唤醒命中/旁路数据用【generate 预计算 wire 数组】而非 function 调用：
+ // xsim 在 continuous assign 里对"带可变下标的 function"存在求值缺陷（见 rob.v），
+@@ -113,13 +114,15 @@ wire [31:0]     s1_wbdat [0:`RS_MDU_SIZE-1];
+ genvar gw;
+ generate
+ for (gw = 0; gw < `RS_MDU_SIZE; gw = gw + 1) begin : g_wake
+-    // 关键修复：已 ready 的操作数必须"冻结"，绝不能再被唤醒覆盖（见 rs_mem 同款注释）。
+-    assign s0_wbhit[gw] = !s0_ready[gw] &&
++    wire s0_truly_ready = s0_ready[gw] && (s0_robid[gw] == ZERO_ROB);
++    wire s1_truly_ready = s1_ready[gw] && (s1_robid[gw] == ZERO_ROB);
++    // 已 truly ready（无 robid 依赖）才冻结；带 robid 的伪 ready 仍允许写回覆盖。
++    assign s0_wbhit[gw] = !s0_truly_ready &&
+                           ((wb0_valid_i && (wb0_robid_i == s0_robid[gw])) ||
+                            (wb1_valid_i && (wb1_robid_i == s0_robid[gw])) ||
+                            (wb2_valid_i && (wb2_robid_i == s0_robid[gw])) ||
+                            (wb3_valid_i && (wb3_robid_i == s0_robid[gw])));
+-    assign s1_wbhit[gw] = !s1_ready[gw] &&
++    assign s1_wbhit[gw] = !s1_truly_ready &&
+                           ((wb0_valid_i && (wb0_robid_i == s1_robid[gw])) ||
+                            (wb1_valid_i && (wb1_robid_i == s1_robid[gw])) ||
+                            (wb2_valid_i && (wb2_robid_i == s1_robid[gw])) ||
+@@ -136,13 +139,14 @@ end
+ endgenerate
+ 
+ // push 口的唤醒命中/旁路（参数是端口信号，非数组变址；同样内联以彻底去除 function）
+-// push 同理带 !push_srcX_ready 门控（见 rs_mem 同款注释）。
+-wire        push_s0_wbhit = !push_src0_ready_i &&
++wire push_s0_truly_ready = push_src0_ready_i && (push_src0_robid_i == ZERO_ROB);
++wire push_s1_truly_ready = push_src1_ready_i && (push_src1_robid_i == ZERO_ROB);
++wire        push_s0_wbhit = !push_s0_truly_ready &&
+                            ((wb0_valid_i && (wb0_robid_i == push_src0_robid_i)) ||
+                             (wb1_valid_i && (wb1_robid_i == push_src0_robid_i)) ||
+                             (wb2_valid_i && (wb2_robid_i == push_src0_robid_i)) ||
+                             (wb3_valid_i && (wb3_robid_i == push_src0_robid_i)));
+-wire        push_s1_wbhit = !push_src1_ready_i &&
++wire        push_s1_wbhit = !push_s1_truly_ready &&
+                            ((wb0_valid_i && (wb0_robid_i == push_src1_robid_i)) ||
+                             (wb1_valid_i && (wb1_robid_i == push_src1_robid_i)) ||
+                             (wb2_valid_i && (wb2_robid_i == push_src1_robid_i)) ||
+@@ -186,11 +190,13 @@ always @(posedge clk) begin
+             if (valid[i] && !(issue_fire && (i[0] == head))) begin
+                 if (s0_wbhit[i]) begin
+                     s0_ready[i] <= 1'b1;
+-                    s0_val[i] <= s0_wbdat[i];
++                    s0_val[i]   <= s0_wbdat[i];
++                    s0_robid[i] <= ZERO_ROB;
+                 end
+                 if (s1_wbhit[i]) begin
+                     s1_ready[i] <= 1'b1;
+-                    s1_val[i] <= s1_wbdat[i];
++                    s1_val[i]   <= s1_wbdat[i];
++                    s1_robid[i] <= ZERO_ROB;
+                 end
+             end
+         end
+@@ -208,14 +214,16 @@ always @(posedge clk) begin
+             csr_num[tail] <= push_csr_num_i;
+             tlb_op[tail] <= push_tlb_op_i;
+             wb_src_op[tail] <= push_wb_src_op_i;
+-            s0_ready[tail] <= push_src0_ready_i || push_s0_wbhit;
+-            s0_val[tail] <= push_s0_wbhit ? push_s0_wbdat :
+-                            push_src0_ready_i ? push_src0_val_i : 32'b0;
+-            s0_robid[tail] <= push_src0_robid_i;
+-            s1_ready[tail] <= push_src1_ready_i || push_s1_wbhit;
+-            s1_val[tail] <= push_s1_wbhit ? push_s1_wbdat :
+-                            push_src1_ready_i ? push_src1_val_i : 32'b0;
+-            s1_robid[tail] <= push_src1_robid_i;
++            s0_ready[tail] <= push_s0_truly_ready || push_s0_wbhit;
++            s0_val[tail]   <= push_s0_wbhit ? push_s0_wbdat :
++                              push_s0_truly_ready ? push_src0_val_i : 32'b0;
++            s0_robid[tail] <= (push_s0_truly_ready || push_s0_wbhit) ? ZERO_ROB :
++                              push_src0_robid_i;
++            s1_ready[tail] <= push_s1_truly_ready || push_s1_wbhit;
++            s1_val[tail]   <= push_s1_wbhit ? push_s1_wbdat :
++                              push_s1_truly_ready ? push_src1_val_i : 32'b0;
++            s1_robid[tail] <= (push_s1_truly_ready || push_s1_wbhit) ? ZERO_ROB :
++                              push_src1_robid_i;
+             tail <= tail + 1'b1;
+         end
+ 
+diff --git a/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/backend/rename/rename.v b/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/backend/rename/rename.v
+index 285e3eb..b5ed0c1 100644
+--- a/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/backend/rename/rename.v
++++ b/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/backend/rename/rename.v
+@@ -499,41 +499,33 @@ always @(posedge clk) begin
+     end else begin
+         // 分发队列驻留：首次就绪时锁存操作数，避免 ROB 项复用后读到 ABA 错误值
+         // （典型：mod.w 后 bne 等在 dispatch，下一条 mod.w 复用 robid 时误取新余数）
+-        if (dis0_valid_o && dis0_src0_use_r && !dis0_src0_ready_o) begin
+-            if (rob_rrdy0_i) begin
+-                dis0_src0_ready_o <= 1'b1;
+-                dis0_src0_val_o   <= rob_rdata0_i;
+-            end else if (!dis_rat_rbusy0_i) begin
+-                dis0_src0_ready_o <= 1'b1;
+-                dis0_src0_val_o   <= dis_arf_rdata0_i;
+-            end
++        if (dis0_valid_o && dis0_src0_use_r && !dis_rat_rbusy0_i) begin
++            dis0_src0_ready_o <= 1'b1;
++            dis0_src0_val_o   <= dis_arf_rdata0_i;
++        end else if (dis0_valid_o && dis0_src0_use_r && !dis0_src0_ready_o && rob_rrdy0_i) begin
++            dis0_src0_ready_o <= 1'b1;
++            dis0_src0_val_o   <= rob_rdata0_i;
+         end
+-        if (dis0_valid_o && dis0_src1_use_r && !dis0_src1_ready_o) begin
+-            if (rob_rrdy1_i) begin
+-                dis0_src1_ready_o <= 1'b1;
+-                dis0_src1_val_o   <= rob_rdata1_i;
+-            end else if (!dis_rat_rbusy1_i) begin
+-                dis0_src1_ready_o <= 1'b1;
+-                dis0_src1_val_o   <= dis_arf_rdata1_i;
+-            end
++        if (dis0_valid_o && dis0_src1_use_r && !dis_rat_rbusy1_i) begin
++            dis0_src1_ready_o <= 1'b1;
++            dis0_src1_val_o   <= dis_arf_rdata1_i;
++        end else if (dis0_valid_o && dis0_src1_use_r && !dis0_src1_ready_o && rob_rrdy1_i) begin
++            dis0_src1_ready_o <= 1'b1;
++            dis0_src1_val_o   <= rob_rdata1_i;
+         end
+-        if (dis1_valid_o && dis1_src0_use_r && !dis1_src0_ready_o) begin
+-            if (rob_rrdy2_i) begin
+-                dis1_src0_ready_o <= 1'b1;
+-                dis1_src0_val_o   <= rob_rdata2_i;
+-            end else if (!dis_rat_rbusy2_i) begin
+-                dis1_src0_ready_o <= 1'b1;
+-                dis1_src0_val_o   <= dis_arf_rdata2_i;
+-            end
++        if (dis1_valid_o && dis1_src0_use_r && !dis_rat_rbusy2_i) begin
++            dis1_src0_ready_o <= 1'b1;
++            dis1_src0_val_o   <= dis_arf_rdata2_i;
++        end else if (dis1_valid_o && dis1_src0_use_r && !dis1_src0_ready_o && rob_rrdy2_i) begin
++            dis1_src0_ready_o <= 1'b1;
++            dis1_src0_val_o   <= rob_rdata2_i;
+         end
+-        if (dis1_valid_o && dis1_src1_use_r && !dis1_src1_ready_o) begin
+-            if (rob_rrdy3_i) begin
+-                dis1_src1_ready_o <= 1'b1;
+-                dis1_src1_val_o   <= rob_rdata3_i;
+-            end else if (!dis_rat_rbusy3_i) begin
+-                dis1_src1_ready_o <= 1'b1;
+-                dis1_src1_val_o   <= dis_arf_rdata3_i;
+-            end
++        if (dis1_valid_o && dis1_src1_use_r && !dis_rat_rbusy3_i) begin
++            dis1_src1_ready_o <= 1'b1;
++            dis1_src1_val_o   <= dis_arf_rdata3_i;
++        end else if (dis1_valid_o && dis1_src1_use_r && !dis1_src1_ready_o && rob_rrdy3_i) begin
++            dis1_src1_ready_o <= 1'b1;
++            dis1_src1_val_o   <= rob_rdata3_i;
+         end
+ 
+         if (dis0_fire_i)
+diff --git a/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/frontend/ifu.v b/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/frontend/ifu.v
+index 2ee3794..984ce67 100644
+--- a/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/frontend/ifu.v
++++ b/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/frontend/ifu.v
+@@ -353,7 +353,10 @@ always @(*) begin
+     predec_is_direct = 1'b0;
+     for (pi = 0; pi < 4; pi = pi + 1) begin
+         if (!predec_found && (pi < if_len_eff)) begin
+-            if (imm_br[pi] && ((pi < if_len_eff - 1) || !if_taken)) begin
++            // 龙芯杯功能测例按“无分支延迟槽”建模（见 open-la500 id_stage branch_slot_cancel）；
++            // 无条件分支必须在块内截断，禁止把 b/bc 后一条推入 IB（否则 n49 TEST_TI_EX
++            // 的 csrwr zero,tcfg 每轮清 EN，定时器永远无法到期）。
++            if (imm_br[pi]) begin
+                 predec_found     = 1'b1;
+                 predec_idx       = pi[1:0];
+                 predec_is_direct = 1'b1;
+diff --git a/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/mycpu_top.v b/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/mycpu_top.v
+index a496c7c..c55b030 100644
+--- a/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/mycpu_top.v
++++ b/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/mycpu_top.v
+@@ -2010,6 +2010,7 @@ module core_top #(
+         .sc_set_o          (cmt_sc_set),
+         .lladdr_o          (cmt_lladdr),
+         .has_int_i         (csr_has_int),
++        .csr_plv_i         (csr_crmd_plv),
+         .csr_next_pc_i     (csr_next_pc),
+         .csr_redirect_i    (csr_redirect),
+         .tlb_op_cmt_o      (cmt_tlb_op),
+diff --git a/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/priv/csr_exception_commit_handler.v b/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/priv/csr_exception_commit_handler.v
+index 459a286..83f4a23 100644
+--- a/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/priv/csr_exception_commit_handler.v
++++ b/output/Loongarch_cpu_V3_developing/chiplab_for_Vivado_dont_touch/IP/myCPU/priv/csr_exception_commit_handler.v
+@@ -509,6 +509,9 @@ module csr_exception_commit_handler (
+             csr_tcfg_en <= csr_wmask[`CSR_TCFG_EN] & csr_wvalue[`CSR_TCFG_EN] 
+                             | ~csr_wmask[`CSR_TCFG_EN] & csr_tcfg_en;
+         end
++        else if (csr_tcfg_en && (timer_cnt[31:0] == 32'b0) && !csr_tcfg_periodic) begin
++            csr_tcfg_en <= 1'b0;
++        end
+ 
+         if (csr_we && csr_num == `CSR_TCFG) begin
+             csr_tcfg_periodic <= csr_wmask[`CSR_TCFG_PERIODIC] & csr_wvalue[`CSR_TCFG_PERIODIC] 

@@ -492,41 +492,33 @@ always @(posedge clk) begin
     end else begin
         // 分发队列驻留：首次就绪时锁存操作数，避免 ROB 项复用后读到 ABA 错误值
         // （典型：mod.w 后 bne 等在 dispatch，下一条 mod.w 复用 robid 时误取新余数）
-        if (dis0_valid_o && dis0_src0_use_r && !dis0_src0_ready_o) begin
-            if (rob_rrdy0_i) begin
-                dis0_src0_ready_o <= 1'b1;
-                dis0_src0_val_o   <= rob_rdata0_i;
-            end else if (!dis_rat_rbusy0_i) begin
-                dis0_src0_ready_o <= 1'b1;
-                dis0_src0_val_o   <= dis_arf_rdata0_i;
-            end
+        if (dis0_valid_o && dis0_src0_use_r && !dis_rat_rbusy0_i) begin
+            dis0_src0_ready_o <= 1'b1;
+            dis0_src0_val_o   <= dis_arf_rdata0_i;
+        end else if (dis0_valid_o && dis0_src0_use_r && !dis0_src0_ready_o && rob_rrdy0_i) begin
+            dis0_src0_ready_o <= 1'b1;
+            dis0_src0_val_o   <= rob_rdata0_i;
         end
-        if (dis0_valid_o && dis0_src1_use_r && !dis0_src1_ready_o) begin
-            if (rob_rrdy1_i) begin
-                dis0_src1_ready_o <= 1'b1;
-                dis0_src1_val_o   <= rob_rdata1_i;
-            end else if (!dis_rat_rbusy1_i) begin
-                dis0_src1_ready_o <= 1'b1;
-                dis0_src1_val_o   <= dis_arf_rdata1_i;
-            end
+        if (dis0_valid_o && dis0_src1_use_r && !dis_rat_rbusy1_i) begin
+            dis0_src1_ready_o <= 1'b1;
+            dis0_src1_val_o   <= dis_arf_rdata1_i;
+        end else if (dis0_valid_o && dis0_src1_use_r && !dis0_src1_ready_o && rob_rrdy1_i) begin
+            dis0_src1_ready_o <= 1'b1;
+            dis0_src1_val_o   <= rob_rdata1_i;
         end
-        if (dis1_valid_o && dis1_src0_use_r && !dis1_src0_ready_o) begin
-            if (rob_rrdy2_i) begin
-                dis1_src0_ready_o <= 1'b1;
-                dis1_src0_val_o   <= rob_rdata2_i;
-            end else if (!dis_rat_rbusy2_i) begin
-                dis1_src0_ready_o <= 1'b1;
-                dis1_src0_val_o   <= dis_arf_rdata2_i;
-            end
+        if (dis1_valid_o && dis1_src0_use_r && !dis_rat_rbusy2_i) begin
+            dis1_src0_ready_o <= 1'b1;
+            dis1_src0_val_o   <= dis_arf_rdata2_i;
+        end else if (dis1_valid_o && dis1_src0_use_r && !dis1_src0_ready_o && rob_rrdy2_i) begin
+            dis1_src0_ready_o <= 1'b1;
+            dis1_src0_val_o   <= rob_rdata2_i;
         end
-        if (dis1_valid_o && dis1_src1_use_r && !dis1_src1_ready_o) begin
-            if (rob_rrdy3_i) begin
-                dis1_src1_ready_o <= 1'b1;
-                dis1_src1_val_o   <= rob_rdata3_i;
-            end else if (!dis_rat_rbusy3_i) begin
-                dis1_src1_ready_o <= 1'b1;
-                dis1_src1_val_o   <= dis_arf_rdata3_i;
-            end
+        if (dis1_valid_o && dis1_src1_use_r && !dis_rat_rbusy3_i) begin
+            dis1_src1_ready_o <= 1'b1;
+            dis1_src1_val_o   <= dis_arf_rdata3_i;
+        end else if (dis1_valid_o && dis1_src1_use_r && !dis1_src1_ready_o && rob_rrdy3_i) begin
+            dis1_src1_ready_o <= 1'b1;
+            dis1_src1_val_o   <= rob_rdata3_i;
         end
 
         if (dis0_fire_i)

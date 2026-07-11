@@ -234,8 +234,15 @@ always @(posedge clk) begin
         pc <= 32'h1c000000;
     else if (flush_i)
         pc <= flush_pc_i;
-    else if (flush_r)
-        pc <= flush_pc_r;
+    // 注意:不要在 flush 的下一拍(flush_r)再次把 pc 钉回 flush_pc_r。
+    // flush_i 当拍 query_en=0(无 P0),pc 已置 flush_pc_i;下一拍(flush_r)query_en=1
+    // 正常发出 flush_pc 的 P0 块并写入 FTQ——这是正确的重取指块。若此拍 posedge 再用
+    // flush_r 把 pc 钉回 flush_pc_r,则 pc 在 flush_r 拍与其后一拍连续两拍都等于 flush_pc,
+    // 而 query_en 两拍都为 1 → 同一块被取指/分配/提交两次(FLUSH_REFETCH 双取)。
+    // 表现:csrwr/csrxchg(每条都触发 FLUSH_REFETCH)之后那条指令被提交两次
+    //   → n47/n48/n50 的 confreg store 双写("numbers unequal")、
+    //     n49/n51 的成功计数器 addi r26,r26,1 自增 2("Occurred in number")。
+    // 修复:删掉 flush_r 的 pc 钉回,让 flush_r 拍取指后 pc 正常推进到 p0_next。
     else if (predec_redirect_i && predec_update_pc_i)
         pc <= predec_redirect_pc_i;
     else if (p1_diff)

@@ -226,9 +226,8 @@ assign inst_andn  = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op
 
 // 同步类与等待类
 assign inst_dbar  = op_31_26_d[6'h0e] & op_25_22_d[4'h1] & op_21_20_d[2'h3] & op_19_15_d[5'h04];
-// chiplab func 测试套件 idle 0 宏展开为 0x50000000（自分支等待中断），与手册 idle 编码并存。
-assign inst_idle  = (op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h11])
-                  | (inst[31:0] === 32'h50000000);
+// idle：仅认手册编码；勿将 0x50000000（B 自环）并入 idle——n49 TEST_TI_EX 的 b 1b 即此编码。
+assign inst_idle  = (op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h11]);
 
 // preld：op[31:26]=0x0a，op[25:22]=0xb
 assign inst_preld = op_31_26_d[6'h0a] & op_25_22_d[4'hb];

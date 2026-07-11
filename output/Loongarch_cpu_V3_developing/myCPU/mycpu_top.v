@@ -2009,6 +2009,7 @@ module core_top #(
         .sc_set_o          (cmt_sc_set),
         .lladdr_o          (cmt_lladdr),
         .has_int_i         (csr_has_int),
+        .csr_plv_i         (csr_crmd_plv),
         .csr_next_pc_i     (csr_next_pc),
         .csr_redirect_i    (csr_redirect),
         .tlb_op_cmt_o      (cmt_tlb_op),

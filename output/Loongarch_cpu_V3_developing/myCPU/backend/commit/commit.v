@@ -142,6 +142,7 @@ module commit(
     output wire                       sc_set_o,            // sc.w 提交清 LLBIT
     output wire [27:0]                lladdr_o,            // LL 地址高位
     input  wire                       has_int_i,           // CSR 有待处理中断
+    input  wire [1:0]                 csr_plv_i,           // CRMD.PLV（提交时重检 IPE）
     input  wire [31:0]                csr_next_pc_i,       // 异常入口/ERA（handler 算好）
     input  wire [1:0]                 csr_redirect_i,      // `CSR_REDIRECT_EX / _ERTN
 
@@ -286,15 +287,29 @@ wire [`ROB_W-1:0] cmt1_robid = {1'b1, head_robid0_i[`ROB_PAIR_W-1:0]};
 
 wire cmt0_ready = cmt0_valid_i && cmt0_complete_i;
 wire cmt1_ready = cmt1_valid_i && cmt1_complete_i;
-wire cmt0_has_excp = |cmt0_excp_i;
-wire cmt1_has_excp = |cmt1_excp_i;
-wire cmt0_has_priv = |cmt0_priv_vec_i;
-wire cmt1_has_priv = |cmt1_priv_vec_i;
+
+// IPE 在译码时按当时 PLV 置位；双提交时 slot0 的 csrxchg 可与 slot1 csrwr 同拍提交，
+// 须在提交时按 slot0 写 CRMD 后的有效 PLV 重检，避免 n51 等误触发 IPE。
+wire cmt0_ipe_commit = cmt0_excp_i[`EXCP_IPE] && (csr_plv_i == 2'b11);
+wire [`EXCP_NUM-1:0] cmt0_excp_commit = {cmt0_excp_i[14:8], cmt0_ipe_commit, cmt0_excp_i[6:0]};
+wire cmt0_has_excp = |cmt0_excp_commit;
 
 wire int_take = has_int_i && cmt0_valid_i && !uncached_ld_inflight_i;
 wire cmt0_ibar_block = cmt0_ready && cmt0_priv_vec_i[`PRIV_IBAR] && !sb_empty_i;
 wire cmt1_ibar_block = cmt1_ready && cmt1_priv_vec_i[`PRIV_IBAR] && !sb_empty_i;
 wire cmt0_store_block = cmt0_ready && cmt0_is_store_i && sb_full_i && !cmt0_has_excp;
+
+wire cmt0_crmd_commit = cmt0_ready && !int_take && !cmt0_has_excp &&
+                        !cmt0_store_block && !cmt0_ibar_block &&
+                        cmt0_priv_vec_i[`PRIV_CSR_WR] && (cmt0_csr_num_i == `CSR_CRMD);
+wire [1:0] plv_for_cmt1 = cmt0_crmd_commit ? cmt0_result2_i[1:0] : csr_plv_i;
+wire cmt1_ipe_commit = cmt1_excp_i[`EXCP_IPE] && (plv_for_cmt1 == 2'b11);
+wire [`EXCP_NUM-1:0] cmt1_excp_commit = {cmt1_excp_i[14:8], cmt1_ipe_commit, cmt1_excp_i[6:0]};
+wire cmt1_has_excp = |cmt1_excp_commit;
+
+wire cmt0_has_priv = |cmt0_priv_vec_i;
+wire cmt1_has_priv = |cmt1_priv_vec_i;
+
 wire cmt1_store_block = cmt1_ready && cmt1_is_store_i && sb_full_i && !cmt1_has_excp;
 
 wire cmt0_mispred = cmt0_ready && !cmt0_has_excp && !cmt0_has_priv &&
@@ -326,8 +341,11 @@ wire cmt1_head_flush = (!cmt0_valid_i) &&
                         (cmt1_head_effect && cmt1_has_priv) ||
                         cmt1_mispred_head);
 
+// taken 分支提交时禁止 slot1 双提交（无延迟槽；块末 is_last=1 时须仍阻断 delay-slot）
+wire cmt0_taken_br = cmt0_effect && cmt0_is_branch_i && cmt0_br_taken_i;
+
 wire cmt1_single_limit = cmt1_has_excp || cmt1_has_priv || cmt1_is_branch_i ||
-                         (cmt0_is_store_i && cmt1_is_store_i);
+                         (cmt0_is_store_i && cmt1_is_store_i) || cmt0_taken_br;
 wire cmt1_dual_effect = cmt0_effect && !cmt0_flush && cmt1_ready &&
                         !cmt1_single_limit && !cmt1_store_block;
 wire cmt1_retire = cmt0_valid_i ? cmt1_dual_effect : cmt1_head_retire;
@@ -344,7 +362,7 @@ wire [4:0]  sel_cacop_code = take_slot1_for_csr ? cmt1_cacop_code_i : cmt0_cacop
 wire [13:0] sel_csr_num = take_slot1_for_csr ? cmt1_csr_num_i : cmt0_csr_num_i;
 wire [`TLB_OP_NUM-1:0] sel_tlb_op = take_slot1_for_csr ? cmt1_tlb_op_i : cmt0_tlb_op_i;
 wire [`PRIV_NUM-1:0] sel_priv = take_slot1_for_csr ? cmt1_priv_vec_i : cmt0_priv_vec_i;
-wire [`EXCP_NUM-1:0] sel_excp = take_slot1_for_csr ? cmt1_excp_i : cmt0_excp_i;
+wire [`EXCP_NUM-1:0] sel_excp = take_slot1_for_csr ? cmt1_excp_commit : cmt0_excp_commit;
 wire sel_is_branch = take_slot1_for_csr ? cmt1_is_branch_i : cmt0_is_branch_i;
 wire sel_pred_taken = take_slot1_for_csr ? cmt1_pred_taken_i : cmt0_pred_taken_i;
 wire sel_br_taken = take_slot1_for_csr ? cmt1_br_taken_i : cmt0_br_taken_i;
@@ -358,6 +376,8 @@ wire selected_excp_take = int_take || (take_slot1_for_csr ? (cmt1_ready && cmt1_
                                                           : (cmt0_ready && cmt0_has_excp));
 wire selected_priv_flush = selected_effect && (|sel_priv);
 wire selected_mispred = take_slot1_for_csr ? cmt1_mispred_head : cmt0_mispred;
+// taken 分支提交后冲刷 delay-slot（无延迟槽语义；覆盖 cond 误预测 fall-through 已进 ROB 的 insn）
+wire selected_taken_br_ds = selected_effect && sel_is_branch && sel_br_taken && !selected_mispred;
 
 wire mem_excp = sel_excp[`EXCP_ADEM] | sel_excp[`EXCP_ALE] |
                 sel_excp[`EXCP_TLBR_M] | sel_excp[`EXCP_PIL] |
@@ -446,16 +466,18 @@ assign ras_cmt_call_o = selected_effect && sel_is_branch && (sel_br_type == `BR_
 assign ras_cmt_ret_o = selected_effect && sel_is_branch && (sel_br_type == `BR_TYPE_RET);
 assign ras_cmt_retaddr_o = sel_pc + 32'd4;
 
-assign flush_req_o = selected_excp_take || selected_priv_flush || selected_mispred;
+assign flush_req_o = selected_excp_take || selected_priv_flush || selected_mispred ||
+                     selected_taken_br_ds;
 assign flush_type_o = selected_excp_take ? `FLUSH_EXCP :
                       (selected_effect && sel_priv[`PRIV_ERTN]) ? `FLUSH_ERTN :
                       selected_priv_flush ? `FLUSH_REFETCH :
-                      selected_mispred ? `FLUSH_MISPRED :
+                      (selected_mispred || selected_taken_br_ds) ? `FLUSH_MISPRED :
                       `FLUSH_NONE;
 assign flush_pc_o = selected_excp_take ? csr_next_pc_i :
                     (selected_effect && sel_priv[`PRIV_ERTN]) ? csr_next_pc_i :
                     selected_priv_flush ? (sel_pc + 32'd4) :
-                    selected_mispred ? (sel_br_taken ? sel_br_target : (sel_pc + 32'd4)) :
+                    (selected_mispred || selected_taken_br_ds) ?
+                        (sel_br_taken ? sel_br_target : (sel_pc + 32'd4)) :
                     32'b0;
 assign idle_commit_o = selected_effect && sel_priv[`PRIV_IDLE];
 

@@ -28,11 +28,9 @@ module rs_mdu(
     input  wire [`TLB_OP_NUM-1:0]     push_tlb_op_i,
     input  wire [`WB_SRC_NUM-1:0]     push_wb_src_op_i,    // rdcnt 类选择
     input  wire                       push_src0_ready_i,   // src0 = rj（csrxchg 的 mask / invtlb 的 asid / 乘除源1）
-    input  wire                       push_src0_arf_i,
     input  wire [31:0]                push_src0_val_i,
     input  wire [`ROB_W-1:0]          push_src0_robid_i,
     input  wire                       push_src1_ready_i,   // src1 = rk/rd（csr 写值 / invtlb 的 va / 乘除源2）
-    input  wire                       push_src1_arf_i,
     input  wire [31:0]                push_src1_val_i,
     input  wire [`ROB_W-1:0]          push_src1_robid_i,
 
@@ -97,8 +95,6 @@ reg [`ROB_W-1:0]        s0_robid [0:`RS_MDU_SIZE-1];
 reg                     s1_ready [0:`RS_MDU_SIZE-1];
 reg [31:0]              s1_val [0:`RS_MDU_SIZE-1];
 reg [`ROB_W-1:0]        s1_robid [0:`RS_MDU_SIZE-1];
-reg                     s0_arf_rdy [0:`RS_MDU_SIZE-1];
-reg                     s1_arf_rdy [0:`RS_MDU_SIZE-1];
 reg                     head;
 reg                     tail;
 reg [1:0]               count;
@@ -106,39 +102,69 @@ reg [1:0]               count;
 integer i;
 wire head_ready;
 wire issue_fire;
+wire [`ROB_W-1:0] ZERO_ROB = {`ROB_W{1'b0}};
 
-function wb_hit;
-    input [`ROB_W-1:0] rid;
-    begin
-        wb_hit = (wb0_valid_i && (wb0_robid_i == rid)) ||
-                 (wb1_valid_i && (wb1_robid_i == rid)) ||
-                 (wb2_valid_i && (wb2_robid_i == rid)) ||
-                 (wb3_valid_i && (wb3_robid_i == rid));
-    end
-endfunction
+// 每项唤醒命中/旁路数据用【generate 预计算 wire 数组】而非 function 调用：
+// xsim 在 continuous assign 里对"带可变下标的 function"存在求值缺陷（见 rob.v），
+// 会返回上一次求值下标的旧值。改为纯数组变址读（s0_wbhit[idx] 等）即可规避。
+wire            s0_wbhit [0:`RS_MDU_SIZE-1];
+wire            s1_wbhit [0:`RS_MDU_SIZE-1];
+wire [31:0]     s0_wbdat [0:`RS_MDU_SIZE-1];
+wire [31:0]     s1_wbdat [0:`RS_MDU_SIZE-1];
+genvar gw;
+generate
+for (gw = 0; gw < `RS_MDU_SIZE; gw = gw + 1) begin : g_wake
+    wire s0_truly_ready = s0_ready[gw] && (s0_robid[gw] == ZERO_ROB);
+    wire s1_truly_ready = s1_ready[gw] && (s1_robid[gw] == ZERO_ROB);
+    // 已 truly ready（无 robid 依赖）才冻结；带 robid 的伪 ready 仍允许写回覆盖。
+    assign s0_wbhit[gw] = !s0_truly_ready &&
+                          ((wb0_valid_i && (wb0_robid_i == s0_robid[gw])) ||
+                           (wb1_valid_i && (wb1_robid_i == s0_robid[gw])) ||
+                           (wb2_valid_i && (wb2_robid_i == s0_robid[gw])) ||
+                           (wb3_valid_i && (wb3_robid_i == s0_robid[gw])));
+    assign s1_wbhit[gw] = !s1_truly_ready &&
+                          ((wb0_valid_i && (wb0_robid_i == s1_robid[gw])) ||
+                           (wb1_valid_i && (wb1_robid_i == s1_robid[gw])) ||
+                           (wb2_valid_i && (wb2_robid_i == s1_robid[gw])) ||
+                           (wb3_valid_i && (wb3_robid_i == s1_robid[gw])));
+    assign s0_wbdat[gw] = (wb0_valid_i && (wb0_robid_i == s0_robid[gw])) ? wb0_data_i :
+                          (wb1_valid_i && (wb1_robid_i == s0_robid[gw])) ? wb1_data_i :
+                          (wb2_valid_i && (wb2_robid_i == s0_robid[gw])) ? wb2_data_i :
+                          (wb3_valid_i && (wb3_robid_i == s0_robid[gw])) ? wb3_data_i : 32'b0;
+    assign s1_wbdat[gw] = (wb0_valid_i && (wb0_robid_i == s1_robid[gw])) ? wb0_data_i :
+                          (wb1_valid_i && (wb1_robid_i == s1_robid[gw])) ? wb1_data_i :
+                          (wb2_valid_i && (wb2_robid_i == s1_robid[gw])) ? wb2_data_i :
+                          (wb3_valid_i && (wb3_robid_i == s1_robid[gw])) ? wb3_data_i : 32'b0;
+end
+endgenerate
 
-function [31:0] wb_data;
-    input [`ROB_W-1:0] rid;
-    begin
-        if (wb0_valid_i && (wb0_robid_i == rid)) begin
-            wb_data = wb0_data_i;
-        end else if (wb1_valid_i && (wb1_robid_i == rid)) begin
-            wb_data = wb1_data_i;
-        end else if (wb2_valid_i && (wb2_robid_i == rid)) begin
-            wb_data = wb2_data_i;
-        end else if (wb3_valid_i && (wb3_robid_i == rid)) begin
-            wb_data = wb3_data_i;
-        end else begin
-            wb_data = 32'b0;
-        end
-    end
-endfunction
+// push 口的唤醒命中/旁路（参数是端口信号，非数组变址；同样内联以彻底去除 function）
+wire push_s0_truly_ready = push_src0_ready_i && (push_src0_robid_i == ZERO_ROB);
+wire push_s1_truly_ready = push_src1_ready_i && (push_src1_robid_i == ZERO_ROB);
+wire        push_s0_wbhit = !push_s0_truly_ready &&
+                           ((wb0_valid_i && (wb0_robid_i == push_src0_robid_i)) ||
+                            (wb1_valid_i && (wb1_robid_i == push_src0_robid_i)) ||
+                            (wb2_valid_i && (wb2_robid_i == push_src0_robid_i)) ||
+                            (wb3_valid_i && (wb3_robid_i == push_src0_robid_i)));
+wire        push_s1_wbhit = !push_s1_truly_ready &&
+                           ((wb0_valid_i && (wb0_robid_i == push_src1_robid_i)) ||
+                            (wb1_valid_i && (wb1_robid_i == push_src1_robid_i)) ||
+                            (wb2_valid_i && (wb2_robid_i == push_src1_robid_i)) ||
+                            (wb3_valid_i && (wb3_robid_i == push_src1_robid_i)));
+wire [31:0] push_s0_wbdat = (wb0_valid_i && (wb0_robid_i == push_src0_robid_i)) ? wb0_data_i :
+                            (wb1_valid_i && (wb1_robid_i == push_src0_robid_i)) ? wb1_data_i :
+                            (wb2_valid_i && (wb2_robid_i == push_src0_robid_i)) ? wb2_data_i :
+                            (wb3_valid_i && (wb3_robid_i == push_src0_robid_i)) ? wb3_data_i : 32'b0;
+wire [31:0] push_s1_wbdat = (wb0_valid_i && (wb0_robid_i == push_src1_robid_i)) ? wb0_data_i :
+                            (wb1_valid_i && (wb1_robid_i == push_src1_robid_i)) ? wb1_data_i :
+                            (wb2_valid_i && (wb2_robid_i == push_src1_robid_i)) ? wb2_data_i :
+                            (wb3_valid_i && (wb3_robid_i == push_src1_robid_i)) ? wb3_data_i : 32'b0;
 
 assign occupancy_o = count;
 assign can_accept_o = (count != `RS_MDU_SIZE);
 assign head_ready = (count != 2'b0) && valid[head] &&
-                    (s0_ready[head] || wb_hit(s0_robid[head])) &&
-                    (s1_ready[head] || wb_hit(s1_robid[head]));
+                    (s0_ready[head] || s0_wbhit[head]) &&
+                    (s1_ready[head] || s1_wbhit[head]);
 assign issue_valid_o = head_ready && mdu_ready_i;
 assign issue_fire = issue_valid_o;
 
@@ -148,10 +174,8 @@ assign issue_csr_op_o = csr_op[head];
 assign issue_csr_num_o = csr_num[head];
 assign issue_tlb_op_o = tlb_op[head];
 assign issue_wb_src_op_o = wb_src_op[head];
-wire s0_issue_wb = wb_hit(s0_robid[head]) && !s0_arf_rdy[head];
-wire s1_issue_wb = wb_hit(s1_robid[head]) && !s1_arf_rdy[head];
-assign issue_src0_o = s0_issue_wb ? wb_data(s0_robid[head]) : s0_val[head];
-assign issue_src1_o = s1_issue_wb ? wb_data(s1_robid[head]) : s1_val[head];
+assign issue_src0_o = s0_wbhit[head] ? s0_wbdat[head] : s0_val[head];
+assign issue_src1_o = s1_wbhit[head] ? s1_wbdat[head] : s1_val[head];
 
 always @(posedge clk) begin
     if (reset || flush_i) begin
@@ -164,13 +188,15 @@ always @(posedge clk) begin
     end else begin
         for (i = 0; i < `RS_MDU_SIZE; i = i + 1) begin
             if (valid[i] && !(issue_fire && (i[0] == head))) begin
-                if (wb_hit(s0_robid[i])) begin
+                if (s0_wbhit[i]) begin
                     s0_ready[i] <= 1'b1;
-                    s0_val[i] <= wb_data(s0_robid[i]);
+                    s0_val[i]   <= s0_wbdat[i];
+                    s0_robid[i] <= ZERO_ROB;
                 end
-                if (wb_hit(s1_robid[i])) begin
+                if (s1_wbhit[i]) begin
                     s1_ready[i] <= 1'b1;
-                    s1_val[i] <= wb_data(s1_robid[i]);
+                    s1_val[i]   <= s1_wbdat[i];
+                    s1_robid[i] <= ZERO_ROB;
                 end
             end
         end
@@ -188,16 +214,16 @@ always @(posedge clk) begin
             csr_num[tail] <= push_csr_num_i;
             tlb_op[tail] <= push_tlb_op_i;
             wb_src_op[tail] <= push_wb_src_op_i;
-            s0_ready[tail] <= push_src0_ready_i || wb_hit(push_src0_robid_i);
-            s0_arf_rdy[tail] <= push_src0_arf_i;
-            s0_val[tail] <= push_src0_ready_i ? push_src0_val_i :
-                            wb_hit(push_src0_robid_i) ? wb_data(push_src0_robid_i) : 32'b0;
-            s0_robid[tail] <= push_src0_robid_i;
-            s1_ready[tail] <= push_src1_ready_i || wb_hit(push_src1_robid_i);
-            s1_arf_rdy[tail] <= push_src1_arf_i;
-            s1_val[tail] <= push_src1_ready_i ? push_src1_val_i :
-                            wb_hit(push_src1_robid_i) ? wb_data(push_src1_robid_i) : 32'b0;
-            s1_robid[tail] <= push_src1_robid_i;
+            s0_ready[tail] <= push_s0_truly_ready || push_s0_wbhit;
+            s0_val[tail]   <= push_s0_wbhit ? push_s0_wbdat :
+                              push_s0_truly_ready ? push_src0_val_i : 32'b0;
+            s0_robid[tail] <= (push_s0_truly_ready || push_s0_wbhit) ? ZERO_ROB :
+                              push_src0_robid_i;
+            s1_ready[tail] <= push_s1_truly_ready || push_s1_wbhit;
+            s1_val[tail]   <= push_s1_wbhit ? push_s1_wbdat :
+                              push_s1_truly_ready ? push_src1_val_i : 32'b0;
+            s1_robid[tail] <= (push_s1_truly_ready || push_s1_wbhit) ? ZERO_ROB :
+                              push_src1_robid_i;
             tail <= tail + 1'b1;
         end
 

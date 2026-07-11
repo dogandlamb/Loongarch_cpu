@@ -5,7 +5,7 @@
 // ------------------------------------------------------------
 // 被 decoder.v 内部例化复用，生成 src0/src1 读地址：
 // - 大多数指令：src0 读 rj，src1 读 rk/rd（store 数据、分支比较第二源）；
-// - CSR 指令特例：csrwr 源在 rd；csrxchg mask=rj、写值=rd。
+// - CSR 指令特例：csrwr 写值在 rd→src1（rf_raddr2）；csrxchg mask=rj→src0、写值=rd→src1。
 // 零改动复用（decoder 直接把两个输出当 src0_addr/src1_addr）。
 // ============================================================
 module get_reg_read_addr(
@@ -93,7 +93,6 @@ wire [4:0] rj;
 wire [4:0] rk;
 wire       need_rj;
 wire       need_rk;
-wire       src1_reg_is_rd;
 wire       src2_reg_is_rd;
 wire       grra_unused_inputs;
 
@@ -128,14 +127,12 @@ assign need_rk = inst_add_w | inst_sub_w | inst_slt | inst_sltu
                | inst_div_w | inst_div_wu | inst_mod_w | inst_mod_wu
                | inst_andn  | inst_orn;
 
-assign src1_reg_is_rd = inst_csrwr;
-// sc.w 的写数据来自 rd（与 store 类似），同时 rj 已经用于 src1
+// csrwr 写 CSR 的新值在 rd，经 src1（rf_raddr2）送入 MDU；勿放 src0（use_src0=0 会忽略）
 assign src2_reg_is_rd = inst_st_w | inst_beq | inst_bne | inst_st_b | inst_st_h
                       | inst_blt | inst_bge | inst_bltu | inst_bgeu
-                      | inst_csrxchg | inst_sc_w;
+                      | inst_csrwr | inst_csrxchg | inst_sc_w;
 
-assign rf_raddr1 = src1_reg_is_rd ? rd
-                 : (need_rj ? rj : (5'd0 | (5'd0 & {5{grra_unused_inputs}})));
+assign rf_raddr1 = need_rj ? rj : (5'd0 | (5'd0 & {5{grra_unused_inputs}}));
 assign rf_raddr2 = src2_reg_is_rd ? rd
                  : (need_rk ? rk : (5'd0 | (5'd0 & {5{grra_unused_inputs}})));
 

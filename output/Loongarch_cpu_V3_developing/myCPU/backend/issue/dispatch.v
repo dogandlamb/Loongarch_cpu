@@ -259,25 +259,21 @@ assign dis0_src1_ready = dis0_src1_ready_i | !dis_rat_rbusy1_i | rob_rrdy1_i;
 assign dis1_src0_ready = dis1_src0_ready_i | !dis_rat_rbusy2_i | rob_rrdy2_i;
 assign dis1_src1_ready = dis1_src1_ready_i | !dis_rat_rbusy3_i | rob_rrdy3_i;
 
-// 已锁存 ready/val 优先（rename 驻留 wakeup 可能新于 ARF 提交）；未锁存且 !busy 读 ARF；
-// busy 时 rob_rrdy 优先于旧锁存（防 robid ABA）；!busy 必须优先于 rob_rrdy（防 RAT 释放后误读旧 ROB）
-assign dis0_src0_val = dis0_src0_ready_i ? dis0_src0_val_i :
-                       !dis_rat_rbusy0_i ? dis_arf_rdata0_i :
+// RAT 已释放时 ARF 为权威值，必须优先于 rename 锁存/ROB 旁路（防 robid ABA 或
+// 锁存 ready 后前序 li.w 才提交导致 csrxchg mask 读到 0）。
+// RAT 仍 busy 时再用 rename 锁存或 ROB 写回旁路。
+assign dis0_src0_val = !dis_rat_rbusy0_i ? dis_arf_rdata0_i :
+                       dis0_src0_ready_i ? dis0_src0_val_i :
                        rob_rrdy0_i ? rob_rdata0_i : 32'b0;
-assign dis0_src1_val = dis0_src1_ready_i ? dis0_src1_val_i :
-                       !dis_rat_rbusy1_i ? dis_arf_rdata1_i :
+assign dis0_src1_val = !dis_rat_rbusy1_i ? dis_arf_rdata1_i :
+                       dis0_src1_ready_i ? dis0_src1_val_i :
                        rob_rrdy1_i ? rob_rdata1_i : 32'b0;
-assign dis1_src0_val = dis1_src0_ready_i ? dis1_src0_val_i :
-                       !dis_rat_rbusy2_i ? dis_arf_rdata2_i :
+assign dis1_src0_val = !dis_rat_rbusy2_i ? dis_arf_rdata2_i :
+                       dis1_src0_ready_i ? dis1_src0_val_i :
                        rob_rrdy2_i ? rob_rdata2_i : 32'b0;
-assign dis1_src1_val = dis1_src1_ready_i ? dis1_src1_val_i :
-                       !dis_rat_rbusy3_i ? dis_arf_rdata3_i :
+assign dis1_src1_val = !dis_rat_rbusy3_i ? dis_arf_rdata3_i :
+                       dis1_src1_ready_i ? dis1_src1_val_i :
                        rob_rrdy3_i ? rob_rdata3_i : 32'b0;
-
-wire dis0_src0_from_arf = !dis_rat_rbusy0_i;
-wire dis0_src1_from_arf = !dis_rat_rbusy1_i;
-wire dis1_src0_from_arf = !dis_rat_rbusy2_i;
-wire dis1_src1_from_arf = !dis_rat_rbusy3_i;
 
 assign dis0_ops_ready = dis0_src0_ready && dis0_src1_ready;
 assign dis1_ops_ready = dis1_src0_ready && dis1_src1_ready;

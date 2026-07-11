@@ -399,6 +399,10 @@ assign csr_cmt_valid_o = cmt0_retire || cmt1_retire;
 assign csr_cmt_pc_o = sel_pc;
 assign csr_cmt_ex_o = selected_excp_take;
 assign csr_cmt_ertn_o = selected_effect && sel_priv[`PRIV_ERTN];
+// BADV/ERA 的地址来源:访存类异常用 sel_vaddr(访存 vaddr);取指类(含取指侧 ADEF、TLB 重填)用 sel_pc。
+// 取指侧 ADEF(jirl 目标非对齐)的错误地址 == 出错取指指令自身 PC(=非对齐目标 0x227f9789),恰为 sel_pc;
+// ROB 对取指异常气泡的 vaddr 字段未写(=0),故不能用 sel_vaddr。csr handler 对 ADEF 用 wb_vaddr 记 ERA/BADV,
+// 而这里 ADEF 走 sel_pc 分支 → csr_cmt_vaddr_o=sel_pc=0x227f9789 → ERA/BADV 正确,adef_ex `bne r27,ERA` 通过。
 assign csr_cmt_vaddr_o = mem_excp ? sel_vaddr : sel_pc;
 assign excp_int_o = int_take;
 assign excp_adef_o = sel_excp[`EXCP_ADEF];
@@ -461,8 +465,13 @@ assign flush_type_o = selected_excp_take ? `FLUSH_EXCP :
                       selected_priv_flush ? `FLUSH_REFETCH :
                       selected_mispred ? `FLUSH_MISPRED :
                       `FLUSH_NONE;
+// idle：重取指目标必须是 idle 自身 PC（不是 pc+4）。定时器到期唤醒后 idle_pc 再入流水，
+// 携带 has_int → 提交拍 int_take 进 EENTRY，此时 ERA=idle_pc（与手册/测试套件 int_ex handler
+// 的 `bne r27,ERA`(r27=idle_pc) 检查一致）；handler 清 TICLR 后 ex_finish 做 ERA+4 返回 idle_pc+4。
+// 若取 pc+4，ERA=idle_pc+4，handler 校验失败提前返回、不清 TICLR → 定时器中断反复触发活锁。
 assign flush_pc_o = selected_excp_take ? csr_next_pc_i :
                     (selected_effect && sel_priv[`PRIV_ERTN]) ? csr_next_pc_i :
+                    (selected_priv_flush && sel_priv[`PRIV_IDLE]) ? sel_pc :
                     selected_priv_flush ? (sel_pc + 32'd4) :
                     selected_mispred ? (sel_br_taken ? sel_br_target : (sel_pc + 32'd4)) :
                     32'b0;

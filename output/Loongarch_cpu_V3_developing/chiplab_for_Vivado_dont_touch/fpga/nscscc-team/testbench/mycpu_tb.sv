@@ -139,18 +139,36 @@ assign debug_wb_rf_wen   = u_soc_top.debug_wb_rf_wen;
 assign debug_wb_rf_wnum  = u_soc_top.debug_wb_rf_wnum;
 assign debug_wb_rf_wdata = u_soc_top.debug_wb_rf_wdata;
 
-// [PROBE] trace every flush/redirect in the n42 window (40.340-40.370ms)
+// [PROBE] trace flush/redirect — n42 window + n49 timer-int window
 // flush_type: 1=MISPRED 2=EXCP 3=ERTN 4=REFETCH
+function automatic bit in_probe_window;
+    input [63:0] t;
+    begin
+        in_probe_window = 1'b0; // probes off for full-speed run
+    end
+endfunction
 always @(posedge cpu_clk) begin
-    if (resetn && ($time > 64'd43670000) && ($time < 64'd43720000)) begin
+    if (resetn && in_probe_window($time)) begin
+        // n51 soft-int: per-cycle BE probe disabled (too noisy over 700us window)
+        // n51/n52 exception probe: CSR write events (ERA/EENTRY/TICLR/ESTAT/CRMD) to trace handler
+        if (u_soc_top.u_cpu.u_commit.csr_we_o)
+            $display("[CSRW %t] num=0x%03h wval=0x%08h wmask=0x%08h pc=0x%08h",
+                     $time, u_soc_top.u_cpu.u_commit.csr_wnum_o[11:0],
+                     u_soc_top.u_cpu.u_commit.csr_wvalue_o,
+                     u_soc_top.u_cpu.u_commit.csr_wmask_o,
+                     u_soc_top.u_cpu.u_commit.sel_pc);
         if (u_soc_top.u_cpu.flush)
             $display("[FLUSH %t] flush_pc=0x%08h type=%0d cmt_flush_pc=0x%08h cmt_req=%b",
                      $time, u_soc_top.u_cpu.flush_pc, u_soc_top.u_cpu.cmt_flush_type,
                      u_soc_top.u_cpu.cmt_flush_pc, u_soc_top.u_cpu.cmt_flush_req);
         if (u_soc_top.u_cpu.u_commit.selected_excp_take)
-            $display("[EXCP %t] excp_vec=0x%04h sel_pc=0x%08h vaddr=0x%08h int_take=%b",
+            $display("[EXCP %t] excp_vec=0x%04h sel_pc=0x%08h vaddr=0x%08h int_take=%b | estat_is=0x%04h ecfg_lie=0x%04h crmd_ie=%b era=0x%08h",
                      $time, u_soc_top.u_cpu.u_commit.sel_excp, u_soc_top.u_cpu.u_commit.sel_pc,
-                     u_soc_top.u_cpu.u_commit.sel_vaddr, u_soc_top.u_cpu.u_commit.int_take);
+                     u_soc_top.u_cpu.u_commit.sel_vaddr, u_soc_top.u_cpu.u_commit.int_take,
+                     u_soc_top.u_cpu.u_csr_exception_commit_handler.csr_estat_is,
+                     u_soc_top.u_cpu.u_csr_exception_commit_handler.csr_ecfg_lie,
+                     u_soc_top.u_cpu.u_csr_exception_commit_handler.csr_crmd_ie,
+                     u_soc_top.u_cpu.u_csr_exception_commit_handler.csr_era_pc);
         if (u_soc_top.u_cpu.u_commit.csr_cmt_ertn_o)
             $display("[ERTN %t] era_pc=0x%08h",
                      $time, u_soc_top.u_cpu.u_csr_exception_commit_handler.csr_era_pc);
@@ -159,33 +177,38 @@ always @(posedge cpu_clk) begin
                      u_soc_top.u_cpu.ex_redirect_pc, u_soc_top.u_cpu.alu0_exred_valid,
                      u_soc_top.u_cpu.alu1_exred_valid);
         // Commit-level trace: what PCs commit (slot0/1) with flush/priv/excp info
-        if (u_soc_top.u_cpu.u_commit.cmt0_retire)
-            $display("[CMT0 %t] pc=0x%08h excp=%b priv=%04b eff=%b flush=%b",
+        // gate to int_ex handler (0x1c008174..0x1c0081ec) so we see which bne bails
+        if (u_soc_top.u_cpu.u_commit.cmt0_retire &&
+            u_soc_top.u_cpu.u_commit.cmt0_pc_i >= 32'h1c008174 &&
+            u_soc_top.u_cpu.u_commit.cmt0_pc_i <= 32'h1c008260)
+            $display("[HDL0 %t] pc=0x%08h excp=%b priv=%04b eff=%b flush=%b",
                      $time, u_soc_top.u_cpu.u_commit.cmt0_pc_i,
                      u_soc_top.u_cpu.u_commit.cmt0_has_excp,
                      u_soc_top.u_cpu.u_commit.cmt0_priv_vec_i,
                      u_soc_top.u_cpu.u_commit.cmt0_effect,
                      u_soc_top.u_cpu.u_commit.cmt0_flush);
-        if (u_soc_top.u_cpu.u_commit.cmt1_retire)
-            $display("[CMT1 %t] pc=0x%08h excp=%b priv=%04b eff=%b",
+        if (u_soc_top.u_cpu.u_commit.cmt1_retire &&
+            u_soc_top.u_cpu.u_commit.cmt1_pc_i >= 32'h1c008174 &&
+            u_soc_top.u_cpu.u_commit.cmt1_pc_i <= 32'h1c008260)
+            $display("[HDL1 %t] pc=0x%08h excp=%b priv=%04b eff=%b",
                      $time, u_soc_top.u_cpu.u_commit.cmt1_pc_i,
                      u_soc_top.u_cpu.u_commit.cmt1_has_excp,
                      u_soc_top.u_cpu.u_commit.cmt1_priv_vec_i,
                      u_soc_top.u_cpu.u_commit.cmt1_effect);
         // AGU-stage load: base operand + computed vaddr (address-corruption check)
-        if (u_soc_top.u_cpu.u_lsu.a_valid && u_soc_top.u_cpu.u_lsu.a_is_load_op)
+        if (1'b0 && u_soc_top.u_cpu.u_lsu.a_valid && u_soc_top.u_cpu.u_lsu.a_is_load_op)
             $display("[AGU  %t] robid=%0d base=0x%08h imm=0x%08h vaddr=0x%08h ale=%b",
                      $time, u_soc_top.u_cpu.u_lsu.a_robid, u_soc_top.u_cpu.u_lsu.a_base,
                      u_soc_top.u_cpu.u_lsu.a_imm, u_soc_top.u_cpu.u_lsu.a_vaddr,
                      u_soc_top.u_cpu.u_lsu.a_ale);
         // AGU-stage store: base(rj) + wdata + computed vaddr (store base-corruption check)
-        if (u_soc_top.u_cpu.u_lsu.a_valid && u_soc_top.u_cpu.u_lsu.a_is_store_op)
+        if (1'b0 && u_soc_top.u_cpu.u_lsu.a_valid && u_soc_top.u_cpu.u_lsu.a_is_store_op)
             $display("[AGUS %t] robid=%0d base=0x%08h wdata=0x%08h imm=0x%08h vaddr=0x%08h ale=%b",
                      $time, u_soc_top.u_cpu.u_lsu.a_robid, u_soc_top.u_cpu.u_lsu.a_base,
                      u_soc_top.u_cpu.u_lsu.a_wdata, u_soc_top.u_cpu.u_lsu.a_imm,
                      u_soc_top.u_cpu.u_lsu.a_vaddr, u_soc_top.u_cpu.u_lsu.a_ale);
         // WB-stage load: returned data + path (data-corruption check)
-        if (u_soc_top.u_cpu.u_lsu.wb_valid_o && u_soc_top.u_cpu.u_lsu.d_is_load
+        if (1'b0 && u_soc_top.u_cpu.u_lsu.wb_valid_o && u_soc_top.u_cpu.u_lsu.d_is_load
             && !u_soc_top.u_cpu.u_lsu.wb_mshr_case && !u_soc_top.u_cpu.u_lsu.wb_hold_case)
             $display("[LDWB %t] robid=%0d vaddr=0x%08h data=0x%08h sbhit=%b sbdata=0x%08h dcret=%b dcdata=0x%08h",
                      $time, u_soc_top.u_cpu.u_lsu.wb_robid_o, u_soc_top.u_cpu.u_lsu.wb_vaddr_o,
@@ -193,7 +216,7 @@ always @(posedge cpu_clk) begin
                      u_soc_top.u_cpu.u_lsu.sb_query_data_i, u_soc_top.u_cpu.u_lsu.dc_return,
                      u_soc_top.u_cpu.u_lsu.dc_rdata_i);
         // rs_mem issue-time operand ground truth (base=s0 vs data=s1): tag + ready + val + wb-hit
-        if (u_soc_top.u_cpu.u_rs_mem.issue_valid_o)
+        if (1'b0 && u_soc_top.u_cpu.u_rs_mem.issue_valid_o)
             $display("[RSMI %t] robid=%0d | s0(base) rdy=%b tag=%0d val=0x%08h wbhit=%b wbdat=0x%08h -> base_o=0x%08h | s1(data) rdy=%b tag=%0d val=0x%08h -> wdata_o=0x%08h",
                      $time, u_soc_top.u_cpu.u_rs_mem.issue_robid_o,
                      u_soc_top.u_cpu.u_rs_mem.s0_ready[u_soc_top.u_cpu.u_rs_mem.head],
@@ -207,13 +230,31 @@ always @(posedge cpu_clk) begin
                      u_soc_top.u_cpu.u_rs_mem.s1_val[u_soc_top.u_cpu.u_rs_mem.head],
                      u_soc_top.u_cpu.u_rs_mem.issue_wdata_o);
         // rs_mem PUSH-time operand (as delivered by rename/dispatch) - traces base tag origin
-        if (u_soc_top.u_cpu.rsm_push_valid)
+        if (1'b0 && u_soc_top.u_cpu.rsm_push_valid)
             $display("[RSMP %t] push_robid=%0d | s0(base) rdy=%b tag=%0d val=0x%08h | s1(data) rdy=%b tag=%0d val=0x%08h",
                      $time, u_soc_top.u_cpu.rsm_push_robid,
                      u_soc_top.u_cpu.rsm_push_src0_ready, u_soc_top.u_cpu.rsm_push_src0_robid,
                      u_soc_top.u_cpu.rsm_push_src0_val,
                      u_soc_top.u_cpu.rsm_push_src1_ready, u_soc_top.u_cpu.rsm_push_src1_robid,
                      u_soc_top.u_cpu.rsm_push_src1_val);
+    end
+    // n49: lightweight timer / interrupt CSR trace
+    if (resetn && ($time > 64'd44880000) && ($time < 64'd47100000)) begin
+        if (u_soc_top.u_cpu.u_commit.csr_we_o)
+            $display("[CSRW %t] num=0x%03h wval=0x%08h pc=0x%08h",
+                     $time, u_soc_top.u_cpu.u_commit.csr_wnum_o[11:0],
+                     u_soc_top.u_cpu.u_commit.csr_wvalue_o,
+                     u_soc_top.u_cpu.u_commit.sel_pc);
+        if (u_soc_top.u_cpu.csr_has_int && u_soc_top.u_cpu.u_commit.cmt0_valid_i)
+            $display("[TINT %t] has_int=1 ie=%b is11=%b lie11=%b tcfg_en=%b tval=0x%08h ecfg=0x%08h pc=0x%08h",
+                     $time,
+                     u_soc_top.u_cpu.u_csr_exception_commit_handler.csr_crmd_ie,
+                     u_soc_top.u_cpu.u_csr_exception_commit_handler.csr_estat_is[11],
+                     u_soc_top.u_cpu.u_csr_exception_commit_handler.csr_ecfg_lie[11],
+                     u_soc_top.u_cpu.u_csr_exception_commit_handler.csr_tcfg_en,
+                     u_soc_top.u_cpu.u_csr_exception_commit_handler.timer_cnt,
+                     u_soc_top.u_cpu.u_csr_exception_commit_handler.csr_ecfg_rvalue,
+                     u_soc_top.u_cpu.u_commit.cmt0_pc_i);
     end
     // per-test s0 tracker (cheap)
     if (resetn && (u_soc_top.debug_wb_rf_wen != 4'b0) && (u_soc_top.debug_wb_rf_wnum == 5'd23))
