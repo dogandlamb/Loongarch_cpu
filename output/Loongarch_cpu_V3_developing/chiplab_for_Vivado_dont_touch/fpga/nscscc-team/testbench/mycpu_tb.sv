@@ -256,11 +256,13 @@ always @(posedge cpu_clk) begin
                      u_soc_top.u_cpu.u_csr_exception_commit_handler.csr_ecfg_rvalue,
                      u_soc_top.u_cpu.u_commit.cmt0_pc_i);
     end
-    // per-test s0 tracker (cheap)
+    // per-test s0 tracker (cheap) —— 性能测试时禁用避免刷屏
+`ifndef PERF_COUNT
     if (resetn && (u_soc_top.debug_wb_rf_wen != 4'b0) && (u_soc_top.debug_wb_rf_wnum == 5'd23))
         $display("[PROBE %t] S0TRK slot0 s0<= 0x%08h pc=0x%08h", $time, u_soc_top.debug_wb_rf_wdata, u_soc_top.debug_wb_pc);
     if (resetn && (u_soc_top.debug1_wb_rf_wen != 4'b0) && (u_soc_top.debug1_wb_rf_wnum == 5'd23))
         $display("[PROBE %t] S0TRK slot1 s0<= 0x%08h pc=0x%08h", $time, u_soc_top.debug1_wb_rf_wdata, u_soc_top.debug1_wb_pc);
+`endif
 end
 
 //monitor numeric display
@@ -365,6 +367,129 @@ begin
 	    $finish;
 	end
 end
+
+`ifdef PERF_COUNT
+//==================== 性能计数器 (IPC / cache命中 / 分支准确率) ====================
+// 事件信号(RTL验证的层次路径):
+wire pf_cmt0     = u_soc_top.u_cpu.u_commit.cmt0_effect;       // slot0 有效提交
+wire pf_cmt1     = u_soc_top.u_cpu.u_commit.cmt1_effect;       // slot1 有效提交
+wire pf_br_vld   = u_soc_top.u_cpu.u_commit.ftq_cmt_valid_o;   // 本周期有提交(分支门控)
+wire pf_br       = pf_br_vld & u_soc_top.u_cpu.u_commit.ftq_cmt_is_branch_o; // 提交分支
+wire pf_mispred  = pf_br_vld & u_soc_top.u_cpu.u_commit.ftq_cmt_mispred_o;   // 误预测分支
+wire pf_ic_acc   = u_soc_top.u_cpu.u_icache.req_take;          // I$ 访问
+wire pf_ic_hit   = u_soc_top.u_cpu.u_icache.lookup_hit;        // I$ 命中
+wire pf_ld_acc   = u_soc_top.u_cpu.u_dcache.ld_take;           // D$ load 访问
+wire pf_ld_hit   = u_soc_top.u_cpu.u_dcache.lk_ld_hit;         // D$ load 命中
+wire pf_st_acc   = u_soc_top.u_cpu.u_dcache.st_take;           // D$ store 访问
+wire pf_st_hit   = u_soc_top.u_cpu.u_dcache.lk_st_hit;         // D$ store 命中
+
+longint pc_cycles, pc_retired;
+longint pc_ic_acc, pc_ic_hit, pc_dc_ld_acc, pc_dc_ld_hit, pc_dc_st_acc, pc_dc_st_hit;
+longint pc_br, pc_mispred;
+
+task perf_report;
+    real ipc, icr, ldr, str, bpr;
+    begin
+        ipc = pc_cycles   ? (100.0*pc_retired)  / pc_cycles   : 0.0;
+        icr = pc_ic_acc   ? (100.0*pc_ic_hit)   / pc_ic_acc   : 0.0;
+        ldr = pc_dc_ld_acc? (100.0*pc_dc_ld_hit)/ pc_dc_ld_acc: 0.0;
+        str = pc_dc_st_acc? (100.0*pc_dc_st_hit)/ pc_dc_st_acc: 0.0;
+        bpr = pc_br       ? (100.0*(pc_br-pc_mispred))/ pc_br : 0.0;
+        $display("==================== PERF REPORT ====================");
+        $display("[PERF] cycles         = %0d", pc_cycles);
+        $display("[PERF] retired_insts  = %0d", pc_retired);
+        $display("[PERF] IPC            = %0.3f", ipc/100.0);
+        $display("[PERF] --- I-cache ---");
+        $display("[PERF] ic_access      = %0d", pc_ic_acc);
+        $display("[PERF] ic_hit         = %0d", pc_ic_hit);
+        $display("[PERF] ic_hit_rate(%%) = %0.2f", icr);
+        $display("[PERF] --- D-cache ---");
+        $display("[PERF] dc_ld_access   = %0d", pc_dc_ld_acc);
+        $display("[PERF] dc_ld_hit      = %0d", pc_dc_ld_hit);
+        $display("[PERF] dc_ld_hit_rate(%%)= %0.2f", ldr);
+        $display("[PERF] dc_st_access   = %0d", pc_dc_st_acc);
+        $display("[PERF] dc_st_hit      = %0d", pc_dc_st_hit);
+        $display("[PERF] dc_st_hit_rate(%%)= %0.2f", str);
+        $display("[PERF] --- Branch ---");
+        $display("[PERF] br_committed   = %0d", pc_br);
+        $display("[PERF] br_mispred     = %0d", pc_mispred);
+        $display("[PERF] br_pred_acc(%%)  = %0.2f", bpr);
+        $display("====================================================");
+    end
+endtask
+
+// 精确窗口: benchmark的 SOC_TIMER=0 写(值0,line19)紧邻算法计时区,作为锚点.
+// 锚点后第1次读TIMER(0xe000)=start=算法START, 第2次读=stop=算法STOP.
+// 排除runtime前置读(get_clock_count@0x464)/printf/boot/自旋污染.每次写0重新锚定.
+wire pf_tmr_wr0 = u_soc_top.u_confreg.write_timer &&
+                  (u_soc_top.u_confreg.conf_wdata==32'd0);   // SOC_TIMER=0 写
+wire pf_timer_ar = u_soc_top.u_confreg.ar_enter &&
+                   (u_soc_top.u_confreg.araddr[15:0]==16'he000); // 读TIMER
+reg  pf_tmr_wr0_r, pf_timer_ar_r;    // 边沿检测(confreg信号跨cpu_clk)
+wire pf_wr0_rd  = pf_tmr_wr0  & ~pf_tmr_wr0_r;
+wire pf_timer_rd= pf_timer_ar & ~pf_timer_ar_r;
+// 窗口上限=1M周期: 算法稳态下IPC/cache/分支率已收敛,无需跑完整700次调用(太慢).
+// 从算法入口(start=get_count)起计1M周期,或CR1写(benchmark自然结束)先到者为准.
+localparam longint PERF_WIN_MAX = 1000000;
+reg perf_armed, perf_started, perf_win_done;
+always @(posedge cpu_clk) begin
+    if (!resetn) begin
+        perf_armed<=1'b0; perf_started<=1'b0; perf_win_done<=1'b0;
+        pf_tmr_wr0_r<=1'b0; pf_timer_ar_r<=1'b0;
+        pc_cycles<=0; pc_retired<=0; pc_ic_acc<=0; pc_ic_hit<=0;
+        pc_dc_ld_acc<=0; pc_dc_ld_hit<=0; pc_dc_st_acc<=0; pc_dc_st_hit<=0;
+        pc_br<=0; pc_mispred<=0;
+    end else begin
+        pf_tmr_wr0_r  <= pf_tmr_wr0;
+        pf_timer_ar_r <= pf_timer_ar;
+`ifdef PERF_DIAG
+        // 诊断: 里程碑PC + confreg事件,定位benchmark计时区
+        if (pf_wr0_rd) $display("[PDIAG %t] TIMER_WRITE0", $time);
+        if (pf_timer_rd) $display("[PDIAG %t] TIMER_READ pc=0x%08h", $time, u_soc_top.debug_wb_pc);
+        if (u_soc_top.u_confreg.ar_enter && u_soc_top.u_confreg.araddr[15:0]==16'hff20)
+            $display("[PDIAG %t] SIMU_FLAG_READ (0xff20)", $time);
+        if (u_soc_top.u_confreg.write_cr1) $display("[PDIAG %t] CR1_WRITE end", $time);
+        // 里程碑PC(两slot都查)
+        if ((u_soc_top.debug_wb_pc==32'h1c000550)||(u_soc_top.debug1_wb_pc==32'h1c000550))
+            $display("[PDIAG %t] >>> shell1 ENTRY (0x550)", $time);
+        if ((u_soc_top.debug_wb_pc==32'h1c000558)||(u_soc_top.debug1_wb_pc==32'h1c000558))
+            $display("[PDIAG %t] >>> SOC_TIMER=0 store (0x558)", $time);
+        if (((u_soc_top.debug_wb_pc==32'h1c000cfc)||(u_soc_top.debug1_wb_pc==32'h1c000cfc)) && !perf_started) begin
+            $display("[PDIAG %t] >>> bitcount WORKER (0xcfc) first hit", $time);
+            perf_started<=1'b1; // 复用为"已打印"标志
+        end
+`else
+        if (pf_wr0_rd && !perf_win_done) begin  // SOC_TIMER=0写: (重新)锚定,清计数
+            perf_armed<=1'b1; perf_started<=1'b0;
+            pc_cycles<=0; pc_retired<=0; pc_ic_acc<=0; pc_ic_hit<=0;
+            pc_dc_ld_acc<=0; pc_dc_ld_hit<=0; pc_dc_st_acc<=0; pc_dc_st_hit<=0;
+            pc_br<=0; pc_mispred<=0;
+        end else if (perf_armed && !perf_started && pf_timer_rd)
+            perf_started <= 1'b1;   // 锚点后第1次读0xe000 = shell1 start=get_count
+        else if (perf_started && !perf_win_done) begin
+            // STOP: benchmark写CR1(唯一结束标记,boot从不写). 含整个算法区.
+            if (u_soc_top.u_confreg.write_cr1 || pc_cycles >= PERF_WIN_MAX) begin
+                perf_win_done <= 1'b1;
+                perf_report;
+                $finish;
+            end
+        end
+        if (perf_started && !perf_win_done) begin
+            pc_cycles    <= pc_cycles    + 1;
+            pc_retired   <= pc_retired   + (pf_cmt0?1:0) + (pf_cmt1?1:0);
+            pc_ic_acc    <= pc_ic_acc    + (pf_ic_acc?1:0);
+            pc_ic_hit    <= pc_ic_hit    + (pf_ic_hit?1:0);
+            pc_dc_ld_acc <= pc_dc_ld_acc + (pf_ld_acc?1:0);
+            pc_dc_ld_hit <= pc_dc_ld_hit + (pf_ld_hit?1:0);
+            pc_dc_st_acc <= pc_dc_st_acc + (pf_st_acc?1:0);
+            pc_dc_st_hit <= pc_dc_st_hit + (pf_st_hit?1:0);
+            pc_br        <= pc_br        + (pf_br?1:0);
+            pc_mispred   <= pc_mispred   + (pf_mispred?1:0);
+        end
+`endif
+    end
+end
+`endif
 
 generate if(`SIMU_USE_DDR==0) begin: sim_ram_tb
 
