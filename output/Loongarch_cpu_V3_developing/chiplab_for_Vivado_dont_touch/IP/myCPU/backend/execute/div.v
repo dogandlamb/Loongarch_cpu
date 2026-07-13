@@ -97,26 +97,50 @@ reg [5:0]  bit_idx_r;
 reg        quot_neg_r;
 reg        rem_neg_r;
 
-wire [31:0] dividend_abs = abs32(dividend_i, is_signed_i);
-wire [31:0] divisor_abs  = abs32(divisor_i,  is_signed_i);
+// ============================================================
+// 100MHz 攻坚 Phase D:除法器操作数打拍(prep 级),砍关键路径尾段
+// ------------------------------------------------------------
+// 关键路径尾段一直是:load 结果(含 store-buffer 前递,组合)→旁路网络→MDU
+// 操作数 → 本模块 start 拍的 abs(2×32 位取反)+2×CLZ32+减法+可变移位
+// (divisor_abs<<start_shift),全在操作数到达的同一拍组合完成。
+// 现插一个 prep 级:start 拍只把"原始操作数"锁进 dividend_r/divisor_r/
+// is_signed_r(旁路 mux 的浅终点),下一拍(prep_r=1)再从寄存器操作数做
+// abs/clz/首移位/特例判定。除法极少见,+1 拍延迟对 IPC 几乎无影响,
+// 但把 abs/clz/移位这段深逻辑从"旁路到达路径"上摘除。
+reg        prep_r;              // prep 级有效(操作数已锁存,本拍做 abs/clz/启动)
+reg [31:0] dividend_r, divisor_r;
+reg        is_signed_r;
+
+// prep 级组合:全部从寄存器操作数出发(不再挂在旁路到达路径上)
+wire [31:0] dividend_abs = abs32(dividend_r, is_signed_r);
+wire [31:0] divisor_abs  = abs32(divisor_r,  is_signed_r);
 wire [5:0]  start_shift  = clz32(divisor_abs) - clz32(dividend_abs);
 
-wire        start_valid  = valid_i && !busy_r;
-wire        div_zero     = divisor_i == 32'b0;
-wire        div_overflow = is_signed_i
-                         && (dividend_i == 32'h8000_0000)
-                         && (divisor_i  == 32'hffff_ffff);
-wire        quot_neg     = is_signed_i && (dividend_i[31] ^ divisor_i[31]);
-wire        rem_neg      = is_signed_i && dividend_i[31];
+wire        accept_new   = valid_i && !busy_r && !prep_r;  // 可锁存一对新操作数
+wire        div_zero     = divisor_r == 32'b0;
+wire        div_overflow = is_signed_r
+                         && (dividend_r == 32'h8000_0000)
+                         && (divisor_r  == 32'hffff_ffff);
+wire        quot_neg     = is_signed_r && (dividend_r[31] ^ divisor_r[31]);
+wire        rem_neg      = is_signed_r && dividend_r[31];
 
 wire        iter_ge      = rem_r >= div_shift_r;
 wire [31:0] iter_rem     = iter_ge ? (rem_r - div_shift_r) : rem_r;
 wire [31:0] iter_quot    = iter_ge ? (quot_r | (32'b1 << bit_idx_r[4:0])) : quot_r;
 
+// 时序解耦(100MHz 攻坚 step2):flush_i 由"rob 异常→csr ecode→commit 误预测
+// →cmt_flush_req(fanout 1212)"的深组合链生成(约 11ns),原来它同步复位本模块
+// 全部寄存器——包括 32 位数据通路 div_shift_r/rem_r/quot_r,于是这条超高扇出
+// 的晚到 flush 被映射成 32 个 D 端 mux,把 flush 生成链拖进除法器数据通路的建立
+// 路径(综合关键路径 34 级)。
+// 事实:被 flush 的除法结果一定被丢弃(busy 会清、done 不再上抛),数据通路寄存器
+// 在 !busy 时是 don't-care。因此 flush 只需清"控制位"busy_r/done_r,数据通路寄存器
+// 无需复位——这样 flush_i 不再进入 32 位数据通路的 D 端,关键路径显著缩短。
 always @(posedge clk) begin
-    if (reset || flush_i) begin
+    if (reset) begin
         busy_r      <= 1'b0;
         done_r      <= 1'b0;
+        prep_r      <= 1'b0;
         quotient_r  <= 32'b0;
         remainder_r <= 32'b0;
         rem_r       <= 32'b0;
@@ -125,13 +149,30 @@ always @(posedge clk) begin
         bit_idx_r   <= 6'b0;
         quot_neg_r  <= 1'b0;
         rem_neg_r   <= 1'b0;
+        dividend_r  <= 32'b0;
+        divisor_r   <= 32'b0;
+        is_signed_r <= 1'b0;
+    end else if (flush_i) begin
+        // 冲刷:只作废控制位(当前迭代/prep 丢弃),数据通路寄存器保持(下次 start 时整体覆写)
+        busy_r      <= 1'b0;
+        done_r      <= 1'b0;
+        prep_r      <= 1'b0;
     end else begin
         done_r <= 1'b0;
 
-        if (start_valid) begin
+        // prep 级:锁存新操作数(旁路 mux 浅终点),下一拍再算 abs/clz/启动
+        if (accept_new) begin
+            prep_r      <= 1'b1;
+            dividend_r  <= dividend_i;
+            divisor_r   <= divisor_i;
+            is_signed_r <= is_signed_i;
+        end
+
+        if (prep_r) begin
+            prep_r <= 1'b0;   // prep 拍消费掉,进入 busy 迭代或直接出结果
             if (div_zero) begin
                 quotient_r  <= 32'hffff_ffff;
-                remainder_r <= dividend_i;
+                remainder_r <= dividend_r;
                 done_r      <= 1'b1;
             end else if (div_overflow) begin
                 quotient_r  <= 32'h8000_0000;
@@ -169,6 +210,8 @@ end
 assign quotient_o  = quotient_r;
 assign remainder_o = remainder_r;
 assign done_o      = done_r;
-assign busy_o      = busy_r;
+// prep 拍也算忙:此拍已锁存操作数但结果未出,须让 fu_mdu 视为占用(不再接新 div、
+// 不误采 done)。busy 从 accept_new 后的 prep 拍一直拉到迭代结束。
+assign busy_o      = busy_r | prep_r;
 
 endmodule

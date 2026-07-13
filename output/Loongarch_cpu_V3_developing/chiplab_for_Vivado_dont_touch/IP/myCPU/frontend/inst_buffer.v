@@ -86,7 +86,13 @@ wire [`IB_W:0] push_cnt_n = can_push_o ? {2'b0, push_n} : {(`IB_W+1){1'b0}};
 wire [`IB_W:0] count_next   = count + push_cnt_n - {{(`IB_W-1){1'b0}}, pop_n};
 wire           ib_empty_next = (count_next == {(`IB_W+1){1'b0}});
 
-assign can_push_o = (count + {2'b0, push_n}) <= `IB_SIZE;
+// 断组合环:原式 can_push_o 依赖 push_n,而 push_n 来自 ifu 的 pushN_valid,
+// ifu 的 push 又依赖 can_push_o(ib_can_push_i),构成纯组合闭环 → 综合被迫加
+// false_path、phys_opt 崩溃、时序分析失效。改为仅依据寄存器 count 与最大推入
+// 宽度(4条/拍)判断:留够 4 个空位就允许推,与 push_n 解耦。count 更新已由
+// line85 push_cnt_n 的 can_push_o 门控保证正确,溢出不可能。代价:count∈{13..16}
+// 时略保守(偶发 1 拍前端气泡),IPC 影响可忽略(IB 出口 2 条/拍,极少贴满)。
+assign can_push_o = (count <= (`IB_SIZE - 4));
 
 wire [`IB_W-1:0] head_plus1 = head + {{(`IB_W-1){1'b0}}, 1'b1};
 wire [`IB_W-1:0] tail_plus1 = tail + {{(`IB_W-1){1'b0}}, 1'b1};

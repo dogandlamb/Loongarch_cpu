@@ -196,8 +196,18 @@ assign ftq_accept_o = (ftq_valid_i === 1'b1)
                    && ((pre_v !== 1'b1) || pre_ready_go)
                    && !predec_kill && (flush_i !== 1'b1);
 
-assign mmu_i_req_o   = (ftq_accept_o || (pre_v === 1'b1)) && (flush_i !== 1'b1);
-assign mmu_i_vaddr_o = ftq_accept_o ? ftq_pc_i : pre_pc;
+// 时序解耦(100MHz 攻坚 step1):MMU I 通道的 req/vaddr 原本用 ftq_accept_o 选择,
+// 而 ftq_accept_o 组合依赖 pre_ready_go→if_ready_go→ic_data_ok_i(icache 命中),
+// 使得 "icache tag 命中 → 接受下一块 → 组合翻译下一 PC → 主 TLB/L1 TLB 回填"
+// 全挤在一拍(综合关键路径 36 级 LUT / -12ns @100MHz)。
+// 改用 ftq_valid_i(FTQ 指针比较,纯寄存器浅逻辑,无 icache 依赖)做选择:
+//   * 翻译结果只在 ftq_accept_o=1 时被 pre_paddr/pre_excp 锁存,而 accept=1 蕴含
+//     ftq_valid_i=1 且 vaddr=ftq_pc_i —— 被锁存的值与原来逐位相同,功能等价;
+//   * 唯一行为差异:accept=0&&pre_v&&ftq_valid 的停顿拍会提前把 ftq_pc 的翻译
+//     回填进 L1 TLB(纯缓存预取,地址真实,无正确性影响)。
+// 这样把 icache 命中链从 TLB 翻译/回填的建立路径上彻底摘除。
+assign mmu_i_req_o   = (ftq_valid_i || (pre_v === 1'b1)) && (flush_i !== 1'b1);
+assign mmu_i_vaddr_o = (ftq_valid_i === 1'b1) ? ftq_pc_i : pre_pc;
 
 // IF 等数据但请求已丢（数据在 PRE 滞留期间返回被弃）时重放
 wire if_replay_req = (if_v === 1'b1) && (if_wait_data === 1'b1) && (ic_outstanding !== 1'b1)

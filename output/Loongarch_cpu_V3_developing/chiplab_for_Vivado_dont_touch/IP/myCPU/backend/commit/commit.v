@@ -29,6 +29,11 @@ module commit(
     input  wire                       clk,
     input  wire                       reset,
 
+    // 100MHz 攻坚:全局 flush 已在 ctrl 打一拍。flush 生效的那一拍(广播拍),
+    // 提交级必须闸住一切退休,否则错误路径的下一条指令会在流水被清空的同拍误提交。
+    // 接 ctrl 的寄存器版 flush(=顶层 flush)。
+    input  wire                       flush_pending_i,
+
     // =============== ROB 队头一对（rob.v 提交口直连） ===============
     input  wire [`ROB_W-1:0]          head_robid0_i,
     // ---- 槽 0 ----
@@ -285,14 +290,17 @@ module commit(
 
 wire [`ROB_W-1:0] cmt1_robid = {1'b1, head_robid0_i[`ROB_PAIR_W-1:0]};
 
-assign cmt0_ready = cmt0_valid_i && (cmt0_complete_i === 1'b1);
-assign cmt1_ready = cmt1_valid_i && (cmt1_complete_i === 1'b1);
+// flush 广播拍(flush_pending_i=1)闸住全部退休:cmt*_ready/int_take 三个退休根
+// 全部置 0 → arf/csr 写、rob pop/clear、flush_req、ftq 训练、sb push 全随之为 0。
+// 这样错误路径指令在流水被清空的同拍不会误提交;同时 cmt_flush_req 回 0 保证 flush 单拍。
+assign cmt0_ready = !flush_pending_i && cmt0_valid_i && (cmt0_complete_i === 1'b1);
+assign cmt1_ready = !flush_pending_i && cmt1_valid_i && (cmt1_complete_i === 1'b1);
 wire cmt0_has_excp = |cmt0_excp_i;
 wire cmt1_has_excp = |cmt1_excp_i;
 wire cmt0_has_priv = |cmt0_priv_vec_i;
 wire cmt1_has_priv = |cmt1_priv_vec_i;
 
-wire int_take = has_int_i && cmt0_valid_i && !uncached_ld_inflight_i;
+wire int_take = !flush_pending_i && has_int_i && cmt0_valid_i && !uncached_ld_inflight_i;
 wire cmt0_ibar_block = cmt0_ready && cmt0_priv_vec_i[`PRIV_IBAR] && !sb_empty_i;
 wire cmt1_ibar_block = cmt1_ready && cmt1_priv_vec_i[`PRIV_IBAR] && !sb_empty_i;
 wire cmt0_store_block = cmt0_ready && cmt0_is_store_i && sb_full_i && !cmt0_has_excp;

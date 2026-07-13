@@ -1912,6 +1912,7 @@ module core_top #(
     commit u_commit(
         .clk               (clk),
         .reset             (reset),
+        .flush_pending_i   (flush),   // ctrl 寄存器版 flush:广播拍闸住退休,防误提交
         .head_robid0_i     (rob_head_robid0),
         .cmt0_valid_i      (rob_cmt0_valid),
         .cmt0_complete_i   (rob_cmt0_complete),

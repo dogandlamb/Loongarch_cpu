@@ -298,11 +298,22 @@ wire wb_hold_case  = !wb_mshr_case && h_valid;
 wire dcst_ok       = !wb_mshr_case && !h_valid;         // DC 级静态源可用口
 wire wb_excp_case  = dcst_ok && d_valid && d_excp_any;
 wire wb_st_case    = dcst_ok && d_valid && !d_excp_any && (d_is_store || d_is_cacop);
-wire wb_ld_sb_case = dcst_ok && d_sb_hit && d_ld_gate && !store_order_block;
+// Phase F(100MHz 攻坚):SB 命中不再"同拍组合写回"。原关键路径
+//   store_buffer/tail → 逐字节年龄优先前递合并(8 项)→ sb_query_data_i → shape_load
+//   → wb_data_o → 旁路网络 → rs_alu/s1_val 捕获(实测 post-route 22ns/32 级,WNS 主凶)
+// 一律经既有 hold 暂存槽打一拍:h_data 在 T 拍锁存 shape_load(sb_query_data_i),
+// T+1 拍由 wb_hold_case 从寄存器写回。于是 h_data 这个 FF 把 22ns 长链在中点切成
+//   (a) SB 合并 → h_data/D   与   (b) h_data/Q → wb → RS 捕获   两条 ~11ns 半链。
+// 正确性:LSU 流水里的在途 load 恒比 commit 级 flush 触发指令年轻,flush 拍丢弃 hold
+// 内容永远安全(与原 hold_cap_sb 依据同);SB 命中延后一拍写回只是延迟,无序问题
+// (store→load 顺序由 store_order_block 在 sb_ready 前已保证)。SB 命中少见,IPC 影响微小。
+wire sb_ready      = d_sb_hit && d_ld_gate && !store_order_block; // d_ld_gate 已含 !h_valid
+wire wb_ld_sb_case = 1'b0;                               // SB 命中不再直接写回
 wire wb_ld_dc_case = dcst_ok && dc_return;
 // DC 级瞬态完成被抢口 -> 捕获进 hold（gate 保证 hold 此刻必空）
 wire hold_cap_dc   = wb_mshr_case && dc_return;
-wire hold_cap_sb   = wb_mshr_case && !dc_return && d_sb_hit && d_ld_gate && !store_order_block;
+// 所有就绪 SB 命中都进 hold(与 hold_cap_dc 互斥:同一 d 级 load 不会既 SB 命中又 DC 返回)
+wire hold_cap_sb   = sb_ready && !hold_cap_dc;
 
 assign wb_valid_o = (wb_mshr_case || wb_hold_case
                   || wb_excp_case || wb_st_case || wb_ld_sb_case || wb_ld_dc_case)

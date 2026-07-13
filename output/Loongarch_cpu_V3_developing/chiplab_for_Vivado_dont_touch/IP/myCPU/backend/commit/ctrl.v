@@ -79,8 +79,39 @@ always @(posedge clk) begin
     end
 end
 
-assign flush_o = cmt_flush_req_i | ex_redirect_req_i;
-assign flush_pc_o = cmt_flush_req_i ? cmt_flush_pc_i : ex_redirect_pc_i;
+// ============================================================
+// 100MHz 攻坚:全局 flush 打一拍(参考团队赛 core_top 的 top_backend_flush_r)
+// ------------------------------------------------------------
+// 原来 flush_o/flush_pc_o 是组合信号,由提交级深链
+//   rob.excp → csr_estat_ecode → commit 误预测比较 → flush_req(组合)
+// 直接扇出到 17 个模块(fanout 1212),形成 34-36 级 LUT 的关键路径。
+// 现把 flush/flush_pc 在本模块打一拍:
+//   * 生成段:...→ cmt_flush_req_i(组合)→ flush 寄存器 D 端(短)
+//   * 广播段:flush 寄存器 Q 端 → 各模块 flush_i(短)
+// 巨扇出组合链被寄存器一分为二。
+//
+// 正确性(配合 commit 的 flush_pending 握手,见 commit.v):
+//   T   拍:提交级发现队头 N 需冲刷 → cmt_flush_req_i=1(组合);N 的架构副作用
+//           (写 ARF/CSR 异常入口、ROB 弹出 N)在 T 拍正常生效;flush 仍=0。
+//           flush_r/flush_pc_r 在 T→T+1 沿捕获 1/目标 PC。
+//   T+1 拍:flush=1 广播,各模块在 T+1→T+2 沿清空;flush_pc 重定向 BPU。
+//           commit 收到 flush_pending=flush=1 → 闸住一切退休(cmt*_ready/int_take
+//           全 0),故错误路径的 N+1 不会误提交;cmt_flush_req_i 回 0 → flush 单拍脉冲。
+//   T+2 拍:ROB 空,前端已从 flush_pc 重填。
+// 代价:每次冲刷多 1 拍气泡(IPC 微降),换取关键路径腰斩。
+reg        flush_r;
+reg [31:0] flush_pc_r;
+always @(posedge clk) begin
+    if (reset) begin
+        flush_r    <= 1'b0;
+        flush_pc_r <= 32'b0;
+    end else begin
+        flush_r    <= cmt_flush_req_i | ex_redirect_req_i;
+        flush_pc_r <= cmt_flush_req_i ? cmt_flush_pc_i : ex_redirect_pc_i;
+    end
+end
+assign flush_o    = flush_r;
+assign flush_pc_o = flush_pc_r;
 // idle 提交当拍即冻结取指（组合叠加 idle_commit_i），否则 idle 的 FLUSH_REFETCH
 // 把 PC 打到 pc+4 后，idle_lock 要到下一拍才生效——中间这一拍 FTQ 两拍冻结尚未成立，
 // pc+4 会被取指并提交（n49：pc+4=csrwr TCFG=0 提前关掉定时器 → 中断永不触发 → 死锁）。
