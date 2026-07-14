@@ -160,6 +160,115 @@ source ../jtag_axi_master.tcl
 
 另外，可通过修改拨码开关switch值调整程序执行速度，从而看到完整的数码管数字递增。
 
+***ps:如果只有bin文件，没有整个工程，参考下面，bin文件路径为D:/***
+
+```
+# 获取比特流中的 JTAG AXI Master
+set axi_list [get_hw_axis]
+
+if {[llength $axi_list] == 0} {
+    error "没有找到 JTAG AXI Master，请确认 bit 文件包含 hw_axi 调试核"
+}
+
+set axi [lindex $axi_list 0]
+puts "使用 JTAG AXI Master: $axi"
+
+# 写32位寄存器
+proc WriteReg {axi address data} {
+    create_hw_axi_txn reg_write $axi \
+        -address $address \
+        -data $data \
+        -type write
+
+    run_hw_axi reg_write
+    delete_hw_axi_txn reg_write
+}
+
+# bin文件路径
+set bin_path "D:/main.bin"
+
+if {![file exists $bin_path]} {
+    error "找不到 bin 文件: $bin_path"
+}
+
+# 打开bin文件
+set bin_file [open $bin_path "rb"]
+fconfigure $bin_file -translation binary -encoding binary
+
+# DDR3加载地址：0x1C000000
+set addr_d 0x1C000000
+
+# 复位处理器
+puts "复位处理器..."
+WriteReg $axi 80000000 00000000
+
+# 每次通过AXI写入1024字节
+set chunk_size 1024
+set total_size 0
+
+puts "开始将 $bin_path 下载到DDR3地址0x1C000000..."
+
+while {1} {
+    set data [read $bin_file $chunk_size]
+    set data_len [string length $data]
+
+    if {$data_len == 0} {
+        break
+    }
+
+    # 最后不足4字节时补零
+    set word_count [expr {($data_len + 3) / 4}]
+    set padded_len [expr {$word_count * 4}]
+
+    if {$padded_len > $data_len} {
+        append data [string repeat "\x00" [expr {$padded_len - $data_len}]]
+    }
+
+    set temp_data {}
+
+    # 将bin数据转换成Vivado AXI事务需要的数据格式
+    for {set i 0} {$i < $padded_len} {incr i 4} {
+        set word [string range $data $i [expr {$i + 3}]]
+        binary scan $word cu* bytes
+
+        lappend temp_data [format "%02X%02X%02X%02X" \
+            [lindex $bytes 3] \
+            [lindex $bytes 2] \
+            [lindex $bytes 1] \
+            [lindex $bytes 0]]
+    }
+
+    # Vivado的burst数据按高地址字在前排列
+    set burst_data [join [lreverse $temp_data] "_"]
+    set addr [format "%08X" $addr_d]
+
+    create_hw_axi_txn burst_write $axi \
+        -address $addr \
+        -len $word_count \
+        -type write \
+        -data $burst_data
+
+    run_hw_axi burst_write
+    delete_hw_axi_txn burst_write
+
+    incr addr_d $padded_len
+    incr total_size $data_len
+
+    puts [format "已下载 %d 字节，当前地址：0x%08X" \
+        $total_size $addr_d]
+}
+
+close $bin_file
+
+puts "bin文件下载完成，共写入 $total_size 字节"
+
+# 解除处理器复位
+puts "解除处理器复位..."
+WriteReg $axi 40000000 00000000
+
+puts "完成，处理器开始运行"
+```
+
 ### 3.2 性能测试上板验证
 
 1）功能/性能测试宏修改
@@ -216,6 +325,86 @@ source ../jtag_axi_master.tcl
 | 其它 | 不运行性能测试  | 其它         |
 
 5）数码管上显示的数字填到初赛提交包里就好
+
+***ps:如果只有bin文件，没有整个工程，参考下面，bin文件路径为D:/***
+
+```
+get_hw_axis
+
+get_hw_axisset bin_file [open "D:/inst_data.bin" "rb"]
+fconfigure $bin_file -translation binary
+
+create_hw_axi_txn cpu_reset [get_hw_axis hw_axi_1] -address 80000000 -data 00000000 -type write
+run_hw_axi cpu_reset
+delete_hw_axi_txn cpu_reset
+
+set addr_d 469762048
+set chunk_size 1024
+set total_bytes 0
+
+while {![eof $bin_file]} {
+    set data [read $bin_file $chunk_size]
+    set data_len [string length $data]
+
+    if {$data_len == 0} {
+        break
+    }
+
+    set remainder [expr {$data_len % 4}]
+    if {$remainder != 0} {
+        set padding [expr {4 - $remainder}]
+        append data [binary format "x$padding"]
+        set data_len [string length $data]
+    }
+
+    set temp_data [list]
+
+    for {set i 0} {$i < $data_len} {incr i 4} {
+        set bytes_data [string range $data $i [expr {$i + 3}]]
+
+        binary scan $bytes_data B* binary_data
+        set bytes [list]
+
+        for {set j 0} {$j < 32} {incr j 8} {
+            set byte [string range $binary_data $j [expr {$j + 7}]]
+            lappend bytes [expr "0b$byte"]
+        }
+
+        lappend temp_data [format "%02X%02X%02X%02X" \
+            [lindex $bytes 3] \
+            [lindex $bytes 2] \
+            [lindex $bytes 1] \
+            [lindex $bytes 0]]
+    }
+
+    set temp_data [lreverse $temp_data]
+    set burst_data [join $temp_data "_"]
+    set addr [format "%08x" $addr_d]
+
+    create_hw_axi_txn burst_write_txn [get_hw_axis hw_axi_1] \
+        -address $addr \
+        -len [expr {$data_len / 4}] \
+        -type write \
+        -data $burst_data
+
+    run_hw_axi burst_write_txn
+    delete_hw_axi_txn burst_write_txn
+
+    incr addr_d $data_len
+    incr total_bytes $data_len
+
+    puts "Downloaded $total_bytes bytes"
+}
+
+close $bin_file
+
+create_hw_axi_txn cpu_release [get_hw_axis hw_axi_1] -address 40000000 -data 00000000 -type write
+run_hw_axi cpu_release
+delete_hw_axi_txn cpu_release
+
+puts "Performance bin download completed: $total_bytes bytes"
+puts "CPU reset released, performance test started."
+```
 
 ### 3.3 CPU 频率调整
 
