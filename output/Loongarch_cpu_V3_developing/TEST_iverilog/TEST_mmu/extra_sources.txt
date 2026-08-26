@@ -1,3 +1,0 @@
-../common/deps/tlb_manager.v
-../common/deps/tlb.v
-../common/deps/l1_tlb.v

@@ -1,0 +1,1 @@
+vopt -l elaborate.log +acc=npr -suppress 10016  -L xil_defaultlib -L xpm -L jtag_axi -L unisims_ver -L unimacro_ver -L secureip -work xil_defaultlib xil_defaultlib.jtag_axi xil_defaultlib.glbl -o jtag_axi_opt

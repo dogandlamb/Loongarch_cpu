@@ -1,0 +1,10 @@
+{
+    "chat.mcp.autostart": "always",
+    "vivadoTerminal.vivadoPath": "C:\\Xilinx\\Vivado\\2023.2\\bin\\vivado.bat",
+    "vivadoTerminal.defaultSessionType": "general",
+    "vivadoTerminal.defaultGuiMode": false,
+    "vivadoTerminal.autoConnect": true,
+    "vivadoTerminal.autoRegisterMcp": true,
+    "vivadoTerminal.autoShowTerminal": true,
+    "vivadoTerminal.autoShowTodos": true
+}

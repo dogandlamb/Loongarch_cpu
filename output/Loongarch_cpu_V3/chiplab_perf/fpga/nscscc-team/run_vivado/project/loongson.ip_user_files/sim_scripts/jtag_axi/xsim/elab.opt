@@ -1,0 +1,1 @@
+--incr --debug typical --relax --mt 2  -L jtag_axi -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip -L xpm --snapshot jtag_axi xil_defaultlib.jtag_axi xil_defaultlib.glbl -log elaborate.log

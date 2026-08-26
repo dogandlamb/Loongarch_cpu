@@ -1,0 +1,5 @@
+xpm_cdc.sv,systemverilog,xpm,D:/Xilinx/Vivado/2023.2/data/ip/xpm/xpm_cdc/hdl/xpm_cdc.sv,incdir="../../../ipstatic/gen/c2c6"incdir="../../../../../../../../chip/soc_demo/nscscc-team/xilinx_ip/clk_pll/gen/gen/c2c6"
+xpm_VCOMP.vhd,vhdl,xpm,D:/Xilinx/Vivado/2023.2/data/ip/xpm/xpm_VCOMP.vhd,incdir="../../../ipstatic/gen/c2c6"incdir="../../../../../../../../chip/soc_demo/nscscc-team/xilinx_ip/clk_pll/gen/gen/c2c6"
+clk_pll_clk_wiz.v,verilog,xil_defaultlib,../../../../../../../../chip/soc_demo/nscscc-team/xilinx_ip/clk_pll/gen/clk_pll_clk_wiz.v,incdir="../../../ipstatic/gen/c2c6"incdir="../../../../../../../../chip/soc_demo/nscscc-team/xilinx_ip/clk_pll/gen/gen/c2c6"
+clk_pll.v,verilog,xil_defaultlib,../../../../../../../../chip/soc_demo/nscscc-team/xilinx_ip/clk_pll/gen/clk_pll.v,incdir="../../../ipstatic/gen/c2c6"incdir="../../../../../../../../chip/soc_demo/nscscc-team/xilinx_ip/clk_pll/gen/gen/c2c6"
+glbl.v,Verilog,xil_defaultlib,glbl.v

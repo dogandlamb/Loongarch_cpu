@@ -1,4 +1,0 @@
-../../myCPU/frontend/ubtb.v
-../../myCPU/frontend/ftb.v
-../../myCPU/frontend/tage.v
-../../myCPU/frontend/ras.v

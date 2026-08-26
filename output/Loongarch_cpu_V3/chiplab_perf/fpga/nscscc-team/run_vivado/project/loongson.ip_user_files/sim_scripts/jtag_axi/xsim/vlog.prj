@@ -1,0 +1,7 @@
+verilog xil_defaultlib --include "../../../../../../../../chip/soc_demo/nscscc-team/xilinx_ip/jtag_axi/gen/gen/e2ba/hdl/verilog" --include "../../../../../../../../chip/soc_demo/nscscc-team/xilinx_ip/jtag_axi/gen/gen/a29c/hdl/verilog" \
+"../../../../../../../../chip/soc_demo/nscscc-team/xilinx_ip/jtag_axi/gen/sim/jtag_axi.v" \
+
+verilog xil_defaultlib "glbl.v"
+
+# Do not sort compile order
+nosort

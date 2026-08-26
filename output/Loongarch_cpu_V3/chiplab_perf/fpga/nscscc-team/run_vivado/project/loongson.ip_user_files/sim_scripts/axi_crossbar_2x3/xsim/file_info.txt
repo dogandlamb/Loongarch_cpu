@@ -1,0 +1,2 @@
+axi_crossbar_2x3.v,verilog,xil_defaultlib,../../../../../../../../chip/soc_demo/nscscc-team/xilinx_ip/axi_crossbar_2x3/gen/sim/axi_crossbar_2x3.v,incdir="../../../ipstatic/gen/ec67/hdl"incdir="../../../../../../../../chip/soc_demo/nscscc-team/xilinx_ip/axi_crossbar_2x3/gen/gen/ec67/hdl"
+glbl.v,Verilog,xil_defaultlib,glbl.v

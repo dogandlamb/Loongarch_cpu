@@ -1,4 +1,0 @@
-../common/deps/ubtb.v
-../common/deps/ftb.v
-../common/deps/tage.v
-../common/deps/ras.v

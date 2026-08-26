@@ -1,0 +1,2 @@
+vio_0.v,verilog,xil_defaultlib,../../../../../../../../chip/soc_demo/nscscc-team/xilinx_ip/vio/gen/sim/vio_0.v,incdir="../../../../../../../../chip/soc_demo/nscscc-team/xilinx_ip/vio/gen/gen/e2ba/hdl/verilog"incdir="../../../../../../../../chip/soc_demo/nscscc-team/xilinx_ip/vio/gen/gen/a29c/hdl/verilog"incdir="../../../../../../../../chip/soc_demo/nscscc-team/xilinx_ip/vio/gen/gen/1ba3/hdl"
+glbl.v,Verilog,xil_defaultlib,glbl.v
